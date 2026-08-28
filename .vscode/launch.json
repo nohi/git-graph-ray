@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Git Graph Ray",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "${workspaceFolder}",
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--disable-extensions",
+        "--disable-workspace-trust",
+        "--user-data-dir=${workspaceFolder}/debug/user-data"
+      ],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "preLaunchTask": "watch"
+    }
+  ]
+}

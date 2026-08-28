@@ -1,0 +1,45 @@
+# env
+.env
+.env.*
+!.env.example
+
+# for debug
+debug/
+
+# .devcontainer
+devcontainer.json
+
+# js
+node_modules/
+dist/
+
+# agent
+.agent/temp/
+.claude/settings.local.json
+
+# IDE
+/.idea
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/launch.sample.json
+!.vscode/extensions.json
+*.code-workspace
+
+# log
+*.log
+
+# backup / temporary
+*.bk
+*.bak
+tmp/
+
+# mac
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# windows
+Thumbs.db
+Thumbs.db:encryptable
