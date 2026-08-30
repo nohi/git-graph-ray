@@ -1,0 +1,2 @@
+#!/bin/sh
+exec "$GIT_GRAPH_RAY_ASKPASS_NODE" "$GIT_GRAPH_RAY_ASKPASS_MAIN" "$@"

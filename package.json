@@ -1,0 +1,806 @@
+{
+  "name": "git-graph-ray",
+  "displayName": "Git Graph Ray",
+  "version": "0.1.1",
+  "publisher": "nohi",
+  "description": "View a Git graph of your repository and run Git actions from it.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nohi/git-graph-ray.git"
+  },
+  "engines": {
+    "vscode": "^1.128.0"
+  },
+  "categories": [
+    "Other",
+    "SCM Providers"
+  ],
+  "keywords": [
+    "git",
+    "graph",
+    "log",
+    "worktree"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onWebviewPanel:git-graph-ray.graph"
+  ],
+  "main": "./dist/host/extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "icon": "resources/icon.png",
+  "contributes": {
+    "commands": [
+      {
+        "command": "git-graph-ray.view",
+        "title": "View Git Graph",
+        "category": "Git Graph Ray",
+        "icon": {
+          "light": "resources/icon-grey.svg",
+          "dark": "resources/icon.svg"
+        }
+      },
+      {
+        "command": "git-graph-ray.addGitRepository",
+        "title": "Add Git Repository...",
+        "category": "Git Graph Ray"
+      },
+      {
+        "command": "git-graph-ray.clearAvatarCache",
+        "title": "Clear Avatar Cache",
+        "category": "Git Graph Ray"
+      },
+      {
+        "command": "git-graph-ray.fetch",
+        "title": "Fetch from Remote(s)",
+        "category": "Git Graph Ray"
+      },
+      {
+        "command": "git-graph-ray.removeGitRepository",
+        "title": "Remove Git Repository...",
+        "category": "Git Graph Ray"
+      },
+      {
+        "command": "git-graph-ray.version",
+        "title": "Get Version Information",
+        "category": "Git Graph Ray"
+      },
+      {
+        "command": "git-graph-ray.openFile",
+        "title": "Open File",
+        "category": "Git Graph Ray",
+        "icon": "$(go-to-file)",
+        "enablement": "isInDiffEditor && resourceScheme == git-graph-ray-file"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "git-graph-ray.openFile",
+          "when": "isInDiffEditor && resourceScheme == git-graph-ray-file"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "git-graph-ray.openFile",
+          "group": "navigation",
+          "when": "isInDiffEditor && resourceScheme == git-graph-ray-file"
+        }
+      ],
+      "scm/title": [
+        {
+          "when": "scmProvider == git && config.git-graph-ray.sourceCodeProviderIntegrationLocation == 'Inline'",
+          "command": "git-graph-ray.view",
+          "group": "navigation"
+        },
+        {
+          "when": "scmProvider == git && config.git-graph-ray.sourceCodeProviderIntegrationLocation == 'More Actions'",
+          "command": "git-graph-ray.view",
+          "group": "inline"
+        }
+      ]
+    },
+    "resourceLabelFormatters": [
+      {
+        "scheme": "git-graph-ray-file",
+        "formatting": {
+          "label": "${path}",
+          "separator": "/",
+          "workspaceSuffix": "",
+          "stripPathStartingSeparator": true
+        }
+      }
+    ],
+    "configuration": {
+      "title": "Git Graph Ray",
+      "properties": {
+        "git-graph-ray.commitDetailsView.autoCenter": {
+          "type": "boolean",
+          "default": false,
+          "description": "Unused. Opening commit details does not scroll unless the panel would leave the viewport."
+        },
+        "git-graph-ray.commitDetailsView.maxHeight": {
+          "type": "number",
+          "default": 300,
+          "minimum": 88,
+          "description": "Maximum height of the commit details panel when auto-sized, in pixels."
+        },
+        "git-graph-ray.commitDetailsView.fileView.fileTree.compactFolders": {
+          "type": "boolean",
+          "default": true,
+          "description": "Compress single-child folders in the file tree."
+        },
+        "git-graph-ray.commitDetailsView.fileView.type": {
+          "type": "string",
+          "enum": [
+            "File Tree",
+            "File List"
+          ],
+          "default": "File Tree"
+        },
+        "git-graph-ray.commitDetailsView.location": {
+          "type": "string",
+          "enum": [
+            "Inline",
+            "Docked to Bottom"
+          ],
+          "default": "Inline"
+        },
+        "git-graph-ray.contextMenuActionsVisibility": {
+          "type": "object",
+          "default": {},
+          "markdownDescription": "Hide context menu actions. Example: `{ \"branch\": { \"rebase\": false } }`."
+        },
+        "git-graph-ray.customBranchGlobPatterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "glob"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "glob": {
+                "type": "string"
+              }
+            }
+          },
+          "default": []
+        },
+        "git-graph-ray.customEmojiShortcodeMappings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "shortcode",
+              "emoji"
+            ],
+            "properties": {
+              "shortcode": {
+                "type": "string"
+              },
+              "emoji": {
+                "type": "string"
+              }
+            }
+          },
+          "default": []
+        },
+        "git-graph-ray.customPullRequestProviders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "templateUrl"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "templateUrl": {
+                "type": "string"
+              }
+            }
+          },
+          "default": []
+        },
+        "git-graph-ray.date.format": {
+          "type": "string",
+          "enum": [
+            "Date & Time",
+            "Date Only",
+            "ISO Date & Time",
+            "ISO Date Only",
+            "Relative"
+          ],
+          "default": "Date & Time"
+        },
+        "git-graph-ray.defaultColumnVisibility": {
+          "type": "object",
+          "default": {
+            "Author": true,
+            "AuthorDate": true,
+            "Commit": true,
+            "Committer": false,
+            "CommitterDate": false
+          }
+        },
+        "git-graph-ray.dialog.addTag.pushToRemote": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.dialog.addTag.type": {
+          "type": "string",
+          "enum": [
+            "Annotated",
+            "Lightweight"
+          ],
+          "default": "Annotated"
+        },
+        "git-graph-ray.dialog.applyStash.reinstateIndex": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.dialog.cherryPick.noCommit": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.dialog.cherryPick.recordOrigin": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.dialog.createBranch.checkOut": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.dialog.deleteBranch.forceDelete": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.dialog.fetchIntoLocalBranch.forceFetch": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.dialog.fetchRemote.prune": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.dialog.fetchRemote.pruneTags": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.dialog.general.referenceInputSpaceSubstitution": {
+          "type": "string",
+          "enum": [
+            "None",
+            "Hyphen",
+            "Underscore"
+          ],
+          "default": "None"
+        },
+        "git-graph-ray.dialog.merge.noCommit": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.dialog.merge.noFastForward": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.dialog.merge.squashCommits": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.dialog.merge.squashMessageFormat": {
+          "type": "string",
+          "enum": [
+            "Default",
+            "Git SQUASH_MSG"
+          ],
+          "default": "Default"
+        },
+        "git-graph-ray.dialog.popStash.reinstateIndex": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.dialog.pullBranch.noFastForward": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.dialog.pullBranch.squashCommits": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.dialog.pullBranch.squashMessageFormat": {
+          "type": "string",
+          "enum": [
+            "Default",
+            "Git SQUASH_MSG"
+          ],
+          "default": "Default"
+        },
+        "git-graph-ray.dialog.rebase.ignoreDate": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.dialog.rebase.launchInteractiveRebase": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.dialog.resetCurrentBranchToCommit.mode": {
+          "type": "string",
+          "enum": [
+            "Soft",
+            "Mixed",
+            "Hard"
+          ],
+          "default": "Mixed"
+        },
+        "git-graph-ray.dialog.resetUncommittedChanges.mode": {
+          "type": "string",
+          "enum": [
+            "Mixed",
+            "Hard"
+          ],
+          "default": "Mixed"
+        },
+        "git-graph-ray.dialog.stashUncommittedChanges.includeUntracked": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.enhancedAccessibility": {
+          "type": "boolean",
+          "default": false,
+          "description": "Emphasize A|M|D|R|U file-change letters."
+        },
+        "git-graph-ray.fileEncoding": {
+          "type": "string",
+          "default": "utf8",
+          "scope": "resource"
+        },
+        "git-graph-ray.graph.colours": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "#0085d9",
+            "#d9008f",
+            "#00d90a",
+            "#d98500",
+            "#a300d9",
+            "#ff0000",
+            "#00d9cc",
+            "#e138e8",
+            "#85d900",
+            "#dc5b23",
+            "#6f24d6",
+            "#ffcc00"
+          ]
+        },
+        "git-graph-ray.graph.style": {
+          "type": "string",
+          "enum": [
+            "rounded",
+            "angular"
+          ],
+          "default": "rounded"
+        },
+        "git-graph-ray.graph.uncommittedChanges": {
+          "type": "string",
+          "enum": [
+            "Open Circle at the Uncommitted Changes",
+            "Open Circle at the Checked Out Commit"
+          ],
+          "default": "Open Circle at the Uncommitted Changes"
+        },
+        "git-graph-ray.graph.theme": {
+          "type": "string",
+          "enum": [
+            "classic",
+            "Ray",
+            "Ray Wave",
+            "Ray Cycle",
+            "Ray Stream"
+          ],
+          "enumDescriptions": [
+            "Default graph colours from git-graph-ray.graph.colours.",
+            "Neon lane colours with a glow.",
+            "Neon lanes with a pulsing wave.",
+            "Neon lanes that cycle through hue.",
+            "A rainbow that streams up the graph; selection highlights sweep left to right."
+          ],
+          "default": "classic"
+        },
+        "git-graph-ray.rayCat.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show Ray Cat at the bottom of the graph view."
+        },
+        "git-graph-ray.rayCat.count": {
+          "type": "number",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "How many Ray Cats to show (1–10). Each cat starts at a random gradient hue."
+        },
+        "git-graph-ray.integratedTerminalShell": {
+          "type": "string",
+          "default": "",
+          "scope": "machine"
+        },
+        "git-graph-ray.keyboardShortcut.find": {
+          "type": "string",
+          "enum": [
+            "UNASSIGNED",
+            "CTRL/CMD + A",
+            "CTRL/CMD + B",
+            "CTRL/CMD + C",
+            "CTRL/CMD + D",
+            "CTRL/CMD + E",
+            "CTRL/CMD + F",
+            "CTRL/CMD + G",
+            "CTRL/CMD + H",
+            "CTRL/CMD + I",
+            "CTRL/CMD + J",
+            "CTRL/CMD + K",
+            "CTRL/CMD + L",
+            "CTRL/CMD + M",
+            "CTRL/CMD + N",
+            "CTRL/CMD + O",
+            "CTRL/CMD + P",
+            "CTRL/CMD + Q",
+            "CTRL/CMD + R",
+            "CTRL/CMD + S",
+            "CTRL/CMD + T",
+            "CTRL/CMD + U",
+            "CTRL/CMD + V",
+            "CTRL/CMD + W",
+            "CTRL/CMD + X",
+            "CTRL/CMD + Y",
+            "CTRL/CMD + Z"
+          ],
+          "default": "CTRL/CMD + F"
+        },
+        "git-graph-ray.keyboardShortcut.refresh": {
+          "type": "string",
+          "enum": [
+            "UNASSIGNED",
+            "CTRL/CMD + A",
+            "CTRL/CMD + B",
+            "CTRL/CMD + C",
+            "CTRL/CMD + D",
+            "CTRL/CMD + E",
+            "CTRL/CMD + F",
+            "CTRL/CMD + G",
+            "CTRL/CMD + H",
+            "CTRL/CMD + I",
+            "CTRL/CMD + J",
+            "CTRL/CMD + K",
+            "CTRL/CMD + L",
+            "CTRL/CMD + M",
+            "CTRL/CMD + N",
+            "CTRL/CMD + O",
+            "CTRL/CMD + P",
+            "CTRL/CMD + Q",
+            "CTRL/CMD + R",
+            "CTRL/CMD + S",
+            "CTRL/CMD + T",
+            "CTRL/CMD + U",
+            "CTRL/CMD + V",
+            "CTRL/CMD + W",
+            "CTRL/CMD + X",
+            "CTRL/CMD + Y",
+            "CTRL/CMD + Z"
+          ],
+          "default": "CTRL/CMD + R"
+        },
+        "git-graph-ray.keyboardShortcut.scrollToHead": {
+          "type": "string",
+          "enum": [
+            "UNASSIGNED",
+            "CTRL/CMD + A",
+            "CTRL/CMD + B",
+            "CTRL/CMD + C",
+            "CTRL/CMD + D",
+            "CTRL/CMD + E",
+            "CTRL/CMD + F",
+            "CTRL/CMD + G",
+            "CTRL/CMD + H",
+            "CTRL/CMD + I",
+            "CTRL/CMD + J",
+            "CTRL/CMD + K",
+            "CTRL/CMD + L",
+            "CTRL/CMD + M",
+            "CTRL/CMD + N",
+            "CTRL/CMD + O",
+            "CTRL/CMD + P",
+            "CTRL/CMD + Q",
+            "CTRL/CMD + R",
+            "CTRL/CMD + S",
+            "CTRL/CMD + T",
+            "CTRL/CMD + U",
+            "CTRL/CMD + V",
+            "CTRL/CMD + W",
+            "CTRL/CMD + X",
+            "CTRL/CMD + Y",
+            "CTRL/CMD + Z"
+          ],
+          "default": "CTRL/CMD + H"
+        },
+        "git-graph-ray.keyboardShortcut.scrollToStash": {
+          "type": "string",
+          "enum": [
+            "UNASSIGNED",
+            "CTRL/CMD + A",
+            "CTRL/CMD + B",
+            "CTRL/CMD + C",
+            "CTRL/CMD + D",
+            "CTRL/CMD + E",
+            "CTRL/CMD + F",
+            "CTRL/CMD + G",
+            "CTRL/CMD + H",
+            "CTRL/CMD + I",
+            "CTRL/CMD + J",
+            "CTRL/CMD + K",
+            "CTRL/CMD + L",
+            "CTRL/CMD + M",
+            "CTRL/CMD + N",
+            "CTRL/CMD + O",
+            "CTRL/CMD + P",
+            "CTRL/CMD + Q",
+            "CTRL/CMD + R",
+            "CTRL/CMD + S",
+            "CTRL/CMD + T",
+            "CTRL/CMD + U",
+            "CTRL/CMD + V",
+            "CTRL/CMD + W",
+            "CTRL/CMD + X",
+            "CTRL/CMD + Y",
+            "CTRL/CMD + Z"
+          ],
+          "default": "CTRL/CMD + S"
+        },
+        "git-graph-ray.markdown": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.maxDepthOfRepoSearch": {
+          "type": "number",
+          "default": 0
+        },
+        "git-graph-ray.openNewTabEditorGroup": {
+          "type": "string",
+          "enum": [
+            "Active",
+            "Beside",
+            "One",
+            "Two",
+            "Three",
+            "Four",
+            "Five",
+            "Six",
+            "Seven",
+            "Eight",
+            "Nine"
+          ],
+          "default": "Active"
+        },
+        "git-graph-ray.openToTheRepoOfTheActiveTextEditorDocument": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.referenceLabels.alignment": {
+          "type": "string",
+          "enum": [
+            "Normal",
+            "Branches (on the left) & Tags (on the right)",
+            "Branches (aligned to the graph) & Tags (on the right)"
+          ],
+          "default": "Normal"
+        },
+        "git-graph-ray.referenceLabels.combineLocalAndRemoteBranchLabels": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.repository.commits.fetchAvatars": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.repository.commits.initialLoad": {
+          "type": "number",
+          "default": 300
+        },
+        "git-graph-ray.repository.commits.loadMore": {
+          "type": "number",
+          "default": 100
+        },
+        "git-graph-ray.repository.commits.loadMoreAutomatically": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.repository.commits.mute.commitsThatAreNotAncestorsOfHead": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.repository.commits.mute.mergeCommits": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.repository.commits.order": {
+          "type": "string",
+          "enum": [
+            "date",
+            "author-date",
+            "topo"
+          ],
+          "default": "date"
+        },
+        "git-graph-ray.repository.commits.showSignatureStatus": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.repository.fetchAndPrune": {
+          "type": "boolean",
+          "default": false,
+          "description": "When fetching from the Graph toolbar, prune remote-tracking branches that no longer exist on the remote."
+        },
+        "git-graph-ray.repository.fetchAndPruneTags": {
+          "type": "boolean",
+          "default": false,
+          "description": "When fetching from the Graph toolbar, also prune stale remote tags."
+        },
+        "git-graph-ray.repository.includeCommitsMentionedByReflogs": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.repository.onLoad.scrollToHead": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.repository.onLoad.showCheckedOutBranch": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.repository.onLoad.showSpecificBranches": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "git-graph-ray.repository.onlyFollowFirstParent": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.repository.showCommitsOnlyReferencedByTags": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.repository.showRemoteBranches": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.repository.showRemoteHeads": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.repository.showStashes": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.repository.showTags": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.repository.showWorktrees": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.repository.refs.branchSort": {
+          "type": "string",
+          "enum": [
+            "version:refname",
+            "-version:refname",
+            "refname",
+            "-refname"
+          ],
+          "default": "version:refname",
+          "description": "Sort order for branches in the Filter list."
+        },
+        "git-graph-ray.repository.refs.tagSort": {
+          "type": "string",
+          "enum": [
+            "version:refname",
+            "-version:refname",
+            "refname",
+            "-refname"
+          ],
+          "default": "-version:refname",
+          "description": "Sort order for tags in the Filter list."
+        },
+        "git-graph-ray.repository.refs.listLimit": {
+          "type": "number",
+          "default": 200,
+          "minimum": 1,
+          "description": "Maximum number of refs shown in the Filter list before scrolling loads more."
+        },
+        "git-graph-ray.repository.showUncommittedChanges": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.repository.showUntrackedFiles": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.repository.sign.commits": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.repository.sign.tags": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.repository.useMailmap": {
+          "type": "boolean",
+          "default": false
+        },
+        "git-graph-ray.repositoryDropdownOrder": {
+          "type": "string",
+          "enum": [
+            "Full Path",
+            "Name",
+            "Workspace Full Path"
+          ],
+          "default": "Workspace Full Path"
+        },
+        "git-graph-ray.retainContextWhenHidden": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.showStatusBarItem": {
+          "type": "boolean",
+          "default": true
+        },
+        "git-graph-ray.sourceCodeProviderIntegrationLocation": {
+          "type": "string",
+          "enum": [
+            "Inline",
+            "More Actions"
+          ],
+          "default": "Inline"
+        },
+        "git-graph-ray.tabIconColourTheme": {
+          "type": "string",
+          "enum": [
+            "colour",
+            "grey"
+          ],
+          "default": "colour"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "npm run compile:host && npm run compile:webview",
+    "compile:host": "vite build --config vite.config.host.mts",
+    "compile:webview": "vite build --config vite.config.webview.mts",
+    "watch": "concurrently -n host,webview -c blue,magenta \"vite build --config vite.config.host.mts --watch\" \"vite build --config vite.config.webview.mts --watch\"",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.webview.json",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "@types/vscode": "^1.125.0",
+    "concurrently": "^10.0.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  }
+}

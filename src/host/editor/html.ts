@@ -1,0 +1,198 @@
+export function nonce(): string {
+  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+}
+
+const SHELL = `
+<header class="bar">
+  <label class="sr-only" for="repo">Repository</label>
+  <select id="repo"></select>
+  <button type="button" id="btn-repo-help" aria-label="About repository picker">?</button>
+  <div id="pop-repo-help" popover="manual" class="pop repo-help">
+    <p>Selects the working copy used for HEAD, uncommitted changes, and Git actions. Other worktrees still appear as chips when Show worktrees is on. Use Filter to choose which branches, tags, and worktree tips to load.</p>
+  </div>
+  <span class="bar-end">
+    <button type="button" id="btn-refs" commandfor="pop-refs" command="toggle-popover" aria-pressed="false">Filter</button>
+    <div id="pop-refs" popover class="pop">
+      <search>
+        <input type="search" id="ref-q" placeholder="Find a branch, tag, or worktree" />
+      </search>
+      <div class="ref-toggles">
+        <label><input type="checkbox" id="show-all" /> Show all</label>
+        <label><input type="checkbox" id="show-remotes" /> Remotes</label>
+      </div>
+      <div class="ref-tabs" role="tablist">
+        <button type="button" role="tab" id="ref-tab-branch" aria-selected="true">Branch</button>
+        <button type="button" role="tab" id="ref-tab-tag" aria-selected="false">Tag</button>
+        <button type="button" role="tab" id="ref-tab-worktree" aria-selected="false">Worktree</button>
+      </div>
+      <div id="ref-list"></div>
+      <div class="dlg-actions">
+        <button type="button" id="ref-ok">OK</button>
+      </div>
+    </div>
+    <button type="button" id="btn-fetch" hidden>Fetch</button>
+    <button type="button" id="btn-head" title="Jump to HEAD">HEAD</button>
+    <button type="button" id="btn-date" title="Go back to Date" aria-pressed="false">Go back to Date</button>
+    <div id="pop-date" popover="manual" class="pop date-jump">
+      <label>Date <input type="date" id="date-jump-input" /></label>
+      <fieldset class="date-kind">
+        <legend class="sr-only">Date field</legend>
+        <label><input type="radio" name="date-kind" id="date-kind-author" value="author" checked /> Author date</label>
+        <label><input type="radio" name="date-kind" id="date-kind-committer" value="committer" /> Committer date</label>
+      </fieldset>
+      <button type="button" id="date-jump-go">Go</button>
+      <p id="date-jump-miss" class="date-jump-miss" hidden>No commit found for that date.</p>
+    </div>
+    <button type="button" id="btn-reload" title="Refresh">↻</button>
+    <button type="button" id="btn-find" commandfor="pop-find" command="toggle-popover" title="Find" aria-pressed="false">⌕</button>
+    <div id="pop-find" popover class="pop find">
+      <div class="find-row">
+        <search>
+          <input type="search" id="find-q" placeholder="Find commits" />
+        </search>
+        <button type="button" id="find-case" class="find-toggle" aria-pressed="false" title="Match Case">Aa</button>
+        <button type="button" id="find-regex" class="find-toggle" aria-pressed="false" title="Use Regular Expression">.*</button>
+        <button type="button" id="find-diff" class="find-toggle" aria-pressed="false" title="Search in diffs (git log -G)">&#8209;G</button>
+        <span id="find-count">0/-</span>
+        <button type="button" id="find-prev" class="find-nav" title="Previous (Shift+F3)">↑</button>
+        <button type="button" id="find-next" class="find-nav" title="Next (F3)">↓</button>
+      </div>
+      <p id="find-err" class="find-err" hidden></p>
+    </div>
+    <button type="button" id="btn-settings" title="Repository Settings" aria-pressed="false">⚙</button>
+    <button type="button" id="btn-help" commandfor="dlg-help" command="show-modal" title="Help">?</button>
+  </span>
+</header>
+<div id="fail" class="fail" hidden>
+  <p id="fail-msg"></p>
+  <button type="button" id="fail-close" aria-label="Dismiss error">×</button>
+</div>
+<div class="board" id="board">
+  <div class="cols" id="head">
+    <div class="h graph">Graph<div class="col-resizer" data-col="graph"></div></div>
+    <div class="h desc">Description<div class="col-resizer" data-col="desc"></div></div>
+    <div class="h author">Author<div class="col-resizer" data-col="author"></div></div>
+    <div class="h adate">Author Date<div class="col-resizer" data-col="adate"></div></div>
+    <div class="h commit">Commit<div class="col-resizer" data-col="commit"></div></div>
+    <div class="h committer">Committer<div class="col-resizer" data-col="committer"></div></div>
+    <div class="h cdate">Committer Date<div class="col-resizer" data-col="cdate"></div></div>
+  </div>
+  <div class="scroll" id="scroll">
+    <div class="spacer" id="spacer">
+      <div class="g-clip" id="g-clip"><svg class="g" id="svg"></svg></div>
+      <div id="rows"></div>
+      <div id="inline-details" class="details inline" hidden></div>
+    </div>
+  </div>
+</div>
+<section id="dock" class="details dock" hidden></section>
+<div id="pop-cols" popover class="pop">
+  <label><input type="checkbox" data-col="Author" /> Author</label>
+  <label><input type="checkbox" data-col="AuthorDate" /> Author Date</label>
+  <label><input type="checkbox" data-col="Commit" /> Commit</label>
+  <label><input type="checkbox" data-col="Committer" /> Committer</label>
+  <label><input type="checkbox" data-col="CommitterDate" /> Committer Date</label>
+</div>
+<div id="pop-ctx" popover class="menu"></div>
+<div id="pop-confirm" popover class="pop confirm-tip">
+  <p id="confirm-msg"></p>
+  <div class="dlg-actions">
+    <button type="button" id="confirm-ok">Delete</button>
+    <button type="button" id="confirm-cancel" class="btn-cancel">Cancel</button>
+  </div>
+</div>
+<dialog id="dlg-help">
+  <form method="dialog">
+    <h2>Shortcuts</h2>
+    <dl id="help-keys" class="help-keys"></dl>
+    <h3 class="help-sub">Also</h3>
+    <ul class="help-list">
+      <li>Fetch runs immediately. Prune and prune tags are in Repository Settings (and VS Code Settings).</li>
+      <li>Double-click a branch or tag label to check it out.</li>
+      <li>Ctrl/Cmd+click a second commit to compare.</li>
+    </ul>
+    <div class="dlg-actions">
+      <button type="button" id="help-settings">Open Settings</button>
+      <button value="ok" class="btn-cancel">Close</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="dlg-git">
+  <form id="git-form" method="dialog">
+    <h2 id="git-title"></h2>
+    <div id="git-body"></div>
+    <div class="dlg-actions">
+      <button id="git-ok" value="ok" type="submit">OK</button>
+      <button id="git-cancel" type="button" class="btn-cancel">Cancel</button>
+    </div>
+  </form>
+</dialog>
+<div id="pop-settings" popover="manual" class="pop settings">
+  <section class="settings-block">
+    <h3 class="settings-h">Appearance</h3>
+    <label class="settings-row">Theme
+      <select id="s-theme">
+        <option value="classic">classic</option>
+        <option value="Ray">Ray</option>
+        <option value="Ray Wave">Ray Wave</option>
+        <option value="Ray Cycle">Ray Cycle</option>
+        <option value="Ray Stream">Ray Stream</option>
+      </select>
+    </label>
+    <label class="settings-row"><input type="checkbox" id="s-raycat" /> Show Ray Cat</label>
+    <label class="settings-row">Ray Cat count
+      <input type="number" id="s-raycat-count" min="1" max="10" step="1" />
+    </label>
+    <p class="settings-warn">Ray themes and Ray Cat use more CPU and battery.</p>
+  </section>
+  <section class="settings-block">
+    <h3 class="settings-h">General</h3>
+    <div class="settings-stack">
+      <label><input type="checkbox" id="s-remotes" /> Show remotes</label>
+      <label><input type="checkbox" id="s-stashes" /> Show stashes</label>
+      <label><input type="checkbox" id="s-tags" /> Show tags</label>
+      <label><input type="checkbox" id="s-worktrees" /> Show worktrees</label>
+      <label><input type="checkbox" id="s-reflogs" /> Show reflogs</label>
+      <label><input type="checkbox" id="s-first" /> First parent only</label>
+      <label><input type="checkbox" id="s-prune" /> Fetch prune</label>
+      <label><input type="checkbox" id="s-prune-tags" /> Fetch prune tags</label>
+    </div>
+  </section>
+  <section class="settings-block">
+    <h3 class="settings-h">Remotes</h3>
+    <div id="remote-list"></div>
+    <button type="button" id="add-remote">Add remote</button>
+  </section>
+  <section class="settings-block">
+    <h3 class="settings-h">Issue linking</h3>
+    <div class="settings-row issue-row">
+      <input id="issue-re" placeholder="regex" />
+      <input id="issue-url" placeholder="https://…/$1" />
+      <label class="issue-global"><input type="checkbox" id="issue-global" /> Use globally</label>
+    </div>
+    <div class="settings-save"><button type="button" id="issue-save">Save</button></div>
+  </section>
+  <section class="settings-block">
+    <h3 class="settings-h">Pull request</h3>
+    <select id="pr-provider"></select>
+    <div class="settings-save"><button type="button" id="pr-save">Save</button></div>
+  </section>
+</div>
+<canvas id="ray-cats" class="ray-cats" hidden></canvas>
+`;
+
+export function graphHtml(webviewCsp: string, script: string, css: string, n: string): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webviewCsp} https: data:; style-src ${webviewCsp} 'unsafe-inline'; script-src ${webviewCsp} 'nonce-${n}';" />
+  <link rel="stylesheet" href="${css}" />
+  <title>Git Graph Ray</title>
+</head>
+<body data-theme="classic" style="margin:0;padding:0;width:100%">
+${SHELL}
+<script nonce="${n}" src="${script}"></script>
+</body>
+</html>`;
+}

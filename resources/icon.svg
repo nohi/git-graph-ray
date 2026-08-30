@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <!-- 背景グラデーション -->
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1e1e2e"/>
+      <stop offset="100%" stop-color="#0f0f17"/>
+    </radialGradient>
+
+    <!-- ネオン発光用フィルター -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="blur1"/>
+      <feGaussianBlur stdDeviation="5" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- 強力な光線用フィルター -->
+    <filter id="brightGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- ライン用グラデーション (Ray効果) -->
+    <linearGradient id="cyanToPink" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#00f3ff"/>
+      <stop offset="100%" stop-color="#ff00a0"/>
+    </linearGradient>
+
+    <linearGradient id="rayGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff00a0"/>
+      <stop offset="70%" stop-color="#ffaa00"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- アイコンベース背景 -->
+  <rect width="128" height="128" rx="24" fill="url(#bgGlow)"/>
+
+  <!-- 光るグラフ線 (Glow Layer) -->
+  <g filter="url(#glow)" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- メインブランチ (シアン) -->
+    <path d="M 32 100 L 32 28" stroke="#00f3ff" stroke-width="4"/>
+    
+    <!-- サブブランチ 1 (ピンク) -->
+    <path d="M 32 80 C 48 80, 52 60, 52 48 L 52 36" stroke="#ff00a0" stroke-width="4"/>
+    
+    <!-- サブブランチ 2 (シアン〜オレンジ) -->
+    <path d="M 32 80 L 68 64 L 88 44" stroke="url(#cyanToPink)" stroke-width="4"/>
+    
+    <!-- Ray (光線) ブランチ (オレンジ〜ゴールド) -->
+    <path d="M 52 48 L 88 44 L 108 20" stroke="url(#rayGradient)" stroke-width="5"/>
+    <path d="M 88 44 L 118 24" stroke="#ffaa00" stroke-width="3" opacity="0.8"/>
+  </g>
+
+  <!-- コミットノード (Glow Layer) -->
+  <g filter="url(#glow)">
+    <!-- シアンノード -->
+    <circle cx="32" cy="100" r="5" fill="#0f0f17" stroke="#00f3ff" stroke-width="3"/>
+    <circle cx="32" cy="64" r="5" fill="#0f0f17" stroke="#00f3ff" stroke-width="3"/>
+    <circle cx="32" cy="28" r="5" fill="#0f0f17" stroke="#00f3ff" stroke-width="3"/>
+
+    <!-- ピンクノード -->
+    <circle cx="52" cy="48" r="5" fill="#0f0f17" stroke="#ff00a0" stroke-width="3"/>
+    <circle cx="68" cy="64" r="5" fill="#0f0f17" stroke="#00f3ff" stroke-width="3"/>
+
+    <!-- Ray発光ノード (強調) -->
+    <circle cx="88" cy="44" r="6" fill="#ffffff" stroke="#ffaa00" stroke-width="3" filter="url(#brightGlow)"/>
+  </g>
+
+  <!-- Rayフレア効果 (交点の輝き) -->
+  <g filter="url(#brightGlow)">
+    <path d="M 88 24 L 88 64 M 68 44 L 108 44" stroke="#ffffff" stroke-width="2" opacity="0.7"/>
+    <circle cx="88" cy="44" r="3" fill="#ffffff"/>
+  </g>
+</svg>
