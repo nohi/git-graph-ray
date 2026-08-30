@@ -20,4 +20,5 @@ node_modules/**
 .git/**
 *.md
 !README.md
+!CHANGELOG.md
 !LICENSE
