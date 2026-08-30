@@ -17,6 +17,7 @@ import { gitOk, gitMaybe } from '../git/runner';
 import { diffUri } from '../diff/provider';
 import { diffEditorSides } from '../../shared/diffSides';
 import { graphHtml, nonce } from './html';
+import { isNoisyGitWatchPath, snapshotFingerprint } from './gitWatch';
 import { graphDocumentLabel } from '../../shared/graphUri';
 import { GRAPH_VIEW_TYPE, loadPinned, savePinned } from './uri';
 
@@ -171,6 +172,10 @@ class GraphSession {
   private debounce: NodeJS.Timeout | undefined;
   private quietUntil = 0;
   private watcher: vscode.Disposable | undefined;
+  private disposed = false;
+  private reloadGen = 0;
+  private lastFingerprint = '';
+  private scrollHeadOnLoad = true;
 
   constructor(
     private readonly ctx: vscode.ExtensionContext,
@@ -187,6 +192,7 @@ class GraphSession {
 
   start(): void {
     this.panel.webview.onDidReceiveMessage((m: ViewToHost) => void this.onMessage(m));
+    this.panel.onDidDispose(() => this.dispose());
     this.watch();
   }
 
@@ -207,7 +213,15 @@ class GraphSession {
   }
 
   post(msg: HostToView): void {
-    void this.panel.webview.postMessage(msg);
+    if (this.disposed) return;
+    try {
+      const sent = this.panel.webview.postMessage(msg);
+      void Promise.resolve(sent).catch(() => {
+        this.disposed = true;
+      });
+    } catch {
+      this.disposed = true;
+    }
   }
 
   async fetchRemotes(): Promise<void> {
@@ -219,6 +233,7 @@ class GraphSession {
   }
 
   private async onMessage(msg: ViewToHost): Promise<void> {
+    if (this.disposed) return;
     try {
       switch (msg.type) {
         case 'ready':
@@ -247,8 +262,11 @@ class GraphSession {
         case 'pickRepo':
           this.repoPath = msg.path;
           this.selected = this.initialBranches();
+          this.scrollHeadOnLoad = true;
+          this.lastFingerprint = '';
           this.panel.title = graphDocumentLabel(this.repoPath);
           this.onRepoChange();
+          this.watch();
           await this.reload();
           return;
         case 'setBranches':
@@ -454,7 +472,7 @@ class GraphSession {
     this.commits = withUncommitted(loaded.commits, head, dirty);
     this.hasMore = loaded.hasMore;
 
-    this.panel.title = graphDocumentLabel(this.repoPath);
+    if (!this.disposed) this.panel.title = graphDocumentLabel(this.repoPath);
 
     return {
       repos,
@@ -488,12 +506,26 @@ class GraphSession {
     });
   }
 
-  private async reload(): Promise<void> {
-    this.post({ type: 'patch', payload: { loading: true } });
-    const payload = await this.snapshot();
-    this.post({ type: 'snapshot', payload });
-    if (cfg('repository.onLoad.scrollToHead', false) && payload.head) {
-      this.post({ type: 'jump', selected: payload.head === payload.commits[0]?.hash ? payload.head : payload.head });
+  private async reload(opts?: { fromWatch?: boolean }): Promise<void> {
+    if (this.disposed) return;
+    const gen = ++this.reloadGen;
+    this.quietUntil = Date.now() + 1500;
+    if (!opts?.fromWatch) this.post({ type: 'patch', payload: { loading: true } });
+    try {
+      const payload = await this.snapshot();
+      if (this.disposed || gen !== this.reloadGen) return;
+      const fp = snapshotFingerprint(payload);
+      if (opts?.fromWatch && fp === this.lastFingerprint) return;
+      this.lastFingerprint = fp;
+      this.post({ type: 'snapshot', payload });
+      if (this.scrollHeadOnLoad) {
+        this.scrollHeadOnLoad = false;
+        if (cfg('repository.onLoad.scrollToHead', false) && payload.head) {
+          this.post({ type: 'jump', selected: payload.head });
+        }
+      }
+    } finally {
+      this.quietUntil = Math.max(this.quietUntil, Date.now() + 800);
     }
   }
 
@@ -565,14 +597,16 @@ class GraphSession {
   }
 
   private async run(action: GitAction): Promise<void> {
-    this.quietUntil = Date.now() + 800;
+    this.quietUntil = Date.now() + 60_000;
     this.post({ type: 'busy', on: true, fetch: action.kind === 'fetchRemote' });
     try {
       if (action.kind === 'worktreeOpen') {
+        this.quietUntil = Date.now() + 800;
         await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(action.path), action.newWindow);
         return;
       }
       if (action.kind === 'openScm') {
+        this.quietUntil = Date.now() + 800;
         await vscode.commands.executeCommand('workbench.view.scm');
         return;
       }
@@ -599,18 +633,31 @@ class GraphSession {
   }
 
   private watch(): void {
+    this.watcher?.dispose();
+    this.watcher = undefined;
+    if (this.disposed || !this.repoPath) return;
     const gitDir = path.join(this.repoPath, '.git');
     const w = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(gitDir, '**'));
-    const bump = () => {
+    const bump = (uri: vscode.Uri) => {
+      if (this.disposed) return;
       if (Date.now() < this.quietUntil) return;
+      if (isNoisyGitWatchPath(uri.fsPath)) return;
       clearTimeout(this.debounce);
-      this.debounce = setTimeout(() => void this.reload(), 400);
+      this.debounce = setTimeout(() => void this.reload({ fromWatch: true }), 400);
     };
     w.onDidChange(bump);
     w.onDidCreate(bump);
     w.onDidDelete(bump);
     this.watcher = w;
-    this.panel.onDidDispose(() => this.watcher?.dispose());
+  }
+
+  private dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    clearTimeout(this.debounce);
+    this.debounce = undefined;
+    this.watcher?.dispose();
+    this.watcher = undefined;
   }
 }
 

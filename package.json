@@ -1,7 +1,7 @@
 {
   "name": "git-graph-ray",
   "displayName": "Git Graph Ray",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "nohi",
   "description": "View a Git graph of your repository and run Git actions from it.",
   "license": "MIT",
@@ -793,7 +793,7 @@
     "watch": "concurrently -n host,webview -c blue,magenta \"vite build --config vite.config.host.mts --watch\" \"vite build --config vite.config.webview.mts --watch\"",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.webview.json",
-    "vscode:prepublish": "npm run compile"
+    "vsce:package": "npm run compile && npx @vscode/vsce package -o ./dist/"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",

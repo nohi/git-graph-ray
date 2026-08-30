@@ -149,7 +149,6 @@ function applySnap(): void {
   if (snap.config.fetchAvatars) post({ type: 'faces', emails: [...new Set(snap.commits.map((c) => c.authorEmail).filter(Boolean))] });
   runFind(0);
   fillHelp();
-  if (details) scheduleFitDetails();
 }
 
 function fillRepos(): void {

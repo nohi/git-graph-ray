@@ -7,7 +7,7 @@ export function setGitExtraEnv(env: NodeJS.ProcessEnv): void {
 }
 
 export function gitEnv(): NodeJS.ProcessEnv {
-  return { ...process.env, ...extraEnv };
+  return { ...process.env, ...extraEnv, GIT_OPTIONAL_LOCKS: '0' };
 }
 
 export async function gitExec(
@@ -17,7 +17,7 @@ export async function gitExec(
   opts?: { encoding?: string; extraEnv?: NodeJS.ProcessEnv },
 ): Promise<{ code: number; stdout: Buffer; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(git, args, { cwd, env: { ...gitEnv(), ...opts?.extraEnv }, windowsHide: true });
+    const child = spawn(git, args, { cwd, env: { ...gitEnv(), ...opts?.extraEnv, GIT_OPTIONAL_LOCKS: '0' }, windowsHide: true });
     const out: Buffer[] = [];
     const err: Buffer[] = [];
     child.stdout.on('data', (c) => out.push(c as Buffer));
