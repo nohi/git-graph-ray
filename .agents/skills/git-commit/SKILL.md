@@ -43,7 +43,30 @@ Abort and warn the user if staged files look like secrets (`.env`, credentials, 
 
 If staged changes contain unrelated concerns, suggest splitting before committing. If the user agrees, stage and commit per concern.
 
-### 4. Write the commit message
+### 4. Update CHANGELOG.md and package.json
+
+Write Features, Changes and Fixes in Englich llike below
+
+```
+## v0.1.2
+
+### Features
+
+- Add new command `foo`.
+
+### Changes
+
+- Change default value of `bar`.
+
+### Fixes
+
+- Remove some debug message.
+- Fix errors when click `hoge`.
+```
+
+Update package.json if needed. (ex: version)
+
+### 5. Write the commit message
 
 Base the message strictly on staged changes. Do not invent or assume unimplemented work.
 
@@ -72,7 +95,7 @@ Base the message strictly on staged changes. Do not invent or assume unimplement
 | `ci` | CI / workflow changes |
 | `chore` | Build, deps, misc |
 
-### 5. Commit
+### 6. Commit
 
 Stage relevant files, then commit with HEREDOC:
 
@@ -88,7 +111,7 @@ EOF
 )"
 ```
 
-### 6. Verify
+### 7. Verify
 
 ```bash
 git status
@@ -96,7 +119,7 @@ git status
 
 Report success only after confirming the commit succeeded.
 
-### 7. Pre-commit hook failure
+### 8. Pre-commit hook failure
 
 - Do **not** amend. Fix the issue and create a **new** commit.
 - Amend only when the hook auto-modified files and the user rule amend conditions are met.
