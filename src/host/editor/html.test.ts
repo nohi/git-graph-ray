@@ -4,7 +4,7 @@ import { graphHtml } from './html';
 describe('graphHtml', () => {
   it('embeds toolbar and table chrome the webview script binds to', () => {
     const html = graphHtml('https://csp.example', 'webview.js', 'style.css', 'n0nce');
-    for (const id of ['repo', 's-theme', 's-raycat', 's-raycat-count', 'scroll', 'rows', 'fail', 'fail-msg', 'fail-close', 'head', 'svg', 'g-clip', 'ray-cats', 'inline-details', 'btn-settings', 'btn-date', 'date-jump-go', 'date-kind-author', 'date-kind-committer', 'show-remotes', 'ref-ok', 'btn-repo-help', 'find-case', 'find-regex', 'find-diff', 'find-prev', 'find-next', 'help-settings', 'help-keys', 's-prune', 's-prune-tags', 'pop-confirm', 'confirm-ok', 'confirm-cancel']) {
+    for (const id of ['repo', 's-theme', 's-raycat', 's-raycat-count', 'scroll', 'rows', 'fail', 'fail-msg', 'fail-close', 'git-busy-hint', 'head', 'svg', 'g-clip', 'ray-cats', 'inline-details', 'btn-settings', 'btn-date', 'date-jump-go', 'date-kind-author', 'date-kind-committer', 'show-remotes', 'ref-ok', 'btn-repo-help', 'find-case', 'find-regex', 'find-diff', 'find-prev', 'find-next', 'help-settings', 'help-keys', 's-prune', 's-prune-tags', 'pop-confirm', 'confirm-ok', 'confirm-cancel']) {
       expect(html).toContain(`id="${id}"`);
     }
     expect(html).toContain('Filter');

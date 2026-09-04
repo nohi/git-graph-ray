@@ -43,6 +43,7 @@ let ctxRef: GraphRef | null = null;
 let ctxCommit: GraphCommit | null = null;
 let ctxFile: { path: string; oldPath?: string } | null = null;
 let pendingDateJump: { day: string; field: 'author' | 'committer' } | null = null;
+let lastPointer = { x: 24, y: 24 };
 
 type El = HTMLElement & HTMLInputElement & HTMLSelectElement & { showPopover?: () => void; hidePopover?: () => void };
 const $ = (id: string) => {
@@ -692,6 +693,16 @@ function setGitBusy(on: boolean, fetch = false): void {
   $('btn-reload').classList.toggle('spinning', on);
   if (on && fetch) $('btn-fetch').classList.add('spinning');
   if (!on) $('btn-fetch').classList.remove('spinning');
+  document.documentElement.classList.toggle('git-busy', on);
+  document.documentElement.setAttribute('aria-busy', on ? 'true' : 'false');
+  const hint = $('git-busy-hint');
+  if (on) {
+    const size = 18;
+    const offset = 12;
+    hint.style.left = `${Math.max(4, Math.min(lastPointer.x + offset, window.innerWidth - size - 4))}px`;
+    hint.style.top = `${Math.max(4, Math.min(lastPointer.y + offset, window.innerHeight - size - 4))}px`;
+  }
+  hint.hidden = !on;
 }
 
 function sendGit(action: GitAction): void {
@@ -1134,6 +1145,11 @@ function onDetailsClick(ev: MouseEvent): boolean {
 }
 
 function bind(): void {
+  const trackPointer = (ev: PointerEvent) => {
+    lastPointer = { x: ev.clientX, y: ev.clientY };
+  };
+  document.addEventListener('pointermove', trackPointer, { passive: true });
+  document.addEventListener('pointerdown', trackPointer, { passive: true });
   $('repo').addEventListener('change', (e) => post({ type: 'pickRepo', path: (e.target as HTMLSelectElement).value }));
   $('s-theme').addEventListener('change', (e) => post({ type: 'setTheme', value: (e.target as HTMLSelectElement).value as GraphSnapshot['config']['theme'] }));
   $('s-raycat').addEventListener('change', postRayCat);
