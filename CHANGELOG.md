@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.3
+
+### Changes
+
+- Dim only commit text when Mute Merge Commits is on; keep the graph column at full opacity.
+- Include `CHANGELOG.md` in the VSIX so Marketplace Resources can show Changelog.
+
 ## v0.1.2
 
 ### Fixes

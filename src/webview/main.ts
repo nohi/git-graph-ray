@@ -378,10 +378,10 @@ function paint(): void {
   for (let i = start; i < end; i++) {
     const c = snap.commits[i]!;
     const v = layout.vertices[i];
-    const mut =
-      (snap.config.muteMergeCommits && c.parents.length > 1) || (ancestors && c.hash !== UNCOMMITTED && !ancestors.has(c.hash));
+    const muteMerge = snap.config.muteMergeCommits && c.parents.length > 1;
+    const muteRow = Boolean(ancestors && c.hash !== UNCOMMITTED && !ancestors.has(c.hash));
     const el = document.createElement('div');
-    el.className = `row${mut ? ' muted' : ''}${c.hash === selected ? ' sel' : ''}${c.hash === compare ? ' cmp' : ''}${c.hash === snap.head ? ' head-commit' : ''}`;
+    el.className = `row${muteMerge ? ' muted-merge' : ''}${muteRow ? ' muted' : ''}${c.hash === selected ? ' sel' : ''}${c.hash === compare ? ' cmp' : ''}${c.hash === snap.head ? ' head-commit' : ''}`;
     el.style.position = 'absolute';
     el.style.left = '0';
     el.style.right = '0';

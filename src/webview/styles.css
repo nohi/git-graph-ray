@@ -663,6 +663,17 @@ dialog button,
     opacity: 0.5;
   }
 
+  &.muted-merge {
+    .subj,
+    .cell.author,
+    .cell.adate,
+    .cell.commit,
+    .cell.committer,
+    .cell.cdate {
+      opacity: 0.5;
+    }
+  }
+
   &.sel {
     background: var(--hl-bg);
     box-shadow: inset 3px 0 0 var(--hl);
