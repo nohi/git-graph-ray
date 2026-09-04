@@ -14,6 +14,7 @@
 ### Fixes
 
 - Show Push branch and Create PR when right-clicking the checked-out branch.
+- Adjust modal padding.
 
 ## v0.1.2
 

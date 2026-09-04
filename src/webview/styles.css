@@ -1573,6 +1573,11 @@ dialog {
   border: 1px solid var(--hl);
   background: var(--bar);
   color: var(--fg);
+  padding: 1em;
+
+  h2 {
+    margin-block-start: 0;
+  }
 
   p {
     margin: 0.35rem 0;
