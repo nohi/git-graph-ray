@@ -67,6 +67,7 @@ const SHELL = `
   <p id="fail-msg"></p>
   <button type="button" id="fail-close" aria-label="Dismiss error">×</button>
 </div>
+<div id="git-busy-overlay" hidden></div>
 <div id="git-busy-hint" hidden role="status" aria-live="polite"><span class="sr-only">Working</span></div>
 <div class="board" id="board">
   <div class="cols" id="head">

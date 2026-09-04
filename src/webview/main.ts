@@ -689,20 +689,34 @@ function vis(cat: string, id: string): boolean {
   return snap?.menuVisibility[cat]?.[id] !== false;
 }
 
+function placeBusyHint(): void {
+  const hint = $('git-busy-hint');
+  const size = 18;
+  const offset = 12;
+  hint.style.left = `${Math.max(4, Math.min(lastPointer.x + offset, window.innerWidth - size - 4))}px`;
+  hint.style.top = `${Math.max(4, Math.min(lastPointer.y + offset, window.innerHeight - size - 4))}px`;
+}
+
 function setGitBusy(on: boolean, fetch = false): void {
   $('btn-reload').classList.toggle('spinning', on);
   if (on && fetch) $('btn-fetch').classList.add('spinning');
   if (!on) $('btn-fetch').classList.remove('spinning');
-  document.documentElement.classList.toggle('git-busy', on);
-  document.documentElement.setAttribute('aria-busy', on ? 'true' : 'false');
-  const hint = $('git-busy-hint');
+  const root = document.documentElement;
+  root.classList.toggle('git-busy', on);
+  root.setAttribute('aria-busy', on ? 'true' : 'false');
+  root.style.cursor = on ? 'wait' : '';
+  document.body.style.cursor = on ? 'wait' : '';
+  const overlay = $('git-busy-overlay');
+  overlay.hidden = !on;
   if (on) {
-    const size = 18;
-    const offset = 12;
-    hint.style.left = `${Math.max(4, Math.min(lastPointer.x + offset, window.innerWidth - size - 4))}px`;
-    hint.style.top = `${Math.max(4, Math.min(lastPointer.y + offset, window.innerHeight - size - 4))}px`;
+    overlay.style.setProperty('cursor', 'none', 'important');
+    void overlay.getBoundingClientRect();
+    overlay.style.setProperty('cursor', 'wait', 'important');
+    placeBusyHint();
+  } else {
+    overlay.style.removeProperty('cursor');
   }
-  hint.hidden = !on;
+  $('git-busy-hint').hidden = !on;
 }
 
 function sendGit(action: GitAction): void {
@@ -1147,6 +1161,7 @@ function onDetailsClick(ev: MouseEvent): boolean {
 function bind(): void {
   const trackPointer = (ev: PointerEvent) => {
     lastPointer = { x: ev.clientX, y: ev.clientY };
+    if (document.documentElement.classList.contains('git-busy')) placeBusyHint();
   };
   document.addEventListener('pointermove', trackPointer, { passive: true });
   document.addEventListener('pointerdown', trackPointer, { passive: true });

@@ -5,7 +5,7 @@
 ### Features
 
 - Let Push branch pick remotes (multi-select when several exist), optionally set-upstream, and choose normal / force-with-lease / force.
-- Show a wait cursor and a spinner next to the pointer while Git actions (checkout, refresh, fetch) run.
+- Show a wait cursor and a spinner next to the pointer while Git actions (checkout, merge, rebase, cherry-pick, reset, refresh, fetch) run, even if the mouse stays still.
 
 ### Changes
 
