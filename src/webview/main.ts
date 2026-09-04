@@ -5,6 +5,7 @@ import { layoutCommits } from '../shared/layout';
 import { buildFileTree } from '../shared/fileTree';
 import { decideNamedRemoteCheckout, startCheckoutFromRef } from '../shared/checkout';
 import { applySpaceSubstitution, defaultRepoSettings, type RepoSettings } from '../shared/dialogs';
+import { parsePushMode, pushBranchDialogHtml } from '../shared/pushDialog';
 import { detailsMetaRows, commitMessageText, type DetailsMetaRow } from '../shared/detailsMeta';
 import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg, groupChipRefs, remoteShortName, type FilterTab } from '../shared/refsList';
 import { compileFindRegex, formatFindCount, highlightFind, matchCommit } from '../shared/commitFind';
@@ -800,10 +801,26 @@ function gitDialog(title: string, body: string, onOk: () => void): void {
   dialogOk = onOk;
   $('git-title').textContent = title;
   $('git-body').innerHTML = body;
+  $('git-ok').disabled = false;
+  syncGitOkFromRemotes();
   const dlg = $('dlg-git') as unknown as HTMLDialogElement;
   dlg.showModal();
-  const field = $('git-body').querySelector<HTMLElement>('input:not([type=checkbox]):not([type=radio]), textarea');
+  const field = $('git-body').querySelector<HTMLElement>('input:not([type=checkbox]):not([type=radio]), textarea, select');
   (field ?? $('git-ok')).focus();
+}
+
+function selectedPushRemotes(): string[] {
+  const checked = [...$('git-body').querySelectorAll<HTMLInputElement>('input[name="rm"]:checked')].map((el) => el.value);
+  if (checked.length) return checked;
+  const sel = $('git-body').querySelector<HTMLSelectElement>('select#rm');
+  return sel?.value ? [sel.value] : [];
+}
+
+function syncGitOkFromRemotes(): void {
+  const boxes = $('git-body').querySelectorAll<HTMLInputElement>('input[name="rm"]');
+  const sel = $('git-body').querySelector<HTMLSelectElement>('select#rm');
+  if (!boxes.length && !sel) return;
+  $('git-ok').disabled = selectedPushRemotes().length === 0;
 }
 
 function clickPoint(ev: Event): { x: number; y: number } {
@@ -970,12 +987,14 @@ function bindDialogs(): void {
   const form = $('git-form') as unknown as HTMLFormElement;
   form.addEventListener('submit', (ev) => {
     ev.preventDefault();
+    if ($('git-ok').disabled) return;
     const submitter = (ev as SubmitEvent).submitter as HTMLButtonElement | null;
     dlg.close();
     const ok = dialogOk;
     dialogOk = null;
     if (!submitter || submitter.id === 'git-ok' || submitter.value === 'ok') ok?.();
   });
+  $('git-body').addEventListener('change', syncGitOkFromRemotes);
   $('git-cancel').addEventListener('click', () => {
     dialogOk = null;
     dlg.close();
@@ -993,6 +1012,7 @@ function bindDialogs(): void {
     const t = ev.target as HTMLElement;
     if (t.closest('textarea')) return;
     if (t.id === 'git-cancel') return;
+    if ($('git-ok').disabled) return;
     ev.preventDefault();
     ev.stopPropagation();
     form.requestSubmit($('git-ok') as unknown as HTMLButtonElement);
@@ -1763,7 +1783,19 @@ function onMenu(ev: Event): void {
     if (id === 'br-del') gitDialog('Delete branch', `<label><input type="checkbox" id="fr" ${d.deleteBranchForce ? 'checked' : ''}/> force</label>`, () => act({ kind: 'deleteBranch', name: r.name, force: (document.getElementById('fr') as HTMLInputElement).checked }));
     if (id === 'br-mg') gitDialog('Merge', checks(d), () => act({ kind: 'merge', ref: r.name, noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }));
     if (id === 'br-rb') gitDialog('Rebase', `<label><input type="checkbox" id="id" ${d.rebaseIgnoreDate ? 'checked' : ''}/> ignore date</label><label><input type="checkbox" id="ir" ${d.rebaseInteractive ? 'checked' : ''}/> interactive</label>`, () => act({ kind: 'rebase', ref: r.name, ignoreDate: (document.getElementById('id') as HTMLInputElement).checked, interactive: (document.getElementById('ir') as HTMLInputElement).checked }));
-    if (id === 'br-ps') gitDialog('Push', `<input id="rm" value="${esc(snap.remotes[0]?.name ?? 'origin')}" />`, () => act({ kind: 'pushBranch', name: r.name, remote: (document.getElementById('rm') as HTMLInputElement).value, setUpstream: true }));
+    if (id === 'br-ps') {
+      gitDialog('Push branch', pushBranchDialogHtml(snap.remotes.map((x) => x.name)), () => {
+        const remotes = selectedPushRemotes();
+        if (!remotes.length) return;
+        act({
+          kind: 'pushBranch',
+          name: r.name,
+          remotes,
+          setUpstream: (document.getElementById('su') as HTMLInputElement).checked,
+          mode: parsePushMode($('git-body').querySelector<HTMLInputElement>('input[name="pm"]:checked')?.value),
+        });
+      });
+    }
     if (id === 'rm-co') runPlan(decideNamedRemoteCheckout(snap.commits, r.name, r.name.slice(r.name.indexOf('/') + 1), r.hash, snap.currentBranch));
     if (id === 'rm-del') {
       const p = clickPoint(ev);

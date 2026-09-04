@@ -1,5 +1,5 @@
 import type { GitAction } from '../../shared/protocol';
-import { cherryPickArgs, mergeArgs, rebaseArgs, revertArgs, stashApplyArgs } from '../../shared/gitArgs';
+import { cherryPickArgs, mergeArgs, pushBranchArgs, rebaseArgs, revertArgs, stashApplyArgs } from '../../shared/gitArgs';
 import { gitEditorCommand, gitShFromExecPath, posixGitPath, rewordEditorScript, rewordSeqScript } from '../../shared/gitPath';
 import { gitOk } from './runner';
 import { runInteractiveRebase } from './terminal';
@@ -109,11 +109,10 @@ export async function runGitAction(
       await gitOk(git, cwd, ['clean', '-f', ...(action.directories ? ['-d'] : [])]);
       return;
     case 'pushBranch': {
-      const args = ['push'];
-      if (action.setUpstream) args.push('-u');
-      if (action.force) args.push('--force-with-lease');
-      args.push(action.remote, action.name);
-      await gitOk(git, cwd, args);
+      const remotes = action.remotes.filter(Boolean);
+      for (let i = 0; i < remotes.length; i++) {
+        await gitOk(git, cwd, pushBranchArgs(action, remotes[i]!, action.setUpstream && i === 0));
+      }
       return;
     }
     case 'pullBranch':

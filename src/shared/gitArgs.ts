@@ -44,3 +44,16 @@ export function parseGitVersionTuple(text: string): [number, number] {
   const m = text.match(/(\d+)\.(\d+)/);
   return m ? [Number(m[1]), Number(m[2])] : [0, 0];
 }
+
+export function pushBranchArgs(
+  action: Extract<GitAction, { kind: 'pushBranch' }>,
+  remote: string,
+  setUpstream: boolean,
+): string[] {
+  const args = ['push'];
+  if (setUpstream) args.push('-u');
+  if (action.mode === 'force-with-lease') args.push('--force-with-lease');
+  else if (action.mode === 'force') args.push('--force');
+  args.push(remote, action.name);
+  return args;
+}

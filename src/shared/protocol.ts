@@ -69,6 +69,8 @@ export type ViewToHost =
 
 export type SquashMessageFormat = 'Default' | 'Git SQUASH_MSG';
 
+export type PushMode = 'normal' | 'force-with-lease' | 'force';
+
 export type PullAfterwards = {
   remote: string;
   branch: string;
@@ -107,7 +109,7 @@ export type GitAction =
   | { kind: 'stashDrop'; name: string }
   | { kind: 'stashCreateBranch'; name: string; stash: string }
   | { kind: 'cleanUntracked'; directories: boolean }
-  | { kind: 'pushBranch'; name: string; remote: string; setUpstream?: boolean; force?: boolean }
+  | { kind: 'pushBranch'; name: string; remotes: string[]; setUpstream: boolean; mode: PushMode }
   | {
       kind: 'pullBranch';
       remote: string;
