@@ -44,8 +44,23 @@ describe('commitMenuEntries', () => {
 });
 
 describe('branchMenuEntries', () => {
-  it('uses the compact menu for the current branch', () => {
+  it('offers push and PR on the current branch without switch or history actions', () => {
     expect(branchMenuEntries({ current: true, visible: () => true })).toEqual([
+      { id: 'br-rn', label: 'Rename branch' },
+      { id: 'br-ps', label: 'Push branch' },
+      'sep',
+      { id: 'pr', label: 'Create PR' },
+      { id: 'copy', label: 'Copy branch name' },
+    ]);
+  });
+
+  it('hides push and PR on the current branch when visibility is off', () => {
+    expect(
+      branchMenuEntries({
+        current: true,
+        visible: (id) => id !== 'push' && id !== 'pr',
+      }),
+    ).toEqual([
       { id: 'br-rn', label: 'Rename branch' },
       'sep',
       { id: 'copy', label: 'Copy branch name' },

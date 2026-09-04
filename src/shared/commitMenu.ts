@@ -43,20 +43,14 @@ export function commitMenuEntries(opts: {
 
 export function branchMenuEntries(opts: { current: boolean; visible: (id: string) => boolean }): MenuEntry[] {
   const v = opts.visible;
-  if (opts.current) {
-    const items: MenuEntry[] = [];
-    if (v('rename')) items.push({ id: 'br-rn', label: 'Rename branch' });
-    if (items.length) items.push('sep');
-    items.push({ id: 'copy', label: 'Copy branch name' });
-    return items;
-  }
+  const other = !opts.current;
   const groups: MenuItem[][] = [
     [
-      v('checkout') && { id: 'br-co', label: 'Checkout (Switch) branch' },
+      other && v('checkout') && { id: 'br-co', label: 'Checkout (Switch) branch' },
       v('rename') && { id: 'br-rn', label: 'Rename branch' },
-      v('delete') && { id: 'br-del', label: 'Delete Branch' },
-      v('merge') && { id: 'br-mg', label: 'Merge into current branch' },
-      v('rebase') && { id: 'br-rb', label: 'Rebase current branch on this branch' },
+      other && v('delete') && { id: 'br-del', label: 'Delete Branch' },
+      other && v('merge') && { id: 'br-mg', label: 'Merge into current branch' },
+      other && v('rebase') && { id: 'br-rb', label: 'Rebase current branch on this branch' },
       v('push') && { id: 'br-ps', label: 'Push branch' },
     ],
     [v('pr') && { id: 'pr', label: 'Create PR' }, { id: 'copy', label: 'Copy branch name' }],

@@ -7,6 +7,10 @@
 - Dim only commit text when Mute Merge Commits is on; keep the graph column at full opacity.
 - Include `CHANGELOG.md` in the VSIX so Marketplace Resources can show Changelog.
 
+### Fixes
+
+- Show Push branch and Create PR when right-clicking the checked-out branch.
+
 ## v0.1.2
 
 ### Fixes
