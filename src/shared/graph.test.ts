@@ -2,25 +2,64 @@ import { describe, expect, it } from 'vitest';
 import {
   colourForLane,
   DETAILS_MIN,
+  edgeCurveAt,
   edgePath,
   estimateDetailsHeight,
   rayStreamGradient,
   scrollNeededToRevealDetails,
 } from './graph';
-import { RAY_COLOURS } from './types';
+import { layoutCommits } from './layout';
+import { RAY_COLOURS, type GraphCommit } from './types';
 
 describe('edgePath', () => {
   it('draws a vertical line on the same lane', () => {
     expect(edgePath(10, 0, 10, 28, 'rounded')).toBe('M 10 0 L 10 28');
   });
 
-  it('uses vertical tangents at both ends for a rounded lane change', () => {
-    const d = edgePath(10, 0, 26, 28, 'rounded');
-    expect(d).toBe('M 10 0 C 10 28 26 0 26 28');
+  it('peels off with a quarter-circle at the source for a fork', () => {
+    expect(edgePath(10, 0, 26, 28, 'rounded', 'start')).toBe('M 10 0 A 16 16 0 0 1 26 16 L 26 28');
+  });
+
+  it('joins with a quarter-circle at the destination for a merge', () => {
+    expect(edgePath(10, 0, 26, 28, 'rounded', 'end')).toBe('M 10 0 L 10 12 A 16 16 0 0 0 26 28');
+  });
+
+  it('keeps the long run vertical when a merge spans a details gap', () => {
+    expect(edgePath(10, 0, 26, 300, 'rounded', 'end')).toBe('M 10 0 L 10 284 A 16 16 0 0 0 26 300');
+  });
+
+  it('keeps the long run vertical when a fork spans a details gap', () => {
+    expect(edgePath(10, 0, 26, 300, 'rounded', 'start')).toBe('M 10 0 A 16 16 0 0 1 26 16 L 26 300');
+  });
+
+  it('rounds the inner corner when a merge comes from the right', () => {
+    expect(edgePath(26, 0, 10, 28, 'rounded', 'end')).toBe('M 26 0 L 26 12 A 16 16 0 0 1 10 28');
+  });
+
+  it('peels off left with the inner corner', () => {
+    expect(edgePath(26, 0, 10, 28, 'rounded', 'start')).toBe('M 26 0 A 16 16 0 0 0 10 16 L 10 28');
+  });
+
+  it('adds a horizontal run when the lane jump is wider than one lane', () => {
+    expect(edgePath(10, 0, 42, 28, 'rounded', 'end')).toBe('M 10 0 L 10 12 A 16 16 0 0 0 26 28 L 42 28');
   });
 
   it('keeps angular lane changes as a stepped path', () => {
     expect(edgePath(10, 0, 26, 28, 'angular')).toBe('M 10 0 L 10 14 L 26 14 L 26 28');
+  });
+
+  it('pins the angular step next to the destination on a long edge', () => {
+    expect(edgePath(10, 0, 26, 300, 'angular', 'end')).toBe('M 10 0 L 10 286 L 26 286 L 26 300');
+  });
+});
+
+describe('edgeCurveAt', () => {
+  it('curves at the destination when joining a commit', () => {
+    expect(edgeCurveAt(true)).toBe('end');
+  });
+
+  it('curves at the source when opening a new lane', () => {
+    expect(edgeCurveAt(false)).toBe('start');
   });
 });
 
@@ -115,17 +154,36 @@ describe('estimateDetailsHeight', () => {
   });
 });
 
-describe('edgePath', () => {
-  it('draws a vertical line on the same lane', () => {
-    expect(edgePath(10, 0, 10, 28, 'rounded')).toBe('M 10 0 L 10 28');
+function commit(hash: string, parents: string[]): GraphCommit {
+  return {
+    hash,
+    parents,
+    authorName: '',
+    authorEmail: '',
+    authorDate: 0,
+    committerName: '',
+    committerEmail: '',
+    committerDate: 0,
+    subject: '',
+    refs: [],
+  };
+}
+
+describe('edgeCurveAt with layout', () => {
+  const curveAt = (layout: ReturnType<typeof layoutCommits>, fromRow: number, fromLane: number, toLane: number) => {
+    const nodeAt = new Set(layout.vertices.map((v) => `${v.row}:${v.lane}`));
+    const edge = layout.edges.find((e) => e.fromRow === fromRow && e.fromLane === fromLane && e.toLane === toLane);
+    expect(edge).toBeDefined();
+    return edgeCurveAt(nodeAt.has(`${edge!.toRow}:${edge!.toLane}`));
+  };
+
+  it('peels off at the merge commit when opening a second-parent lane', () => {
+    const layout = layoutCommits([commit('m', ['a', 'b']), commit('a', []), commit('b', [])]);
+    expect(curveAt(layout, 0, 0, 1)).toBe('start');
   });
 
-  it('uses vertical tangents at both ends for a rounded lane change', () => {
-    const d = edgePath(10, 0, 26, 28, 'rounded');
-    expect(d).toBe('M 10 0 C 10 28 26 0 26 28');
-  });
-
-  it('keeps angular lane changes as a stepped path', () => {
-    expect(edgePath(10, 0, 26, 28, 'angular')).toBe('M 10 0 L 10 14 L 26 14 L 26 28');
+  it('joins at the destination when a branch merges back', () => {
+    const layout = layoutCommits([commit('p', ['z']), commit('q', ['z']), commit('z', [])]);
+    expect(curveAt(layout, 1, 1, 0)).toBe('end');
   });
 });

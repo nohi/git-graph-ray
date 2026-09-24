@@ -113,25 +113,51 @@ export function laneX(lane: number): number {
   return PAD + lane * LANE + LANE / 2;
 }
 
+export type EdgeCurveAt = 'start' | 'end';
+
+/** Merge into a commit on the destination lane; otherwise peel off at the source (fork). */
+export function edgeCurveAt(toHasNode: boolean): EdgeCurveAt {
+  return toHasNode ? 'end' : 'start';
+}
+
 export function edgePath(
   x1: number,
   y1: number,
   x2: number,
   y2: number,
   style: 'rounded' | 'angular',
+  curveAt: EdgeCurveAt = 'end',
 ): string {
   const n = (v: number) => Math.round(v * 100) / 100;
   if (x1 === x2) return `M ${n(x1)} ${n(y1)} L ${n(x2)} ${n(y2)}`;
-  if (style === 'angular') {
-    const mid = (y1 + y2) / 2;
-    return `M ${n(x1)} ${n(y1)} L ${n(x1)} ${n(mid)} L ${n(x2)} ${n(mid)} L ${n(x2)} ${n(y2)}`;
-  }
   const dy = y2 - y1;
-  if (dy === 0) {
-    const bulge = Math.min(ROW * 0.45, Math.abs(x2 - x1) * 0.6, 16);
-    return `M ${n(x1)} ${n(y1)} C ${n(x1)} ${n(y1 + bulge)} ${n(x2)} ${n(y2 + bulge)} ${n(x2)} ${n(y2)}`;
+  const dx = x2 - x1;
+  if (dy === 0) return `M ${n(x1)} ${n(y1)} L ${n(x2)} ${n(y2)}`;
+  const sign = dx > 0 ? 1 : -1;
+  if (style === 'angular') {
+    const span = Math.min(ROW / 2, Math.abs(dy) / 2);
+    const joinY = curveAt === 'start' ? y1 + span : y2 - span;
+    return `M ${n(x1)} ${n(y1)} L ${n(x1)} ${n(joinY)} L ${n(x2)} ${n(joinY)} L ${n(x2)} ${n(y2)}`;
   }
-  return `M ${n(x1)} ${n(y1)} C ${n(x1)} ${n(y2)} ${n(x2)} ${n(y1)} ${n(x2)} ${n(y2)}`;
+  const r = Math.min(LANE, Math.abs(dx), Math.abs(dy));
+  // Forks (start) and merges (end) use opposite sweep so both round the inner corner.
+  const sweep = (sign > 0) === (curveAt === 'start') ? 1 : 0;
+  if (curveAt === 'start') {
+    const hx = x2 - sign * r;
+    const vy = y1 + r;
+    const parts = [`M ${n(x1)} ${n(y1)}`];
+    if (Math.abs(dx) > r) parts.push(`L ${n(hx)} ${n(y1)}`);
+    parts.push(`A ${n(r)} ${n(r)} 0 0 ${sweep} ${n(x2)} ${n(vy)}`);
+    if (vy !== y2) parts.push(`L ${n(x2)} ${n(y2)}`);
+    return parts.join(' ');
+  }
+  const vy = y2 - r;
+  const hx = x1 + sign * r;
+  const parts = [`M ${n(x1)} ${n(y1)}`];
+  if (vy !== y1) parts.push(`L ${n(x1)} ${n(vy)}`);
+  parts.push(`A ${n(r)} ${n(r)} 0 0 ${sweep} ${n(hx)} ${n(y2)}`);
+  if (Math.abs(dx) > r) parts.push(`L ${n(x2)} ${n(y2)}`);
+  return parts.join(' ');
 }
 
 export function rowTop(index: number, gap?: { after: number; height: number } | null): number {

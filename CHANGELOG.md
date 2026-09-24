@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.4
+
+### Fixes
+
+- Draw rounded lane changes as VS Code-style elbows instead of full-height S-curves, including when commit details stretch the graph.
+
 ## v0.1.3
 
 ### Features

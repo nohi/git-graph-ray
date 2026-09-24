@@ -1,6 +1,6 @@
 import { firstCommitIndexForDate, formatDate, localDayBounds } from '../shared/date';
 import { applyEmoji, fillPrUrl, formatCommitMessageHtml } from '../shared/issueLinks';
-import { ancestorHashes, colourForLane, DETAILS_MAX, DETAILS_MIN, edgePath, estimateDetailsHeight, gitAtLeast, graphWidth, laneX, rayStreamGradient, RAY_STREAM_PERIOD, ROW, rowY, scrollNeededToRevealDetails, shortcutMatches } from '../shared/graph';
+import { ancestorHashes, colourForLane, DETAILS_MAX, DETAILS_MIN, edgeCurveAt, edgePath, estimateDetailsHeight, gitAtLeast, graphWidth, laneX, rayStreamGradient, RAY_STREAM_PERIOD, ROW, rowY, scrollNeededToRevealDetails, shortcutMatches } from '../shared/graph';
 import { layoutCommits } from '../shared/layout';
 import { buildFileTree } from '../shared/fileTree';
 import { decideNamedRemoteCheckout, startCheckoutFromRef } from '../shared/checkout';
@@ -342,13 +342,15 @@ function paint(): void {
   else document.documentElement.style.removeProperty('--g');
   const ancestors = snap.config.muteNonAncestorsOfHead ? ancestorHashes(snap.commits, snap.head) : null;
   const pathD: string[] = [];
+  const nodeAt = new Set(layout.vertices.map((v) => `${v.row}:${v.lane}`));
   for (const e of layout.edges) {
     const colour = colourForLane(e.lane, snap.config.graphColours, snap.config.theme);
+    const toRow = Math.min(e.toRow, snap.commits.length - 1);
     const x1 = laneX(e.fromLane);
     const y1 = rowY(e.fromRow, gap);
     const x2 = laneX(e.toLane);
-    const y2 = rowY(Math.min(e.toRow, snap.commits.length - 1), gap);
-    const d = edgePath(x1, y1, x2, y2, snap.config.graphStyle);
+    const y2 = rowY(toRow, gap);
+    const d = edgePath(x1, y1, x2, y2, snap.config.graphStyle, edgeCurveAt(nodeAt.has(`${toRow}:${e.toLane}`)));
     pathD.push(`<path d="${d}" fill="none" stroke="${colour}" stroke-width="2" stroke-linecap="round" ${e.committed ? '' : 'stroke-dasharray="4 3"'} />`);
   }
   for (const v of layout.vertices) {
