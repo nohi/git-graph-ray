@@ -19,13 +19,37 @@ import { diffEditorSides } from '../../shared/diffSides';
 import { graphHtml, nonce } from './html';
 import { isNoisyGitWatchPath, snapshotFingerprint } from './gitWatch';
 import { graphDocumentLabel } from '../../shared/graphUri';
+import { isGraphWebviewTab } from './graphTab';
 import { GRAPH_VIEW_TYPE, loadPinned, savePinned } from './uri';
+
+const RESTORE_SETTLE_MS = 600;
+const HOLDER_WAIT_MS = 1000;
+
+const GROUP_FOCUS = [
+  'workbench.action.focusFirstEditorGroup',
+  'workbench.action.focusSecondEditorGroup',
+  'workbench.action.focusThirdEditorGroup',
+  'workbench.action.focusFourthEditorGroup',
+  'workbench.action.focusFifthEditorGroup',
+  'workbench.action.focusSixthEditorGroup',
+  'workbench.action.focusSeventhEditorGroup',
+  'workbench.action.focusEighthEditorGroup',
+];
 
 export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
   static readonly viewType = GRAPH_VIEW_TYPE;
   private gitBin = 'git';
   private gitVer = '';
   private sessions = new Set<GraphSession>();
+  /** The one open graph panel. Side-by-side comparison can allow more later. */
+  private holder: GraphSession | undefined;
+  private taken = false;
+  private disposed = false;
+  private openGate: Promise<void> | undefined;
+  private holderWaiters: Array<(session: GraphSession | undefined) => void> = [];
+  private restoreTimer: ReturnType<typeof setTimeout> | undefined;
+  private restoreSub: vscode.Disposable | undefined;
+  private restoreDone: (() => void) | undefined;
 
   constructor(
     private readonly ctx: vscode.ExtensionContext,
@@ -41,12 +65,17 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
     return this.gitBin;
   }
 
+  dispose(): void {
+    this.disposed = true;
+    this.finishRestoreWait();
+  }
+
   async deserializeWebviewPanel(panel: vscode.WebviewPanel, state: unknown): Promise<void> {
     const repo =
       typeof state === 'object' && state && 'repo' in state && typeof (state as { repo: unknown }).repo === 'string'
         ? (state as { repo: string }).repo
         : (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '');
-    this.mount(panel, repo, false);
+    this.claimPanel(panel, repo, false);
   }
 
   private webviewOpts(): vscode.WebviewOptions & vscode.WebviewPanelOptions {
@@ -57,7 +86,45 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
     };
   }
 
+  private claimPanel(panel: vscode.WebviewPanel, repo: string, fetchOnOpen: boolean): void {
+    const current = this.holder;
+    if (current?.owns(panel)) return;
+    const adopt = !current || (panel.active && !current.isActive());
+    if (!adopt) {
+      this.dropExtraPanel(panel);
+      return;
+    }
+    if (current) {
+      this.holder = undefined;
+      this.sessions.delete(current);
+    }
+    this.taken = true;
+    try {
+      this.mount(panel, repo, fetchOnOpen);
+    } catch (error) {
+      if (!this.holder && current) {
+        this.sessions.add(current);
+        this.holder = current;
+        this.taken = true;
+      } else if (!this.holder) {
+        this.taken = false;
+      }
+      throw error;
+    }
+    current?.dismiss();
+  }
+
+  private dropExtraPanel(panel: vscode.WebviewPanel): void {
+    setTimeout(() => {
+      void Promise.resolve(panel.dispose()).catch(() => undefined);
+    }, 0);
+  }
+
   private mount(panel: vscode.WebviewPanel, repoPath: string, fetchOnOpen: boolean): void {
+    if (this.holder) {
+      this.dropExtraPanel(panel);
+      return;
+    }
     const root = repoPath ? norm(repoPath) : (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '');
     panel.webview.options = {
       enableScripts: true,
@@ -71,8 +138,14 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
     panel.title = graphDocumentLabel(root);
     const session = new GraphSession(this.ctx, root, panel, () => this.gitBin, this.gitVer, this.avatars, () => this.persistPins(), fetchOnOpen);
     this.sessions.add(session);
+    this.holder = session;
+    this.taken = true;
     panel.onDidDispose(() => {
       this.sessions.delete(session);
+      if (this.holder !== session) return;
+      this.holder = undefined;
+      this.taken = false;
+      this.notifyHolder();
       this.persistPins();
     });
     this.persistPins();
@@ -81,6 +154,7 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
     const script = panel.webview.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, 'dist/webview/webview.js'));
     const css = panel.webview.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, 'dist/webview/style.css'));
     panel.webview.html = graphHtml(panel.webview.cspSource, String(script), String(css), htmlN);
+    this.notifyHolder();
   }
 
   private persistPins(): void {
@@ -89,49 +163,125 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
   }
 
   async restorePins(): Promise<void> {
-    const restored = vscode.window.tabGroups.all.some((g) =>
-      g.tabs.some((t) => t.input instanceof vscode.TabInputWebview && t.input.viewType === GraphEditorProvider.viewType),
-    );
-    if (restored) return;
-    for (const p of loadPinned(this.ctx)) {
-      if ([...this.sessions].some((s) => norm(s.repoRoot) === norm(p))) continue;
+    await this.waitForRestoredTabs();
+    if (this.disposed || this.hasOpenGraph()) return;
+    for (const repoPath of loadPinned(this.ctx)) {
+      if (this.hasOpenGraph()) return;
       try {
-        await this.openRepo({ repoPath: p });
+        await this.openRepo({ repoPath, focus: false });
       } catch {
-        /* skip */
+        continue;
+      }
+      if (this.hasOpenGraph()) return;
+    }
+  }
+
+  private waitForRestoredTabs(): Promise<void> {
+    if (this.disposed || this.hasOpenGraph()) return Promise.resolve();
+    return new Promise((resolve) => {
+      this.restoreDone = resolve;
+      this.restoreSub = vscode.window.tabGroups.onDidChangeTabs(() => {
+        if (this.graphTabs().length > 0) this.finishRestoreWait();
+      });
+      this.restoreTimer = setTimeout(() => this.finishRestoreWait(), RESTORE_SETTLE_MS);
+    });
+  }
+
+  private finishRestoreWait(): void {
+    if (this.restoreTimer) clearTimeout(this.restoreTimer);
+    this.restoreTimer = undefined;
+    this.restoreSub?.dispose();
+    this.restoreSub = undefined;
+    const done = this.restoreDone;
+    this.restoreDone = undefined;
+    done?.();
+  }
+
+  private hasOpenGraph(): boolean {
+    return this.holder != null || this.taken || this.graphTabs().length > 0;
+  }
+
+  private graphTabs(): vscode.Tab[] {
+    const tabs: vscode.Tab[] = [];
+    for (const group of vscode.window.tabGroups.all) {
+      for (const tab of group.tabs) {
+        if (isGraphWebviewTab(tab.input)) tabs.push(tab);
       }
     }
+    return tabs;
   }
 
-  private sessionInColumn(column: vscode.ViewColumn | undefined): GraphSession | undefined {
-    if (column == null) return undefined;
-    const list = [...this.sessions].filter((s) => s.viewColumn === column);
-    return list.find((s) => s.visible) ?? list[0];
+  private preferredGraphTab(): vscode.Tab | undefined {
+    const tabs = this.graphTabs();
+    return tabs.find((tab) => tab.isActive) ?? tabs[0];
   }
 
-  private async focusSession(session: GraphSession, column: vscode.ViewColumn | undefined, fetch?: boolean): Promise<void> {
-    session.reveal(column);
-    if (fetch) await session.fetchRemotes();
+  private notifyHolder(): void {
+    const session = this.holder;
+    const waiters = this.holderWaiters.splice(0);
+    for (const waiter of waiters) waiter(session);
   }
 
-  async openRepo(opts?: { repoPath?: string; fetch?: boolean }): Promise<void> {
-    const activeGroup = vscode.window.tabGroups.activeTabGroup;
-    const inActive = this.sessionInColumn(activeGroup.viewColumn);
-    if (inActive) {
-      await this.focusSession(inActive, activeGroup.viewColumn, opts?.fetch);
-      return;
+  private waitForHolder(ms: number): Promise<GraphSession | undefined> {
+    if (this.holder) return Promise.resolve(this.holder);
+    return new Promise((resolve) => {
+      let timer: ReturnType<typeof setTimeout>;
+      const done = (session: GraphSession | undefined) => {
+        clearTimeout(timer);
+        this.holderWaiters = this.holderWaiters.filter((waiter) => waiter !== done);
+        resolve(session);
+      };
+      timer = setTimeout(() => done(this.holder), ms);
+      this.holderWaiters.push(done);
+    });
+  }
+
+  private async reuseOpenPanel(focus: boolean, fetch?: boolean): Promise<boolean> {
+    if (!this.hasOpenGraph()) return false;
+    const session = this.holder ?? (await this.waitForHolder(HOLDER_WAIT_MS));
+    if (session) {
+      if (focus) session.reveal();
+      if (fetch) await session.fetchRemotes();
+      return true;
     }
-
-    const column = viewColumn();
-    const group =
-      column === vscode.ViewColumn.Active || column === vscode.ViewColumn.Beside
-        ? activeGroup
-        : (vscode.window.tabGroups.all.find((g) => g.viewColumn === column) ?? activeGroup);
-    const inTarget = this.sessionInColumn(group.viewColumn);
-    if (inTarget) {
-      await this.focusSession(inTarget, group.viewColumn, opts?.fetch);
-      return;
+    const tab = this.preferredGraphTab();
+    if (tab) {
+      if (focus) await this.focusGraphTab(tab);
+      return true;
     }
+    return this.taken;
+  }
+
+  private async focusGraphTab(tab: vscode.Tab): Promise<void> {
+    const groupIndex = vscode.window.tabGroups.all.indexOf(tab.group);
+    const tabIndex = tab.group.tabs.indexOf(tab);
+    if (groupIndex < 0 || tabIndex < 0) return;
+    if (!tab.group.isActive) {
+      const focusGroup = GROUP_FOCUS[groupIndex];
+      if (!focusGroup) return;
+      await vscode.commands.executeCommand(focusGroup);
+    }
+    await vscode.commands.executeCommand('workbench.action.openEditorAtIndex', tabIndex);
+  }
+
+  async openRepo(opts?: { repoPath?: string; fetch?: boolean; focus?: boolean }): Promise<void> {
+    while (this.openGate) await this.openGate;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.openGate = gate;
+    try {
+      await this.openRepoLocked(opts);
+    } finally {
+      release();
+      if (this.openGate === gate) this.openGate = undefined;
+    }
+  }
+
+  private async openRepoLocked(opts?: { repoPath?: string; fetch?: boolean; focus?: boolean }): Promise<void> {
+    const focus = opts?.focus !== false;
+    if (await this.reuseOpenPanel(focus, opts?.fetch)) return;
 
     let repo = opts?.repoPath ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
     if (!opts?.repoPath && cfg('openToTheRepoOfTheActiveTextEditorDocument', false)) {
@@ -144,16 +294,24 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
         }
       }
     }
+    if (await this.reuseOpenPanel(focus, opts?.fetch)) return;
     if (!repo) return;
     repo = norm(repo);
+    if (await this.reuseOpenPanel(focus, opts?.fetch)) return;
 
-    const panel = vscode.window.createWebviewPanel(
-      GraphEditorProvider.viewType,
-      graphDocumentLabel(repo),
-      column,
-      this.webviewOpts(),
-    );
-    this.mount(panel, repo, Boolean(opts?.fetch));
+    this.taken = true;
+    try {
+      const panel = vscode.window.createWebviewPanel(
+        GraphEditorProvider.viewType,
+        graphDocumentLabel(repo),
+        { viewColumn: viewColumn(), preserveFocus: !focus },
+        this.webviewOpts(),
+      );
+      this.mount(panel, repo, Boolean(opts?.fetch));
+    } catch (error) {
+      if (!this.holder) this.taken = false;
+      throw error;
+    }
   }
 
   broadcastFacesCleared(): void {
@@ -200,16 +358,24 @@ class GraphSession {
     return this.repoPath;
   }
 
-  get viewColumn(): vscode.ViewColumn | undefined {
-    return this.panel.viewColumn;
+  owns(panel: vscode.WebviewPanel): boolean {
+    return this.panel === panel;
   }
 
-  get visible(): boolean {
-    return this.panel.visible;
+  isActive(): boolean {
+    return this.panel.active;
   }
 
-  reveal(column?: vscode.ViewColumn): void {
-    this.panel.reveal(column);
+  dismiss(): void {
+    if (this.disposed) return;
+    this.panel.dispose();
+  }
+
+  reveal(): void {
+    if (this.disposed) return;
+    const column = this.panel.viewColumn;
+    if (column == null) this.panel.reveal(vscode.ViewColumn.Active);
+    else this.panel.reveal(column);
   }
 
   post(msg: HostToView): void {

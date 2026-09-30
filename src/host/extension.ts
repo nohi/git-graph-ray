@@ -29,8 +29,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   registerCommands(context, () => git, provider, avatars);
   createStatusBar(context);
-  const restore = setTimeout(() => void provider.restorePins(), 400);
-  context.subscriptions.push({ dispose: () => clearTimeout(restore) });
+  context.subscriptions.push({ dispose: () => provider.dispose() });
+  void provider.restorePins();
 }
 
 export function deactivate(): void {}
