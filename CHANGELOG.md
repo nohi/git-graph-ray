@@ -5,6 +5,7 @@
 ### Fixes
 
 - Draw rounded lane changes as VS Code-style elbows instead of full-height S-curves, including when commit details stretch the graph.
+- Peel merge-commit edges off at the merge even when the second parent is the next row.
 
 ## v0.1.3
 

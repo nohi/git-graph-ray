@@ -350,7 +350,10 @@ function paint(): void {
     const y1 = rowY(e.fromRow, gap);
     const x2 = laneX(e.toLane);
     const y2 = rowY(toRow, gap);
-    const d = edgePath(x1, y1, x2, y2, snap.config.graphStyle, edgeCurveAt(nodeAt.has(`${toRow}:${e.toLane}`)));
+    const from = snap.commits[e.fromRow];
+    const fromVertex = layout.vertices[e.fromRow];
+    const fromIsMerge = !!from && from.parents.length > 1 && fromVertex?.lane === e.fromLane;
+    const d = edgePath(x1, y1, x2, y2, snap.config.graphStyle, edgeCurveAt(nodeAt.has(`${toRow}:${e.toLane}`), fromIsMerge));
     pathD.push(`<path d="${d}" fill="none" stroke="${colour}" stroke-width="2" stroke-linecap="round" ${e.committed ? '' : 'stroke-dasharray="4 3"'} />`);
   }
   for (const v of layout.vertices) {

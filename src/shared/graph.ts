@@ -115,8 +115,9 @@ export function laneX(lane: number): number {
 
 export type EdgeCurveAt = 'start' | 'end';
 
-/** Merge into a commit on the destination lane; otherwise peel off at the source (fork). */
-export function edgeCurveAt(toHasNode: boolean): EdgeCurveAt {
+/** Peel off from a merge commit; otherwise join a destination node, or open a lane. */
+export function edgeCurveAt(toHasNode: boolean, fromIsMerge = false): EdgeCurveAt {
+  if (fromIsMerge) return 'start';
   return toHasNode ? 'end' : 'start';
 }
 

@@ -61,6 +61,10 @@ describe('edgeCurveAt', () => {
   it('curves at the source when opening a new lane', () => {
     expect(edgeCurveAt(false)).toBe('start');
   });
+
+  it('peels off at a merge even when the second parent is the next row', () => {
+    expect(edgeCurveAt(true, true)).toBe('start');
+  });
 });
 
 describe('colourForLane', () => {
@@ -170,20 +174,39 @@ function commit(hash: string, parents: string[]): GraphCommit {
 }
 
 describe('edgeCurveAt with layout', () => {
-  const curveAt = (layout: ReturnType<typeof layoutCommits>, fromRow: number, fromLane: number, toLane: number) => {
+  const curveAt = (
+    commits: GraphCommit[],
+    layout: ReturnType<typeof layoutCommits>,
+    fromRow: number,
+    fromLane: number,
+    toLane: number,
+  ) => {
     const nodeAt = new Set(layout.vertices.map((v) => `${v.row}:${v.lane}`));
     const edge = layout.edges.find((e) => e.fromRow === fromRow && e.fromLane === fromLane && e.toLane === toLane);
     expect(edge).toBeDefined();
-    return edgeCurveAt(nodeAt.has(`${edge!.toRow}:${edge!.toLane}`));
+    const from = commits[fromRow];
+    const fromVertex = layout.vertices[fromRow];
+    const fromIsMerge = !!from && from.parents.length > 1 && fromVertex?.lane === fromLane;
+    return edgeCurveAt(nodeAt.has(`${edge!.toRow}:${edge!.toLane}`), fromIsMerge);
   };
 
   it('peels off at the merge commit when opening a second-parent lane', () => {
-    const layout = layoutCommits([commit('m', ['a', 'b']), commit('a', []), commit('b', [])]);
-    expect(curveAt(layout, 0, 0, 1)).toBe('start');
+    const commits = [commit('m', ['a', 'b']), commit('a', []), commit('b', [])];
+    const layout = layoutCommits(commits);
+    expect(curveAt(commits, layout, 0, 0, 1)).toBe('start');
+  });
+
+  it('peels off at the merge when the second parent is the next commit', () => {
+    const commits = [commit('m', ['a', 'b']), commit('b', ['a']), commit('a', [])];
+    const layout = layoutCommits(commits);
+    expect(layout.vertices.map((v) => v.lane)).toEqual([0, 1, 0]);
+    expect(curveAt(commits, layout, 0, 0, 1)).toBe('start');
+    expect(curveAt(commits, layout, 1, 1, 0)).toBe('end');
   });
 
   it('joins at the destination when a branch merges back', () => {
-    const layout = layoutCommits([commit('p', ['z']), commit('q', ['z']), commit('z', [])]);
-    expect(curveAt(layout, 1, 1, 0)).toBe('end');
+    const commits = [commit('p', ['z']), commit('q', ['z']), commit('z', [])];
+    const layout = layoutCommits(commits);
+    expect(curveAt(commits, layout, 1, 1, 0)).toBe('end');
   });
 });
