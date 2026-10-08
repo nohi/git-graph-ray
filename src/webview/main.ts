@@ -543,6 +543,7 @@ function paint(): void {
   const more = snap.hasMore ? `<div class="row" id="more" style="position:absolute;top:${height}px">Load more</div>` : '';
   if (more) host.insertAdjacentHTML('beforeend', more);
   renderDetails();
+  syncHeaderScroll();
   syncGraphClip();
 }
 
@@ -833,6 +834,22 @@ function syncGraphClip(): void {
   clip.style.width = `${w}px`;
 }
 
+function syncHeaderScroll(): void {
+  const scroll = $('scroll');
+  const clip = $('cols-clip');
+  clip.style.width = `${scroll.clientWidth}px`;
+  $('head').style.transform = scroll.scrollLeft ? `translateX(${-scroll.scrollLeft}px)` : '';
+}
+
+function setColWidth(key: string, px: number): void {
+  const w = Math.max(48, px);
+  document.documentElement.style.setProperty(key, `${w}px`);
+  if (key === '--d') document.documentElement.style.setProperty('--d-min', `${w}px`);
+  if (key === '--g') userG = w;
+  syncHeaderScroll();
+  syncGraphClip();
+}
+
 function vis(cat: string, id: string): boolean {
   return snap?.menuVisibility[cat]?.[id] !== false;
 }
@@ -1054,10 +1071,7 @@ function bindColResize(): void {
     const startW = col.getBoundingClientRect().width;
     handle.setPointerCapture(ev.pointerId);
     const move = (e: PointerEvent) => {
-      const w = Math.max(48, startW + (e.clientX - startX));
-      if (key === '--g') userG = w;
-      document.documentElement.style.setProperty(key, `${w}px`);
-      syncGraphClip();
+      setColWidth(key, startW + (e.clientX - startX));
     };
     const up = () => {
       handle.removeEventListener('pointermove', move);
@@ -1079,9 +1093,7 @@ function autosizeColumn(cls: string): void {
   const key = COL_VAR[cls];
   if (!key) return;
   if (cls === 'graph') {
-    const w = Math.max(48, $('svg').getBoundingClientRect().width + 8);
-    userG = w;
-    document.documentElement.style.setProperty(key, `${w}px`);
+    setColWidth(key, $('svg').getBoundingClientRect().width + 8);
     paint();
     return;
   }
@@ -1100,7 +1112,7 @@ function autosizeColumn(cls: string): void {
     max = Math.max(max, Math.ceil(probe.scrollWidth));
   }
   probe.remove();
-  document.documentElement.style.setProperty(key, `${Math.max(48, max + 8)}px`);
+  setColWidth(key, max + 8);
 }
 
 function detailsMax(): number {
@@ -1466,6 +1478,7 @@ function bind(): void {
     applyDateFilter();
   });
   $('scroll').addEventListener('scroll', () => {
+    syncHeaderScroll();
     paint();
     if (pendingDateJump) return;
     if (snap?.hasMore && snap.config.loadMoreAutomatically) {
@@ -1679,16 +1692,21 @@ function bind(): void {
     else pop.showPopover?.();
   });
   window.addEventListener('keydown', onKey);
-  window.addEventListener('resize', repositionOpenAnchoredPopovers);
+  window.addEventListener('resize', () => {
+    syncHeaderScroll();
+    repositionOpenAnchoredPopovers();
+  });
   bindColResize();
   bindSashes();
   bindDialogs();
   const graphHead = document.querySelector('#head .h.graph');
   if (graphHead) new ResizeObserver(() => syncGraphClip()).observe(graphHead);
   new ResizeObserver(() => {
+    syncHeaderScroll();
     syncGraphClip();
     repositionOpenAnchoredPopovers();
   }).observe($('board'));
+  syncHeaderScroll();
 }
 
 function postRayCat(): void {

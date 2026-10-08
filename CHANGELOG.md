@@ -7,6 +7,11 @@
 - Add a Dates filter that hides loaded commits by author date or committer date. Uncheck a year or month; the graph line stays connected across the hidden commits.
 - Add a Create worktree dialog with a parent folder, folder name, destination preview, and a warning when the path is inside the main worktree.
 
+### Fixes
+
+- Show the Committer Date column at its own width when Committer is hidden, instead of collapsing it into the hidden column.
+- Make column resize set the column's actual width, and scroll horizontally when the columns do not fit.
+
 ## v0.1.4
 
 ### Fixes

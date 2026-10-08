@@ -28,7 +28,8 @@
   scrollbar-color: var(--hl) var(--bar);
   scrollbar-width: thin;
   --g: 8rem;
-  --d: minmax(12rem, 1fr);
+  --d-min: 12rem;
+  --d: minmax(var(--d-min), 1fr);
   --a: 11rem;
   --ad: 14rem;
   --c: 7.5rem;
@@ -743,24 +744,49 @@ dialog button:disabled {
   overflow: hidden;
 }
 
-.cols,
-.row {
-  display: grid;
-  grid-template-columns:
-    minmax(0, var(--g)) var(--d) minmax(0, var(--a)) minmax(0, var(--ad)) minmax(0, var(--c)) minmax(0, var(--cm)) minmax(0, var(--cd));
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-.cols {
-  position: sticky;
-  top: 0;
+.cols-clip {
   flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
   background: var(--bar);
   border-bottom: 1px solid var(--line);
   z-index: 3;
+}
+
+.cols,
+.row {
+  display: grid;
+  /* Fixed tracks so a drag sets the used width. minmax(0, var) was only a cap, so the handle did not move. */
+  grid-template-columns: var(--g) var(--d) var(--a) var(--ad) var(--c) var(--cm) var(--cd);
+  box-sizing: border-box;
+}
+
+.cols,
+.spacer {
+  width: max(100%, calc(var(--g) + var(--d-min) + var(--a) + var(--ad) + var(--c) + var(--cm) + var(--cd)));
+  min-width: 0;
+}
+
+/* Keep each cell in its own track when an earlier column is display:none. */
+.h.graph,
+.cell.graph { grid-column: 1; }
+.h.desc,
+.cell.desc { grid-column: 2; }
+.h.author,
+.cell.author { grid-column: 3; }
+.h.adate,
+.cell.adate { grid-column: 4; }
+.h.commit,
+.cell.commit { grid-column: 5; }
+.h.committer,
+.cell.committer { grid-column: 6; }
+.h.cdate,
+.cell.cdate { grid-column: 7; }
+
+.cols {
+  position: relative;
+  background: var(--bar);
 }
 
 .row {
@@ -825,7 +851,7 @@ dialog button:disabled {
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
-  overflow-x: hidden;
+  overflow-x: auto;
   overflow-y: auto;
   position: relative;
   scrollbar-gutter: stable;
@@ -833,8 +859,6 @@ dialog button:disabled {
 
 .spacer {
   position: relative;
-  width: 100%;
-  min-width: 0;
 }
 
 #rows {
