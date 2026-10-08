@@ -302,6 +302,7 @@ html {
 
 #pop-cols,
 #pop-refs,
+#pop-dates,
 #pop-settings,
 #pop-find,
 #pop-date,
@@ -312,6 +313,7 @@ html {
 }
 
 #pop-refs,
+#pop-dates,
 #pop-settings,
 #pop-find,
 #pop-date,
@@ -319,7 +321,8 @@ html {
   width: max-content;
 }
 
-#pop-refs {
+#pop-refs,
+#pop-dates {
   max-width: 24rem;
   min-width: 18rem;
 
@@ -356,12 +359,25 @@ html {
   }
 }
 
-#ref-list {
+#ref-list,
+#date-list {
   display: flex;
   flex-direction: column;
   max-height: 32.5em;
   overflow: auto;
   margin-top: 0.2rem;
+}
+
+.date-months {
+  display: flex;
+  flex-direction: column;
+  padding-left: 1.15rem;
+}
+
+.date-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 #pop-repo-help {
@@ -618,6 +634,11 @@ dialog button,
   cursor: pointer;
 }
 
+dialog button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .remote-del,
 .remote-act {
   padding: 0.2rem 0.8rem;
@@ -630,6 +651,10 @@ dialog button,
   p {
     margin: 0 0 0.5rem;
   }
+}
+
+#git-body:has(#wt-loc) {
+  width: min(36rem, 72vw);
 }
 
 #git-body {
@@ -655,6 +680,30 @@ dialog button,
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.wt-path {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  width: 100%;
+}
+
+#git-body .wt-path input:not([type='checkbox']):not([type='radio']) {
+  width: auto;
+  flex: 1;
+  min-width: 0;
+}
+
+.dlg-note {
+  margin: 0;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.dlg-warn {
+  margin: 0;
+  color: light-dark(#9a6700, #fbbf24);
 }
 
 .dlg-stack {
@@ -748,6 +797,7 @@ dialog button,
   &.head-commit:not(.sel):not(.cmp) {
     background: color-mix(in srgb, var(--hl) 10%, transparent);
   }
+
 }
 
 .h {
@@ -1027,7 +1077,7 @@ dialog button,
 .fv-btn[aria-pressed="true"],
 .settings button:hover:not(.btn-cancel),
 .date-jump button:hover,
-dialog button:hover:not(.btn-cancel),
+dialog button:hover:not(.btn-cancel):not(:disabled),
 .confirm-tip button:hover:not(.btn-cancel) {
   background: var(--hl-bg);
   border-color: var(--hl);
@@ -1343,7 +1393,7 @@ body {
       box-shadow: inset 3px 0 0 #5cff47, inset 0 0 14px color-mix(in srgb, #5cff47 28%, transparent);
     }
 
-    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-cancel) {
+    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-cancel):not(:disabled) {
       background: linear-gradient(90deg, color-mix(in srgb, #5cff47 34%, transparent), color-mix(in srgb, #00f6ff 16%, transparent));
       box-shadow: inset 3px 0 0 #5cff47, inset 0 0 14px color-mix(in srgb, #5cff47 28%, transparent);
       border-color: #5cff47;
@@ -1377,7 +1427,7 @@ body {
       animation: wave-sel 2.4s ease-in-out infinite;
     }
 
-    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-cancel) {
+    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-cancel):not(:disabled) {
       animation: wave-sel 2.4s ease-in-out infinite;
       border-color: #00f6ff;
     }
@@ -1407,7 +1457,7 @@ body {
       animation: cycle-sel 5s linear infinite;
     }
 
-    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-cancel) {
+    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-cancel):not(:disabled) {
       animation: cycle-sel 5s linear infinite;
       border-color: #ff3cf0;
     }
@@ -1440,7 +1490,7 @@ body {
       box-shadow: none;
     }
 
-    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-cancel) {
+    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-cancel):not(:disabled) {
       background-image: none;
       animation: cycle-sel 5s linear infinite;
       border-color: #ff3cf0;

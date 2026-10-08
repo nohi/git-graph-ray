@@ -30,6 +30,23 @@ const SHELL = `
         <button type="button" id="ref-ok">OK</button>
       </div>
     </div>
+    <button type="button" id="btn-dates" commandfor="pop-dates" command="toggle-popover" aria-pressed="false" title="Filter commits by date">Dates</button>
+    <div id="pop-dates" popover class="pop">
+      <search>
+        <input type="search" id="date-q" placeholder="Find a year or month" />
+      </search>
+      <div class="ref-toggles">
+        <label><input type="checkbox" id="date-show-all" checked /> Show all</label>
+      </div>
+      <div class="ref-tabs" role="tablist">
+        <button type="button" role="tab" id="date-tab-author" aria-selected="true">Author date</button>
+        <button type="button" role="tab" id="date-tab-committer" aria-selected="false">Committer date</button>
+      </div>
+      <div id="date-list"></div>
+      <div class="dlg-actions">
+        <button type="button" id="date-ok">OK</button>
+      </div>
+    </div>
     <button type="button" id="btn-fetch" hidden>Fetch</button>
     <button type="button" id="btn-head" title="Jump to HEAD">HEAD</button>
     <button type="button" id="btn-date" title="Go back to Date" aria-pressed="false">Go back to Date</button>
@@ -112,6 +129,7 @@ const SHELL = `
       <li>Fetch runs immediately. Prune and prune tags are in Repository Settings (and VS Code Settings).</li>
       <li>Double-click a branch or tag label to check it out.</li>
       <li>Ctrl/Cmd+click a second commit to compare.</li>
+      <li>Dates filters the graph by author date or committer date. Uncheck a year or month to hide those commits. Show all restores the tab you are on. OK applies the filter.</li>
     </ul>
     <div class="dlg-actions">
       <button type="button" id="help-settings">Open Settings</button>

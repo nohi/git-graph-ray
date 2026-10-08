@@ -16,6 +16,7 @@ import { loadRepoSettings, saveRepoSettings } from '../repoSettings';
 import { gitOk, gitMaybe } from '../git/runner';
 import { diffUri } from '../diff/provider';
 import { diffEditorSides } from '../../shared/diffSides';
+import { primaryWorktreePath } from '../../shared/worktreeDialog';
 import { graphHtml, nonce } from './html';
 import { isNoisyGitWatchPath, snapshotFingerprint } from './gitWatch';
 import { graphDocumentLabel } from '../../shared/graphUri';
@@ -548,7 +549,14 @@ class GraphSession {
           await vscode.env.openExternal(vscode.Uri.parse(msg.url));
           return;
         case 'pickFolder': {
-          const pick = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false });
+          const pick = await vscode.window.showOpenDialog({
+            canSelectFolders: true,
+            canSelectFiles: false,
+            canSelectMany: false,
+            title: 'Worktree location',
+            openLabel: 'Select location',
+            defaultUri: msg.defaultPath ? vscode.Uri.file(msg.defaultPath) : undefined,
+          });
           this.post({ type: 'picked', requestId: msg.requestId, path: pick?.[0]?.fsPath ?? null });
           return;
         }
@@ -592,6 +600,7 @@ class GraphSession {
       currentBranch: null as string | null,
     }));
     const trees = await listWorktrees(this.git(), this.repoPath).catch(() => []);
+    const mainWorktreePath = primaryWorktreePath(trees, this.repoPath);
     for (const t of trees) {
       refs.push({ kind: 'worktree', name: path.basename(t.path), hash: t.head, worktreePath: t.path });
     }
@@ -643,6 +652,7 @@ class GraphSession {
     return {
       repos,
       repoPath: this.repoPath,
+      mainWorktreePath,
       head,
       currentBranch,
       branches,

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.5
+
+### Features
+
+- Add a Dates filter that hides loaded commits by author date or committer date. Uncheck a year or month; the graph line stays connected across the hidden commits.
+- Add a Create worktree dialog with a parent folder, folder name, destination preview, and a warning when the path is inside the main worktree.
+
 ## v0.1.4
 
 ### Fixes

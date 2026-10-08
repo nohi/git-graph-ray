@@ -75,6 +75,7 @@ export function getViewConfig(gitVersion = ''): ViewConfig {
     compactFolders: c.get('commitDetailsView.fileView.fileTree.compactFolders') ?? true,
     fetchAvatars: c.get('repository.commits.fetchAvatars') ?? false,
     loadMoreAutomatically: c.get('repository.commits.loadMoreAutomatically') ?? true,
+    commitOrder: c.get('repository.commits.order') ?? defaults.commitOrder,
     branchSort: c.get<RefSort>('repository.refs.branchSort') ?? defaults.branchSort,
     tagSort: c.get<RefSort>('repository.refs.tagSort') ?? defaults.tagSort,
     refsListLimit: Math.max(1, c.get('repository.refs.listLimit') ?? defaults.refsListLimit),

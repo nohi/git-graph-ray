@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { layoutCommits } from './layout';
+import { foldBridgeEdges, layoutCommits } from './layout';
 import type { GraphCommit } from './types';
 
 function c(hash: string, parents: string[]): GraphCommit {
@@ -33,6 +33,21 @@ describe('layoutCommits', () => {
     const layout = layoutCommits([c('m', ['a', 'b']), c('a', ['c']), c('b', ['c']), c('c', [])]);
     expect(layout.vertices.map((v) => v.lane)).toEqual([0, 0, 1, 0]);
     expect(layout.edges.some((e) => e.fromRow === 1 && e.fromLane === 1 && e.toLane === 1 && e.toRow === 2)).toBe(true);
+  });
+
+  it('draws a straight lane across a hidden commit and drops a branch that ends there', () => {
+    const linear = layoutCommits([c('a', ['b']), c('b', ['c']), c('c', [])]);
+    expect(foldBridgeEdges(linear, 0, 2)).toEqual([{ fromLane: 0, toLane: 0, lane: 0, committed: true }]);
+
+    const ended = layoutCommits([c('m', ['a', 'b']), c('a', ['c']), c('b', []), c('c', [])]);
+    expect(foldBridgeEdges(ended, 0, 3)).toEqual([{ fromLane: 0, toLane: 0, lane: 0, committed: true }]);
+
+    const passing = layoutCommits([c('m', ['a', 'b']), c('a', ['c']), c('b', ['c']), c('c', [])]);
+    const side = foldBridgeEdges(passing, 0, 2);
+    expect(side).toEqual([
+      { fromLane: 0, toLane: 0, lane: 0, committed: true },
+      { fromLane: 0, toLane: 1, lane: 1, committed: true },
+    ]);
   });
 
   it('merges extra lanes that were waiting for the same commit', () => {

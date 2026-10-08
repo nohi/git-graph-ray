@@ -45,6 +45,7 @@ function snap(over: Partial<GraphSnapshot> = {}): GraphSnapshot {
   return {
     repos: [],
     repoPath: '/repo',
+    mainWorktreePath: '/repo',
     head: 'aaa',
     currentBranch: 'main',
     branches: ['main'],

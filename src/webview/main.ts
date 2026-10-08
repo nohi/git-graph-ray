@@ -1,11 +1,34 @@
 import { firstCommitIndexForDate, formatDate, localDayBounds } from '../shared/date';
 import { applyEmoji, fillPrUrl, formatCommitMessageHtml } from '../shared/issueLinks';
-import { ancestorHashes, colourForLane, DETAILS_MAX, DETAILS_MIN, edgeCurveAt, edgePath, estimateDetailsHeight, gitAtLeast, graphWidth, laneX, rayStreamGradient, RAY_STREAM_PERIOD, ROW, rowY, scrollNeededToRevealDetails, shortcutMatches } from '../shared/graph';
-import { layoutCommits } from '../shared/layout';
+import { ancestorHashes, colourForLane, DETAILS_MAX, DETAILS_MIN, edgeCurveAt, edgePath, estimateDetailsHeight, gitAtLeast, graphWidth, laneX, rayStreamGradient, RAY_STREAM_PERIOD, ROW, rowTop, rowY, scrollNeededToRevealDetails, shortcutMatches } from '../shared/graph';
+import {
+  commitHidden,
+  copyDateFilter,
+  dateBuckets,
+  emptyDateFilter,
+  filterBuckets,
+  hiddenGaps,
+  hideAllMonths,
+  hideMonth,
+  hideYear,
+  revealCommitMonths,
+  showAllMonths,
+  visibleCommitIndices,
+  yearCheck,
+  type DateField,
+  type DateFilter,
+} from '../shared/dateFilter';
+import { foldBridgeEdges, layoutCommits, type Layout } from '../shared/layout';
 import { buildFileTree } from '../shared/fileTree';
 import { decideNamedRemoteCheckout, startCheckoutFromRef } from '../shared/checkout';
 import { applySpaceSubstitution, defaultRepoSettings, type RepoSettings } from '../shared/dialogs';
 import { parsePushMode, pushBranchDialogHtml } from '../shared/pushDialog';
+import {
+  defaultWorktreeLocation,
+  suggestedWorktreeFolder,
+  worktreeDialogHtml,
+  worktreeFormState,
+} from '../shared/worktreeDialog';
 import { detailsMetaRows, commitMessageText, type DetailsMetaRow } from '../shared/detailsMeta';
 import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg, groupChipRefs, remoteShortName, type FilterTab } from '../shared/refsList';
 import { compileFindRegex, formatFindCount, highlightFind, matchCommit } from '../shared/commitFind';
@@ -43,6 +66,9 @@ let ctxRef: GraphRef | null = null;
 let ctxCommit: GraphCommit | null = null;
 let ctxFile: { path: string; oldPath?: string } | null = null;
 let pendingDateJump: { day: string; field: 'author' | 'committer' } | null = null;
+let dateFilter: DateFilter = emptyDateFilter();
+let dateDraft: DateFilter | null = null;
+let dateTab: DateField = 'author';
 let lastPointer = { x: 24, y: 24 };
 
 type El = HTMLElement & HTMLInputElement & HTMLSelectElement & { showPopover?: () => void; hidePopover?: () => void };
@@ -60,6 +86,11 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
   const m = ev.data;
   if (m.type === 'snapshot') {
     setGitBusy(false);
+    if (snap && m.payload.repoPath !== snap.repoPath) {
+      dateFilter = emptyDateFilter();
+      dateDraft = null;
+    }
+    pendingDateJump = null;
     snap = m.payload;
     applySnap();
   } else if (m.type === 'patch' && snap) {
@@ -70,6 +101,7 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
     snap.commits = [...snap.commits, ...m.commits];
     snap.hasMore = m.hasMore;
     paint();
+    fillDates();
     continueDateJump();
   } else if (m.type === 'info') {
     details = m.payload;
@@ -108,7 +140,10 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
     scrollToHash(m.selected);
   } else if (m.type === 'picked') {
     const input = document.querySelector<HTMLInputElement>(`[data-pick="${m.requestId}"]`);
-    if (input) input.value = m.path ?? '';
+    if (input) {
+      input.value = m.path ?? '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   }
 });
 
@@ -129,6 +164,7 @@ function applySnap(): void {
   fillRepos();
   if (!$('pop-refs').matches(':popover-open')) filterDraft = null;
   fillRefs();
+  fillDates();
   $('btn-fetch').hidden = snap.remotes.length === 0;
   $('s-remotes').checked = snap.repoSettings.showRemotes ?? snap.config.showRemoteBranches;
   $('s-stashes').checked = snap.repoSettings.showStashes ?? snap.config.showStashes;
@@ -220,6 +256,41 @@ function fillRefs(): void {
   list.scrollTop = top;
 }
 
+function fillDates(): void {
+  if (!snap) return;
+  const draft = dateDraft ?? dateFilter;
+  const hidden = draft[dateTab];
+  const buckets = filterBuckets(dateBuckets(snap.commits, dateTab), $('date-q').value);
+  $('date-show-all').checked = hidden.size === 0;
+  $('date-tab-author').setAttribute('aria-selected', String(dateTab === 'author'));
+  $('date-tab-committer').setAttribute('aria-selected', String(dateTab === 'committer'));
+  const list = $('date-list');
+  const top = list.scrollTop;
+  list.innerHTML = buckets
+    .map((year) => {
+      const state = yearCheck(year, draft, dateTab);
+      const months = year.months
+        .map((month) => {
+          const checked = !hidden.has(month.key);
+          return `<label class="ref-item date-item"><input type="checkbox" data-month="${esc(month.key)}" ${checked ? 'checked' : ''}/><span class="ref-name">${String(month.month).padStart(2, '0')}</span><span class="date-count">${month.count.toLocaleString('en-US')}</span></label>`;
+        })
+        .join('');
+      return `<div class="date-year"><label class="ref-item date-item"><input type="checkbox" data-year="${year.year}" ${state === 'checked' ? 'checked' : ''}/><span class="ref-name">${year.year}</span><span class="date-count">${year.count.toLocaleString('en-US')}</span></label><div class="date-months">${months}</div></div>`;
+    })
+    .join('');
+  for (const box of list.querySelectorAll<HTMLInputElement>('[data-year]')) {
+    const year = buckets.find((item) => String(item.year) === box.dataset.year);
+    box.indeterminate = !!year && yearCheck(year, draft, dateTab) === 'mixed';
+  }
+  list.scrollTop = top;
+}
+
+function applyDateFilter(): void {
+  if (dateDraft) dateFilter = copyDateFilter(dateDraft);
+  $('pop-dates').hidePopover?.();
+  paint();
+}
+
 function fillRemotes(): void {
   if (!snap) return;
   $('remote-list').innerHTML = snap.remotes
@@ -309,7 +380,7 @@ function ensureDetailsVisible(): void {
   if (!snap || !details || snap.config.detailsLocation === 'Docked to Bottom') return;
   const anchor = detailsAnchor();
   if (!anchor) return;
-  const idx = snap.commits.findIndex((c) => c.hash === anchor);
+  const idx = displayIndexForHash(anchor);
   if (idx < 0) return;
   const scroll = $('scroll');
   const inline = document.getElementById('inline-details');
@@ -325,66 +396,130 @@ function ensureDetailsVisible(): void {
   if (next != null) scroll.scrollTop = next;
 }
 
+function shownCommits(): number[] {
+  if (!snap) return [];
+  return visibleCommitIndices(snap.commits, dateFilter);
+}
+
+let layoutCache: { commits: GraphCommit[]; layout: Layout } | null = null;
+
+function fullLayout(): Layout {
+  if (!snap) return { vertices: [], edges: [], maxLanes: 1 };
+  if (layoutCache?.commits === snap.commits) return layoutCache.layout;
+  const layout = layoutCommits(snap.commits);
+  layoutCache = { commits: snap.commits, layout };
+  return layout;
+}
+
+function displayIndexForCommit(commitIndex: number): number {
+  if (commitIndex < 0) return -1;
+  return shownCommits().indexOf(commitIndex);
+}
+
+function displayIndexForHash(hash: string): number {
+  if (!snap) return -1;
+  return displayIndexForCommit(snap.commits.findIndex((commit) => commit.hash === hash));
+}
+
+function detailsGap(rows: number[]): { after: number; height: number } | null {
+  if (!snap || !details || snap.config.detailsLocation !== 'Inline') return null;
+  const anchor = detailsAnchor();
+  if (!anchor) return null;
+  const commitIndex = snap.commits.findIndex((commit) => commit.hash === anchor);
+  const after = rows.indexOf(commitIndex);
+  if (after < 0) return null;
+  return { after, height: currentDetailsHeight() };
+}
+
 function paint(): void {
   if (!snap) return;
-  const layout = layoutCommits(snap.commits);
-  const anchor = detailsAnchor();
-  const gap =
-    details && snap.config.detailsLocation === 'Inline' && anchor
-      ? { after: snap.commits.findIndex((c) => c.hash === anchor), height: currentDetailsHeight() }
-      : null;
-  const height = snap.commits.length * ROW + (gap ? gap.height : 0);
+  const rows = shownCommits();
+  const gap = detailsGap(rows);
+  const height = rows.length * ROW + (gap ? gap.height : 0);
   $('spacer').style.height = `${height}px`;
   const svg = $('svg');
+  const layout = fullLayout();
+  const ancestors = snap.config.muteNonAncestorsOfHead ? ancestorHashes(snap.commits, snap.head) : null;
+  const displayOf = new Map(rows.map((commitIndex, index) => [commitIndex, index]));
+  const nodeAt = new Set(rows.map((commitIndex, index) => `${index}:${layout.vertices[commitIndex]?.lane ?? ''}`));
+  const pathD: string[] = [];
+  const drawEdge = (
+    fromDisplay: number,
+    toDisplay: number,
+    fromLane: number,
+    toLane: number,
+    lane: number,
+    committed: boolean,
+    fromCommitIndex: number,
+  ): void => {
+    const colour = colourForLane(lane, snap!.config.graphColours, snap!.config.theme);
+    const y1 = rowY(fromDisplay, gap);
+    const y2 = rowY(toDisplay, gap);
+    const from = snap!.commits[fromCommitIndex];
+    const fromVertex = layout.vertices[fromCommitIndex];
+    const fromIsMerge = !!from && from.parents.length > 1 && fromVertex?.lane === fromLane;
+    const d = edgePath(
+      laneX(fromLane),
+      y1,
+      laneX(toLane),
+      y2,
+      snap!.config.graphStyle,
+      edgeCurveAt(nodeAt.has(`${toDisplay}:${toLane}`), fromIsMerge),
+    );
+    pathD.push(
+      `<path d="${d}" fill="none" stroke="${colour}" stroke-width="2" stroke-linecap="round" ${committed ? '' : 'stroke-dasharray="4 3"'} />`,
+    );
+  };
+  for (const edge of layout.edges) {
+    const fromDisplay = displayOf.get(edge.fromRow);
+    const toDisplay = displayOf.get(edge.toRow);
+    if (fromDisplay == null || toDisplay == null) continue;
+    drawEdge(fromDisplay, toDisplay, edge.fromLane, edge.toLane, edge.lane, edge.committed, edge.fromRow);
+  }
+  for (const span of hiddenGaps(rows)) {
+    const fromDisplay = displayOf.get(span.above);
+    const toDisplay = displayOf.get(span.below);
+    if (fromDisplay == null || toDisplay == null) continue;
+    for (const edge of foldBridgeEdges(layout, span.above, span.below)) {
+      drawEdge(fromDisplay, toDisplay, edge.fromLane, edge.toLane, edge.lane, edge.committed, span.above);
+    }
+  }
+  for (const commitIndex of rows) {
+    const vertex = layout.vertices[commitIndex];
+    if (!vertex) continue;
+    const displayRow = displayOf.get(commitIndex)!;
+    const commit = snap.commits[commitIndex];
+    const colour = colourForLane(vertex.lane, snap.config.graphColours, snap.config.theme);
+    const open =
+      (commit?.hash === UNCOMMITTED && snap.config.uncommittedChanges.startsWith('Open Circle at the Uncommitted')) ||
+      (commit?.hash === snap.head && (snap.config.uncommittedChanges.includes('Checked Out') || !snap.currentBranch));
+    const isHead = commit?.hash === snap.head && commit.hash !== UNCOMMITTED;
+    pathD.push(
+      `<circle cx="${laneX(vertex.lane)}" cy="${rowY(displayRow, gap)}" r="${isHead ? 5.5 : 4}" fill="${open ? 'none' : colour}" stroke="${colour}" />`,
+    );
+    if (isHead) {
+      pathD.push(
+        `<circle cx="${laneX(vertex.lane)}" cy="${rowY(displayRow, gap)}" r="8" fill="none" stroke="${colour}" stroke-opacity="0.35" />`,
+      );
+    }
+  }
   svg.setAttribute('width', String(graphWidth(layout.maxLanes)));
   svg.setAttribute('height', String(height));
   if (userG != null) document.documentElement.style.setProperty('--g', `${userG}px`);
   else document.documentElement.style.removeProperty('--g');
-  const ancestors = snap.config.muteNonAncestorsOfHead ? ancestorHashes(snap.commits, snap.head) : null;
-  const pathD: string[] = [];
-  const nodeAt = new Set(layout.vertices.map((v) => `${v.row}:${v.lane}`));
-  for (const e of layout.edges) {
-    const colour = colourForLane(e.lane, snap.config.graphColours, snap.config.theme);
-    const toRow = Math.min(e.toRow, snap.commits.length - 1);
-    const x1 = laneX(e.fromLane);
-    const y1 = rowY(e.fromRow, gap);
-    const x2 = laneX(e.toLane);
-    const y2 = rowY(toRow, gap);
-    const from = snap.commits[e.fromRow];
-    const fromVertex = layout.vertices[e.fromRow];
-    const fromIsMerge = !!from && from.parents.length > 1 && fromVertex?.lane === e.fromLane;
-    const d = edgePath(x1, y1, x2, y2, snap.config.graphStyle, edgeCurveAt(nodeAt.has(`${toRow}:${e.toLane}`), fromIsMerge));
-    pathD.push(`<path d="${d}" fill="none" stroke="${colour}" stroke-width="2" stroke-linecap="round" ${e.committed ? '' : 'stroke-dasharray="4 3"'} />`);
-  }
-  for (const v of layout.vertices) {
-    const c = snap.commits[v.row];
-    const colour = colourForLane(v.lane, snap.config.graphColours, snap.config.theme);
-    const open =
-      (c?.hash === UNCOMMITTED && snap.config.uncommittedChanges.startsWith('Open Circle at the Uncommitted')) ||
-      (c?.hash === snap.head && (snap.config.uncommittedChanges.includes('Checked Out') || !snap.currentBranch));
-    const isHead = c?.hash === snap.head && c.hash !== UNCOMMITTED;
-    pathD.push(
-      `<circle cx="${laneX(v.lane)}" cy="${rowY(v.row, gap)}" r="${isHead ? 5.5 : 4}" fill="${open ? 'none' : colour}" stroke="${colour}" />`,
-    );
-    if (isHead) {
-      pathD.push(
-        `<circle cx="${laneX(v.lane)}" cy="${rowY(v.row, gap)}" r="8" fill="none" stroke="${colour}" stroke-opacity="0.35" />`,
-      );
-    }
-  }
   paintGraphSvg(svg, pathD.join(''), snap.config.theme === 'Ray Stream', height);
   const scroll = $('scroll');
   const viewTop = scroll.scrollTop - 8 * ROW;
   const viewBot = scroll.scrollTop + scroll.clientHeight + 16 * ROW;
   let start = 0;
-  while (start < snap.commits.length && start * ROW + (gap && start > gap.after ? gap.height : 0) + ROW < viewTop) start++;
+  while (start < rows.length && rowTop(start, gap) + ROW < viewTop) start++;
   let end = start;
-  while (end < snap.commits.length && end * ROW + (gap && end > gap.after ? gap.height : 0) < viewBot) end++;
-  const rows = $('rows');
-  rows.innerHTML = '';
+  while (end < rows.length && rowTop(end, gap) < viewBot) end++;
+  const host = $('rows');
+  host.innerHTML = '';
   for (let i = start; i < end; i++) {
-    const c = snap.commits[i]!;
-    const v = layout.vertices[i];
+    const commitIndex = rows[i]!;
+    const c = snap.commits[commitIndex]!;
     const muteMerge = snap.config.muteMergeCommits && c.parents.length > 1;
     const muteRow = Boolean(ancestors && c.hash !== UNCOMMITTED && !ancestors.has(c.hash));
     const el = document.createElement('div');
@@ -392,7 +527,7 @@ function paint(): void {
     el.style.position = 'absolute';
     el.style.left = '0';
     el.style.right = '0';
-    el.style.top = `${i * ROW + (gap && i > gap.after ? gap.height : 0)}px`;
+    el.style.top = `${rowTop(i, gap)}px`;
     el.dataset.hash = c.hash;
     const avatar = faces.get(c.authorEmail);
     const desc = `${chips(c)}<span class="subj">${subjectHtml(c.subject)}</span>`;
@@ -403,11 +538,10 @@ function paint(): void {
       <div class="cell commit">${findMark(c.hash.slice(0, 7))}</div>
       <div class="cell committer">${findMark(c.committerName)}</div>
       <div class="cell cdate">${esc(formatDate(c.committerDate, snap.config.dateFormat))}</div>`;
-    void v;
-    rows.append(el);
+    host.append(el);
   }
   const more = snap.hasMore ? `<div class="row" id="more" style="position:absolute;top:${height}px">Load more</div>` : '';
-  if (more) rows.insertAdjacentHTML('beforeend', more);
+  if (more) host.insertAdjacentHTML('beforeend', more);
   renderDetails();
   syncGraphClip();
 }
@@ -461,7 +595,7 @@ function renderDetails(): void {
     inline.innerHTML = '';
     return;
   }
-  const idx = snap.commits.findIndex((c) => c.hash === anchor);
+  const idx = displayIndexForHash(anchor);
   if (idx < 0) {
     inline.hidden = true;
     inline.innerHTML = '';
@@ -600,7 +734,16 @@ function refreshFileView(): void {
 function scrollToHash(hash: string): void {
   if (!snap) return;
   const i = snap.commits.findIndex((c) => c.hash === hash);
-  if (i >= 0) $('scroll').scrollTop = i * ROW - 80;
+  if (i < 0) return;
+  const commit = snap.commits[i]!;
+  if (commitHidden(commit, dateFilter)) {
+    dateFilter = revealCommitMonths(dateFilter, commit);
+    if (dateDraft) dateDraft = revealCommitMonths(dateDraft, commit);
+    fillDates();
+  }
+  paint();
+  const row = displayIndexForCommit(i);
+  if (row >= 0) $('scroll').scrollTop = row * ROW - 80;
 }
 
 function todayInputValue(): string {
@@ -625,8 +768,8 @@ function continueDateJump(): void {
     UNCOMMITTED,
   );
   if (hit.index >= 0) {
-    scrollToHash(snap.commits[hit.index]!.hash);
     pendingDateJump = null;
+    scrollToHash(snap.commits[hit.index]!.hash);
     $('pop-date').hidePopover?.();
     return;
   }
@@ -808,6 +951,7 @@ function bindPopoverAnchor(btnId: string, popId: string, opts: AnchoredPopoverOp
 
 const ANCHOR_POPS: Array<[string, string, AnchoredPopoverOpts?]> = [
   ['btn-refs', 'pop-refs'],
+  ['btn-dates', 'pop-dates'],
   ['btn-settings', 'pop-settings'],
   ['btn-find', 'pop-find'],
   ['btn-date', 'pop-date'],
@@ -825,6 +969,20 @@ function openCtx(html: string, x: number, y: number): void {
   const pop = $('pop-ctx');
   pop.innerHTML = html;
   placePopover(pop, x, y);
+}
+
+function syncWorktreeForm(): void {
+  const loc = document.getElementById('wt-loc') as HTMLInputElement | null;
+  const name = document.getElementById('wt-name') as HTMLInputElement | null;
+  const preview = document.getElementById('wt-preview');
+  const warn = document.getElementById('wt-warn');
+  if (!loc || !name || !preview || !warn || !snap) return;
+  const main = snap.mainWorktreePath || snap.repoPath;
+  const state = worktreeFormState(loc.value, name.value, main);
+  preview.textContent = state.canCreate ? `Create at ${state.destination}` : 'Enter a folder name.';
+  warn.hidden = !state.insideMain;
+  warn.textContent = state.warning;
+  $('git-ok').disabled = !state.canCreate;
 }
 
 function gitDialog(title: string, body: string, onOk: () => void): void {
@@ -986,7 +1144,11 @@ function bindSashes(): void {
         const inline = document.getElementById('inline-details');
         if (inline && !inline.hidden) {
           inline.style.height = `${detailsH}px`;
-          if (snap) $('spacer').style.height = `${snap.commits.length * ROW + detailsH}px`;
+          if (snap) {
+            const rows = shownCommits();
+            const gap = detailsGap(rows);
+            $('spacer').style.height = `${rows.length * ROW + (gap ? gap.height : 0)}px`;
+          }
         }
         const dock = document.getElementById('dock');
         if (dock && !dock.hidden) dock.style.height = `${detailsH}px`;
@@ -1025,6 +1187,9 @@ function bindDialogs(): void {
     if (!submitter || submitter.id === 'git-ok' || submitter.value === 'ok') ok?.();
   });
   $('git-body').addEventListener('change', syncGitOkFromRemotes);
+  $('git-body').addEventListener('input', () => {
+    if (document.getElementById('wt-name')) syncWorktreeForm();
+  });
   $('git-cancel').addEventListener('click', () => {
     dialogOk = null;
     dlg.close();
@@ -1158,6 +1323,7 @@ function onDetailsClick(ev: MouseEvent): boolean {
     selected = parent.dataset.parent;
     compare = undefined;
     post({ type: 'openRow', hash: selected });
+    if (displayIndexForHash(selected) < 0) scrollToHash(selected);
     return true;
   }
   return false;
@@ -1255,8 +1421,53 @@ function bind(): void {
     }
     filterDraft = null;
   });
+  $('pop-dates').addEventListener('toggle', (ev) => {
+    if ((ev as ToggleEvent).newState === 'open') {
+      dateDraft = copyDateFilter(dateFilter);
+      $('date-q').value = '';
+      fillDates();
+      $('date-q').focus();
+      return;
+    }
+    dateDraft = null;
+  });
+  for (const field of ['author', 'committer'] as const) {
+    $(`date-tab-${field}`).addEventListener('click', () => {
+      dateTab = field;
+      if (!dateDraft) dateDraft = copyDateFilter(dateFilter);
+      fillDates();
+      $('date-list').scrollTop = 0;
+    });
+  }
+  $('date-q').addEventListener('input', () => fillDates());
+  $('date-show-all').addEventListener('change', (e) => {
+    if (!snap) return;
+    if (!dateDraft) dateDraft = copyDateFilter(dateFilter);
+    const buckets = dateBuckets(snap.commits, dateTab);
+    dateDraft = (e.target as HTMLInputElement).checked ? showAllMonths(dateDraft, dateTab) : hideAllMonths(dateDraft, dateTab, buckets);
+    fillDates();
+  });
+  $('date-list').addEventListener('change', (e) => {
+    const box = e.target as HTMLInputElement;
+    if (!snap || (!box.dataset.month && !box.dataset.year)) return;
+    if (!dateDraft) dateDraft = copyDateFilter(dateFilter);
+    const shown = filterBuckets(dateBuckets(snap.commits, dateTab), $('date-q').value);
+    if (box.dataset.month) dateDraft = hideMonth(dateDraft, dateTab, box.dataset.month, !box.checked);
+    else {
+      const year = shown.find((item) => String(item.year) === box.dataset.year);
+      if (year) dateDraft = hideYear(dateDraft, dateTab, year, !box.checked);
+    }
+    fillDates();
+  });
+  $('date-ok').addEventListener('click', applyDateFilter);
+  $('pop-dates').addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter' || (ev.target as HTMLElement).id === 'date-ok') return;
+    ev.preventDefault();
+    applyDateFilter();
+  });
   $('scroll').addEventListener('scroll', () => {
     paint();
+    if (pendingDateJump) return;
     if (snap?.hasMore && snap.config.loadMoreAutomatically) {
       const s = $('scroll');
       if (s.scrollTop + s.clientHeight > s.scrollHeight - 80) post({ type: 'more' });
@@ -1439,6 +1650,7 @@ function bind(): void {
     );
   });
   bindPopoverAnchor('btn-refs', 'pop-refs');
+  bindPopoverAnchor('btn-dates', 'pop-dates');
   bindPopoverAnchor('btn-settings', 'pop-settings');
   bindPopoverAnchor('btn-find', 'pop-find');
   bindPopoverAnchor('btn-date', 'pop-date');
@@ -1602,6 +1814,7 @@ function onKey(ev: KeyboardEvent): void {
     $('pop-find').hidePopover?.();
     $('pop-date').hidePopover?.();
     $('pop-refs').hidePopover?.();
+    $('pop-dates').hidePopover?.();
     $('pop-repo-help').hidePopover?.();
     if (details) {
       details = null;
@@ -1623,8 +1836,17 @@ function onKey(ev: KeyboardEvent): void {
     if ((ev.target as HTMLElement).closest('input, textarea, select')) return;
     ev.preventDefault();
     const dir = ev.key === 'ArrowDown' ? 1 : -1;
-    const i = snap.commits.findIndex((c) => c.hash === selected);
-    const next = snap.commits[i + dir];
+    const commitIndex = snap.commits.findIndex((c) => c.hash === selected);
+    const visible = shownCommits();
+    let pos = visible.indexOf(commitIndex);
+    let nextIndex: number | undefined;
+    if (pos < 0) {
+      nextIndex = dir > 0 ? visible.find((index) => index > commitIndex) : [...visible].reverse().find((index) => index < commitIndex);
+    } else {
+      nextIndex = visible[pos + dir];
+    }
+    if (nextIndex == null) return;
+    const next = snap.commits[nextIndex];
     if (!next) return;
     selected = next.hash;
     compare = undefined;
@@ -1768,14 +1990,15 @@ function menuCommit(hash: string, x: number, y: number): void {
     return;
   }
   openCtx(
-    menuHtml(
+    `${menuHtml(
       commitMenuEntries({
         canReword: gitAtLeast(snap.config.gitMajorMinor, 2, 54),
         isMerge: c.parents.length > 1,
         visible: (id) => vis('commit', id),
       }),
-    ),
-    x, y,
+    )}`,
+    x,
+    y,
   );
 }
 
@@ -1872,9 +2095,31 @@ function onMenu(ev: Event): void {
     if (id === 'c-rbi') act({ kind: 'rebase', ref: c.hash, ignoreDate: false, interactive: true });
     if (id === 'c-rs') gitDialog('Reset', 'Reset current branch?', () => act({ kind: 'reset', hash: c.hash, mode: d.resetBranchMode.toLowerCase() as 'soft' | 'mixed' | 'hard' }));
     if (id === 'c-wt') {
+      const main = snap.mainWorktreePath || snap.repoPath;
       const rid = 'p' + Date.now();
-      gitDialog('Worktree', `<input data-pick="${rid}" id="wp" /><button type="button" id="pk">Browse</button>`, () => act({ kind: 'worktreeAdd', hash: c.hash, path: (document.getElementById('wp') as HTMLInputElement).value }));
-      document.getElementById('pk')?.addEventListener('click', () => post({ type: 'pickFolder', requestId: rid }));
+      gitDialog(
+        'Create worktree',
+        worktreeDialogHtml({
+          location: defaultWorktreeLocation(main),
+          name: suggestedWorktreeFolder(c.refs, c.hash, snap.currentBranch),
+          requestId: rid,
+        }),
+        () => {
+          const loc = (document.getElementById('wt-loc') as HTMLInputElement).value;
+          const folder = (document.getElementById('wt-name') as HTMLInputElement).value;
+          const state = worktreeFormState(loc, folder, main);
+          if (!state.canCreate) return;
+          act({ kind: 'worktreeAdd', hash: c.hash, path: state.destination });
+        },
+      );
+      document.getElementById('wt-browse')?.addEventListener('click', () => {
+        const loc = (document.getElementById('wt-loc') as HTMLInputElement).value;
+        post({ type: 'pickFolder', requestId: rid, defaultPath: loc });
+      });
+      syncWorktreeForm();
+      const nameInput = document.getElementById('wt-name') as HTMLInputElement | null;
+      nameInput?.focus();
+      nameInput?.select();
     }
     if (id === 'c-rw') gitDialog('Reword', `<textarea id="msg">${esc(c.subject)}</textarea>`, () => act({ kind: 'reword', hash: c.hash, message: (document.getElementById('msg') as HTMLTextAreaElement).value }));
   }

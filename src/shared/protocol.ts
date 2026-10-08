@@ -18,6 +18,8 @@ export type HostToView =
 export type GraphSnapshot = {
   repos: RepoInfo[];
   repoPath: string;
+  /** Primary worktree. New worktrees default to a sibling of this path. */
+  mainWorktreePath: string;
   head: string | null;
   currentBranch: string | null;
   branches: string[];
@@ -64,7 +66,7 @@ export type ViewToHost =
   | { type: 'editRemote'; name: string; newName: string; fetchUrl: string; pushUrl?: string }
   | { type: 'deleteRemote'; name: string }
   | { type: 'openUrl'; url: string }
-  | { type: 'pickFolder'; requestId: string }
+  | { type: 'pickFolder'; requestId: string; defaultPath?: string }
   | { type: 'faces'; emails: string[] };
 
 export type SquashMessageFormat = 'Default' | 'Git SQUASH_MSG';

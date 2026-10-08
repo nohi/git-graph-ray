@@ -132,6 +132,19 @@ describe('scrollNeededToRevealDetails', () => {
       }),
     ).toBe(280);
   });
+
+  it('keeps the extra space above the first row in view', () => {
+    expect(
+      scrollNeededToRevealDetails({
+        rowIndex: 20,
+        rowHeight: 28,
+        detailsHeight: 180,
+        scrollTop: 0,
+        viewHeight: 400,
+        origin: 14,
+      }),
+    ).toBe(386);
+  });
 });
 
 describe('estimateDetailsHeight', () => {

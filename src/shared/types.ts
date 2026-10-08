@@ -129,6 +129,8 @@ export type ViewConfig = {
   compactFolders: boolean;
   fetchAvatars: boolean;
   loadMoreAutomatically: boolean;
+  /** `repository.commits.order`. */
+  commitOrder: 'date' | 'author-date' | 'topo';
   branchSort: RefSort;
   tagSort: RefSort;
   refsListLimit: number;

@@ -58,6 +58,7 @@ export function defaultViewConfig(): ViewConfig {
     compactFolders: true,
     fetchAvatars: false,
     loadMoreAutomatically: true,
+    commitOrder: 'date',
     branchSort: 'version:refname',
     tagSort: '-version:refname',
     refsListLimit: 200,
@@ -197,13 +198,16 @@ export function scrollNeededToRevealDetails(opts: {
   detailsHeight: number;
   scrollTop: number;
   viewHeight: number;
+  /** Extra space above the first row. */
+  origin?: number;
   pad?: number;
 }): number | null {
   const pad = opts.pad ?? 4;
-  const panelBottom = (opts.rowIndex + 1) * opts.rowHeight + opts.detailsHeight;
+  const origin = opts.origin ?? 0;
+  const panelBottom = origin + (opts.rowIndex + 1) * opts.rowHeight + opts.detailsHeight;
   const viewBottom = opts.scrollTop + opts.viewHeight;
   if (panelBottom <= viewBottom - pad) return null;
-  const rowTop = opts.rowIndex * opts.rowHeight;
+  const rowTop = origin + opts.rowIndex * opts.rowHeight;
   if (opts.detailsHeight + opts.rowHeight > opts.viewHeight) return rowTop;
   return Math.max(0, panelBottom - opts.viewHeight + pad);
 }
