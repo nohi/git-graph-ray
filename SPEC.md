@@ -123,7 +123,7 @@
 - `repository.onLoad.showCheckedOutBranch` / `showSpecificBranches` / `scrollToHead`
 - `referenceLabels.alignment` / `combineLocalAndRemoteBranchLabels`
 - `repository.showCommitsOnlyReferencedByTags`
-- `repository.commits.showSignatureStatus`
+- 一覧の Signature 列は有無と種類のみ。詳細は Committer Date 直下の折りたたみ行で、検証結果（status / signer / key / fingerprint / primary / trust）に加え、SSH は鍵の種類・ハッシュ・名前空間、GPG は署名時刻・公開鍵アルゴリズム・ハッシュ・鍵と署名の有効期限を表示する
 - `repository.sign.commits` / `sign.tags`
 - `fileEncoding`
 - `contextMenuActionsVisibility`

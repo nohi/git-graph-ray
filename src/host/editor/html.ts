@@ -96,6 +96,7 @@ const SHELL = `
       <div class="h commit">Commit<div class="col-resizer" data-col="commit"></div></div>
       <div class="h committer">Committer<div class="col-resizer" data-col="committer"></div></div>
       <div class="h cdate">Committer Date<div class="col-resizer" data-col="cdate"></div></div>
+      <div class="h signature">Signature<div class="col-resizer" data-col="signature"></div></div>
     </div>
   </div>
   <div class="scroll" id="scroll">
@@ -113,6 +114,7 @@ const SHELL = `
   <label><input type="checkbox" data-col="Commit" /> Commit</label>
   <label><input type="checkbox" data-col="Committer" /> Committer</label>
   <label><input type="checkbox" data-col="CommitterDate" /> Committer Date</label>
+  <label><input type="checkbox" data-col="Signature" /> Signature</label>
 </div>
 <div id="pop-ctx" popover class="menu"></div>
 <div id="pop-confirm" popover class="pop confirm-tip">

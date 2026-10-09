@@ -51,6 +51,7 @@ export function getViewConfig(gitVersion = ''): ViewConfig {
       Commit: columns.Commit ?? true,
       Committer: columns.Committer ?? false,
       CommitterDate: columns.CommitterDate ?? false,
+      Signature: columns.Signature ?? true,
     },
     muteMergeCommits: c.get('repository.commits.mute.mergeCommits') ?? true,
     muteNonAncestorsOfHead: c.get('repository.commits.mute.commitsThatAreNotAncestorsOfHead') ?? false,

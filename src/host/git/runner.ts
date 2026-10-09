@@ -14,7 +14,7 @@ export async function gitExec(
   git: string,
   cwd: string,
   args: string[],
-  opts?: { encoding?: string; extraEnv?: NodeJS.ProcessEnv },
+  opts?: { encoding?: string; extraEnv?: NodeJS.ProcessEnv; stdin?: string | Buffer },
 ): Promise<{ code: number; stdout: Buffer; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(git, args, { cwd, env: { ...gitEnv(), ...opts?.extraEnv, GIT_OPTIONAL_LOCKS: '0' }, windowsHide: true });
@@ -22,6 +22,10 @@ export async function gitExec(
     const err: Buffer[] = [];
     child.stdout.on('data', (c) => out.push(c as Buffer));
     child.stderr.on('data', (c) => err.push(c as Buffer));
+    child.stdin.on('error', () => {
+      /* git may exit before it finishes reading stdin */
+    });
+    if (opts?.stdin != null) child.stdin.end(opts.stdin);
     child.on('error', reject);
     child.on('close', (code) => {
       resolve({
@@ -30,7 +34,7 @@ export async function gitExec(
         stderr: Buffer.concat(err).toString('utf8'),
       });
     });
-    void opts;
+    void opts?.encoding;
   });
 }
 

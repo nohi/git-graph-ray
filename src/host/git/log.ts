@@ -1,6 +1,7 @@
 import { UNCOMMITTED, type GraphCommit, type GraphRef } from '../../shared/types';
 import { logRevisionArgs, pickaxeArgs, type LogRevisionOptions } from '../../shared/gitLogArgs';
 import { gitOk } from './runner';
+import { attachSignatureKinds } from './signature';
 
 const RS = '\u001e';
 const US = '\u001f';
@@ -51,6 +52,8 @@ export async function loadCommits(options: {
   const hasMore = raw.length > options.maxCount;
   const sliced = hasMore ? raw.slice(0, options.maxCount) : raw;
   const commits = options.refs ? applyRefs(sliced, options.refs) : sliced;
+  // `%G?` verifies every commit. The column only needs the armor type, which is in the object.
+  await attachSignatureKinds(options.git, options.cwd, commits).catch(() => undefined);
   return { commits, hasMore };
 }
 
@@ -111,6 +114,7 @@ export function withUncommitted(commits: GraphCommit[], head: string | null, ena
     committerDate: Math.floor(Date.now() / 1000),
     subject: 'Uncommitted changes',
     refs: [],
+    signatureKind: null,
   };
   return [fake, ...commits];
 }

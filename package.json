@@ -1,7 +1,7 @@
 {
   "name": "git-graph-ray",
   "displayName": "Git Graph Ray",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "nohi",
   "description": "View a Git graph of your repository and run Git actions from it.",
   "license": "MIT",
@@ -228,7 +228,8 @@
             "AuthorDate": true,
             "Commit": true,
             "Committer": false,
-            "CommitterDate": false
+            "CommitterDate": false,
+            "Signature": true
           }
         },
         "git-graph-ray.dialog.addTag.pushToRemote": {
@@ -640,10 +641,6 @@
             "topo"
           ],
           "default": "date"
-        },
-        "git-graph-ray.repository.commits.showSignatureStatus": {
-          "type": "boolean",
-          "default": false
         },
         "git-graph-ray.repository.fetchAndPrune": {
           "type": "boolean",

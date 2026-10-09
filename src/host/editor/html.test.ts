@@ -11,6 +11,8 @@ describe('graphHtml', () => {
     expect(html).not.toContain('>Refs</button>');
     expect(html).toContain('Go back to Date');
     expect(html).toContain('class="col-resizer"');
+    expect(html).toContain('class="h signature"');
+    expect(html).toContain('data-col="Signature"');
     expect(html).not.toContain('type="module"');
     expect(html).toContain('<script nonce="n0nce" src="webview.js"></script>');
     expect(html).toContain("script-src https://csp.example 'nonce-n0nce'");

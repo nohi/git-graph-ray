@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.1.6
+
+### Features
+
+- Add a Signature column on the right of the commit list. It shows whether a commit is signed and the type (GPG, SSH, or X.509) without verifying every commit. The column is visible by default.
+- Add a collapsible Signature row under Committer Date in the details panel. It starts collapsed and expands in place.
+- Show verification fields when Git can check the signature: status, signer, key, fingerprint, primary key, and trust.
+- Read extra fields from the signature itself. SSH shows key type, hash algorithm, namespace, and fingerprint. GPG shows the public-key algorithm, hash algorithm, signature time, key expiration, and signature expiration.
+
+### Changes
+
+- Remove `repository.commits.showSignatureStatus`. The details panel always includes signature information.
+
+### Fixes
+
+- Keep an SSH-signed commit marked signed when Git reports no signature because `gpg.ssh.allowedSignersFile` is not configured.
+
 ## v0.1.5
 
 ### Features

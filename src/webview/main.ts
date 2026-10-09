@@ -30,6 +30,7 @@ import {
   worktreeFormState,
 } from '../shared/worktreeDialog';
 import { detailsMetaRows, commitMessageText, type DetailsMetaRow } from '../shared/detailsMeta';
+import { signatureColumn, signatureInfoRows, signatureSummary, type SignatureInfoRow } from '../shared/signature';
 import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg, groupChipRefs, remoteShortName, type FilterTab } from '../shared/refsList';
 import { compileFindRegex, formatFindCount, highlightFind, matchCommit } from '../shared/commitFind';
 import { branchMenuEntries, commitMenuEntries, menuHtml } from '../shared/commitMenu';
@@ -43,6 +44,16 @@ type AnchoredPopoverOpts = { align?: AnchoredPopoverAlign; maxWidth?: number };
 
 const vscode = acquireVsCodeApi();
 const post = (m: ViewToHost) => vscode.postMessage(m);
+
+type WebviewState = { repo?: string; signatureOpen?: boolean };
+
+function webviewState(): WebviewState {
+  const raw = vscode.getState();
+  if (!raw || typeof raw !== 'object') return {};
+  return raw as WebviewState;
+}
+
+let signatureOpen = webviewState().signatureOpen === true;
 
 let snap: GraphSnapshot | null = null;
 let selected: string | null = null;
@@ -149,13 +160,14 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
 
 function applySnap(): void {
   if (!snap) return;
-  vscode.setState({ repo: snap.repoPath });
+  vscode.setState({ ...webviewState(), repo: snap.repoPath });
   document.body.dataset.theme = snap.config.theme;
   document.body.classList.toggle('hide-Author', !snap.config.columnVisibility.Author);
   document.body.classList.toggle('hide-AuthorDate', !snap.config.columnVisibility.AuthorDate);
   document.body.classList.toggle('hide-Commit', !snap.config.columnVisibility.Commit);
   document.body.classList.toggle('hide-Committer', !snap.config.columnVisibility.Committer);
   document.body.classList.toggle('hide-CommitterDate', !snap.config.columnVisibility.CommitterDate);
+  document.body.classList.toggle('hide-Signature', !snap.config.columnVisibility.Signature);
   $('s-theme').value = snap.config.theme;
   $('s-raycat').checked = snap.config.rayCatEnabled;
   $('s-raycat-count').value = String(snap.config.rayCatCount);
@@ -336,10 +348,11 @@ function estimateFromDetails(d: CommitDetails): number {
   const dates = snap
     ? { author: formatDate(d.authorDate, snap.config.dateFormat), committer: formatDate(d.committerDate, snap.config.dateFormat) }
     : { author: '', committer: '' };
+  const sigRows = signatureOpen ? signatureRows(d.signature).length + 1 : 1;
   return estimateDetailsHeight({
     message: commitMessageText(d),
     fileCount: d.files.length,
-    metaRowCount: detailsMetaRows(d, dates).length,
+    metaRowCount: detailsMetaRows(d, dates).length + sigRows,
     maxHeight: detailsHeightCap(),
   });
 }
@@ -537,7 +550,8 @@ function paint(): void {
       <div class="cell adate">${esc(formatDate(c.authorDate, snap.config.dateFormat))}</div>
       <div class="cell commit">${findMark(c.hash.slice(0, 7))}</div>
       <div class="cell committer">${findMark(c.committerName)}</div>
-      <div class="cell cdate">${esc(formatDate(c.committerDate, snap.config.dateFormat))}</div>`;
+      <div class="cell cdate">${esc(formatDate(c.committerDate, snap.config.dateFormat))}</div>
+      ${signatureCellHtml(c)}`;
     host.append(el);
   }
   const more = snap.hasMore ? `<div class="row" id="more" style="position:absolute;top:${height}px">Load more</div>` : '';
@@ -620,7 +634,7 @@ function detailsHtml(d: CommitDetails): string {
     author: formatDate(d.authorDate, snap.config.dateFormat),
     committer: formatDate(d.committerDate, snap.config.dateFormat),
   });
-  const table = rows.length ? `<div class="meta-table">${rows.map(metaRowHtml).join('')}</div>` : '';
+  const table = `<div class="meta-table">${rows.map(metaRowHtml).join('')}${signaturePaneHtml(d)}</div>`;
   return `<div class="meta">${table}<div class="meta-msg">${body}</div>
   </div><div class="sash" id="sash-x"></div><div class="files-pane">
     <div class="files-toolbar">
@@ -641,6 +655,48 @@ function copyBtns(copies: DetailsMetaRow['copies']): string {
         `<button type="button" class="copy-btn" data-copy="${esc(c.text)}" title="${esc(c.title)}">${COPY_SVG}${c.label ? `<span>${esc(c.label)}</span>` : ''}</button>`,
     )
     .join('');
+}
+
+function signatureCellHtml(c: GraphCommit): string {
+  const col = signatureColumn(c.signatureKind);
+  const cls = col.signed ? 'signed' : 'unsigned';
+  return `<div class="cell signature ${cls}" title="${esc(col.title)}" aria-label="${esc(col.title)}">${esc(col.text)}</div>`;
+}
+
+function toggleSignaturePane(): void {
+  signatureOpen = !signatureOpen;
+  vscode.setState({ ...webviewState(), signatureOpen });
+  const pane = document.querySelector('.sig-block');
+  if (pane && details) pane.outerHTML = signaturePaneHtml(details);
+  else paint();
+  if (details && detailsH == null) {
+    autoDetailsH = estimateFromDetails(details);
+    scheduleFitDetails();
+  }
+}
+
+function signatureRows(sig: CommitDetails['signature']): SignatureInfoRow[] {
+  const format = snap?.config.dateFormat ?? 'ISO Date & Time';
+  return signatureInfoRows(sig, (unix) => formatDate(unix, format));
+}
+
+function signaturePaneHtml(d: CommitDetails): string {
+  const rows = signatureRows(d.signature);
+  const summary = signatureSummary(d.signature);
+  const tone = summary.tone ? ` sig-${summary.tone}` : '';
+  const body = signatureOpen ? `<div class="sig-body">${rows.map(signatureRowHtml).join('')}</div>` : '';
+  return `<div class="sig-block${signatureOpen ? ' open' : ''}">
+    <div class="meta-row">
+      <div class="meta-label"><button type="button" class="sig-toggle" aria-expanded="${signatureOpen}" title="${signatureOpen ? 'Hide signature' : 'Show signature'}"><span class="sig-chevron" aria-hidden="true"></span>Signature</button></div>
+      <div class="meta-main"><div class="sig-summary${summary.signed ? ' signed' : ''}${tone}">${esc(summary.text)}</div></div>
+    </div>${body}</div>`;
+}
+
+function signatureRowHtml(row: SignatureInfoRow): string {
+  const tone = row.tone ? ` sig-${row.tone}` : '';
+  const mono = row.mono ? ' mono' : '';
+  const copy = row.copy ? `<div class="copy-btns">${copyBtns([{ label: '', text: row.copy, title: 'Copy' }])}</div>` : '';
+  return `<div class="meta-row"><div class="meta-label">${esc(row.label)}</div><div class="meta-main"><div class="meta-value${mono}${tone}">${esc(row.value)}</div>${copy}</div></div>`;
 }
 
 function metaRowHtml(row: DetailsMetaRow): string {
@@ -1054,6 +1110,7 @@ const COL_VAR: Record<string, string> = {
   commit: '--c',
   committer: '--cm',
   cdate: '--cd',
+  signature: '--sig',
 };
 
 function bindColResize(): void {
@@ -1296,6 +1353,11 @@ function runFileAction(kind: string, file: HTMLElement): void {
 
 function onDetailsClick(ev: MouseEvent): boolean {
   const t = ev.target as HTMLElement;
+  if (t.closest('.sig-toggle')) {
+    ev.preventDefault();
+    toggleSignaturePane();
+    return true;
+  }
   const fv = t.closest<HTMLElement>('[data-fv]');
   if (fv && snap && details) {
     const value = fv.dataset.fv as 'File Tree' | 'File List';

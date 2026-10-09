@@ -34,6 +34,7 @@ export function defaultViewConfig(): ViewConfig {
       Commit: true,
       Committer: false,
       CommitterDate: false,
+      Signature: true,
     },
     muteMergeCommits: true,
     muteNonAncestorsOfHead: false,

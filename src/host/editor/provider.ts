@@ -753,7 +753,7 @@ class GraphSession {
 
   private async sendDetails(hash: string, compare?: string): Promise<void> {
     const encoding = vscode.workspace.getConfiguration('git-graph-ray', vscode.Uri.file(this.repoPath)).get('fileEncoding', 'utf8');
-    const details = await loadDetails(this.git(), this.repoPath, hash, compare, encoding, cfg('repository.commits.showSignatureStatus', false));
+    const details = await loadDetails(this.git(), this.repoPath, hash, compare, encoding);
     this.post({ type: 'info', payload: details });
   }
 

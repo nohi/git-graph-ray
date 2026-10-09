@@ -1,3 +1,5 @@
+import type { CommitSignature, SignatureKind } from './signature';
+
 export const UNCOMMITTED = '*';
 
 export type RefKind = 'head' | 'remote' | 'tag' | 'stash' | 'worktree';
@@ -23,6 +25,8 @@ export type GraphCommit = {
   committerDate: number;
   subject: string;
   refs: GraphRef[];
+  /** Null when the commit object was scanned and has no signature. */
+  signatureKind?: SignatureKind | null;
 };
 
 export type GraphWorktree = {
@@ -44,6 +48,7 @@ export type ColumnVisibility = {
   Commit: boolean;
   Committer: boolean;
   CommitterDate: boolean;
+  Signature: boolean;
 };
 
 export type GraphTheme = 'classic' | 'Ray' | 'Ray Wave' | 'Ray Cycle' | 'Ray Stream';
@@ -69,7 +74,7 @@ export type CommitDetails = {
   body: string;
   parents: string[];
   files: FileChange[];
-  signature?: string;
+  signature?: CommitSignature;
 };
 
 export type DialogDefaults = {

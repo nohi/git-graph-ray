@@ -39,7 +39,6 @@ export function detailsMetaRows(
     | 'authorEmail'
     | 'committerName'
     | 'committerEmail'
-    | 'signature'
   >,
   dates: { author: string; committer: string },
 ): DetailsMetaRow[] {
@@ -76,9 +75,6 @@ export function detailsMetaRows(
       value: dates.committer,
       copies: [{ label: '', text: dates.committer, title: 'Copy' }],
     });
-  }
-  if (d.signature) {
-    rows.push({ label: 'Signature', value: d.signature, copies: [{ label: '', text: d.signature, title: 'Copy' }] });
   }
   return rows;
 }

@@ -1,5 +1,7 @@
+import { buildCommitSignature } from '../../shared/signature';
 import { UNCOMMITTED, type CommitDetails, type FileChange } from '../../shared/types';
 import { gitExec, gitOk } from './runner';
+import { signatureFromCommit, type CommitObjectSignature } from './signature';
 
 export async function loadDetails(
   git: string,
@@ -7,17 +9,16 @@ export async function loadDetails(
   hash: string,
   compare?: string,
   encoding = 'utf8',
-  showSignature = false,
 ): Promise<CommitDetails> {
   if (hash === UNCOMMITTED && !compare) return uncommittedDetails(git, cwd, encoding);
   if (compare) return compareDetails(git, cwd, hash, compare, encoding);
 
-  const format = showSignature
-    ? '%H%x1f%P%x1f%aN%x1f%aE%x1f%at%x1f%cN%x1f%cE%x1f%ct%x1f%s%x1f%b%x1f%G?%x1f%GS'
-    : '%H%x1f%P%x1f%aN%x1f%aE%x1f%at%x1f%cN%x1f%cE%x1f%ct%x1f%s%x1f%b';
+  const format =
+    '%H%x1f%P%x1f%aN%x1f%aE%x1f%at%x1f%cN%x1f%cE%x1f%ct%x1f%s%x1f%b%x1f%G?%x1f%GS%x1f%GK%x1f%GF%x1f%GP%x1f%GT';
   const raw = decode(await gitOkBytes(git, cwd, ['show', '-s', `--format=${format}`, hash]), encoding);
   const parts = raw.split('\x1f');
   const files = await loadFiles(git, cwd, hash);
+  const embedded = await readCommitSignature(git, cwd, hash);
   return {
     hash: parts[0] ?? hash,
     parents: (parts[1] ?? '').split(' ').filter(Boolean),
@@ -30,8 +31,32 @@ export async function loadDetails(
     subject: parts[8] ?? '',
     body: (parts[9] ?? '').trim(),
     files,
-    signature: showSignature ? `${parts[10] ?? ''} ${parts[11] ?? ''}`.trim() : undefined,
+    signature: buildCommitSignature({
+      kind: embedded.kind,
+      grade: parts[10],
+      signer: parts[11],
+      key: parts[12],
+      fingerprint: parts[13]?.trim() || embedded.fingerprint,
+      primary: parts[14],
+      trust: parts[15],
+      keyAlgorithm: embedded.keyAlgorithm,
+      hashAlgorithm: embedded.hashAlgorithm,
+      namespace: embedded.namespace,
+      signedAt: embedded.signedAt,
+      signatureExpires: embedded.signatureExpires,
+      keyExpires: embedded.keyExpires,
+    }),
   };
+}
+
+async function readCommitSignature(git: string, cwd: string, hash: string): Promise<CommitObjectSignature> {
+  try {
+    const result = await gitExec(git, cwd, ['cat-file', 'commit', hash]);
+    if (result.code !== 0) return { kind: null };
+    return signatureFromCommit(result.stdout);
+  } catch {
+    return { kind: null };
+  }
 }
 
 async function compareDetails(git: string, cwd: string, a: string, b: string, encoding: string): Promise<CommitDetails> {
@@ -39,7 +64,14 @@ async function compareDetails(git: string, cwd: string, a: string, b: string, en
   const right = b === UNCOMMITTED ? 'HEAD' : b;
   const files = parseNameStatus(await gitOk(git, cwd, ['diff', '--name-status', '-M', left, right]));
   const da = await loadDetails(git, cwd, a === UNCOMMITTED ? 'HEAD' : a, undefined, encoding);
-  return { ...da, hash: a, compare: b, files, subject: `Compare ${short(a)} ↔ ${short(b)}` };
+  return {
+    ...da,
+    hash: a,
+    compare: b,
+    files,
+    subject: `Compare ${short(a)} ↔ ${short(b)}`,
+    signature: a === UNCOMMITTED ? { kind: null } : da.signature,
+  };
 }
 
 async function uncommittedDetails(git: string, cwd: string, encoding: string): Promise<CommitDetails> {
@@ -59,6 +91,7 @@ async function uncommittedDetails(git: string, cwd: string, encoding: string): P
     subject: 'Uncommitted changes',
     body: '',
     files,
+    signature: { kind: null },
   };
 }
 
