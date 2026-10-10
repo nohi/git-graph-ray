@@ -33,6 +33,7 @@ import { detailsMetaRows, commitMessageText, type DetailsMetaRow } from '../shar
 import { signatureColumn, signatureInfoRows, signatureSummary, type SignatureInfoRow } from '../shared/signature';
 import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg, groupChipRefs, remoteShortName, type FilterTab } from '../shared/refsList';
 import { compileFindRegex, formatFindCount, highlightFind, matchCommit } from '../shared/commitFind';
+import { formatRefChange, presentPreview } from '../shared/undo';
 import { branchMenuEntries, commitMenuEntries, menuHtml } from '../shared/commitMenu';
 import { UNCOMMITTED, type ColumnVisibility, type CommitDetails, type GraphCommit, type GraphRef } from '../shared/types';
 import type { GitAction, GraphSnapshot, HostToView, ViewToHost } from '../shared/protocol';
@@ -78,6 +79,11 @@ let ctxCommit: GraphCommit | null = null;
 let ctxFile: { path: string; oldPath?: string } | null = null;
 let pendingDateJump: { day: string; field: 'author' | 'committer' } | null = null;
 let dateFilter: DateFilter = emptyDateFilter();
+let undoPending: 'undo' | 'redo' | null = null;
+let undoPreviewMsg: Extract<HostToView, { type: 'undoPreview' }> | null = null;
+let undoSideBySide = false;
+let undoShowUnrelated = false;
+let undoButtons = { canUndo: false, canRedo: false, undoLabel: null as string | null, redoLabel: null as string | null };
 let dateDraft: DateFilter | null = null;
 let dateTab: DateField = 'author';
 let lastPointer = { x: 24, y: 24 };
@@ -155,6 +161,11 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
       input.value = m.path ?? '';
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }
+  } else if (m.type === 'undoState') {
+    undoButtons = { canUndo: m.canUndo, canRedo: m.canRedo, undoLabel: m.undoLabel, redoLabel: m.redoLabel };
+    paintUndoButtons();
+  } else if (m.type === 'undoPreview') {
+    showUndoPreview(m);
   }
 });
 
@@ -186,6 +197,7 @@ function applySnap(): void {
   $('s-first').checked = snap.repoSettings.firstParent ?? snap.config.onlyFollowFirstParent;
   $('s-prune').checked = snap.config.fetchAndPrune;
   $('s-prune-tags').checked = snap.config.fetchAndPruneTags;
+  $('s-undo-preview').checked = snap.config.undoPreview;
   fillRemotes();
   fillPr();
   if (snap.repoSettings.issueLinking) {
@@ -938,11 +950,118 @@ function setGitBusy(on: boolean, fetch = false): void {
     overlay.style.removeProperty('cursor');
   }
   $('git-busy-hint').hidden = !on;
+  paintUndoButtons();
 }
 
 function sendGit(action: GitAction): void {
   setGitBusy(true, action.kind === 'fetchRemote');
   post({ type: 'git', action });
+}
+
+function paintUndoButtons(): void {
+  const busy = document.documentElement.classList.contains('git-busy');
+  setHistoryButton($('btn-undo'), undoButtons.canUndo && !busy, undoButtons.undoLabel, 'Undo', 'Ctrl/Cmd+Z');
+  setHistoryButton($('btn-redo'), undoButtons.canRedo && !busy, undoButtons.redoLabel, 'Redo', 'Ctrl/Cmd+Shift+Z');
+}
+
+function setHistoryButton(el: HTMLElement, enabled: boolean, label: string | null, name: string, keys: string): void {
+  el.classList.toggle('is-disabled', !enabled);
+  el.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+  el.title = label ? `${name}: ${label} (${keys})` : `Nothing to ${name.toLowerCase()}`;
+}
+
+function requestHistory(direction: 'undo' | 'redo'): void {
+  const enabled = direction === 'undo' ? undoButtons.canUndo : undoButtons.canRedo;
+  if (!enabled || document.documentElement.classList.contains('git-busy')) return;
+  post({ type: direction });
+}
+
+function showUndoPreview(m: Extract<HostToView, { type: 'undoPreview' }>): void {
+  if (!snap) return;
+  undoPending = m.direction;
+  undoPreviewMsg = m;
+  const verb = m.direction === 'undo' ? 'Undo' : 'Redo';
+  $('undo-title').textContent = `${verb} ${m.label}`;
+  const warn = $('undo-warning');
+  warn.hidden = !m.warning;
+  warn.textContent = m.warning ?? '';
+  ($('undo-side') as HTMLInputElement).checked = undoSideBySide;
+  ($('undo-unrelated') as HTMLInputElement).checked = undoShowUnrelated;
+  renderUndoGraphs();
+  $('undo-changes').innerHTML = m.changes.map((change) => `<li>${esc(formatRefChange(change))}</li>`).join('');
+  $('undo-cmds').textContent = m.commands.join('\n');
+  $('undo-ok').textContent = verb;
+  const dlg = document.getElementById('dlg-undo') as HTMLDialogElement;
+  if (!dlg.open) dlg.showModal();
+}
+
+function renderUndoGraphs(): void {
+  const m = undoPreviewMsg;
+  const graphs = $('undo-graphs');
+  const options = $('undo-options');
+  if (!m?.showGraphs || !snap) {
+    graphs.hidden = true;
+    options.hidden = true;
+    graphs.innerHTML = '';
+    return;
+  }
+  graphs.hidden = false;
+  options.hidden = false;
+  graphs.classList.toggle('side-by-side', undoSideBySide);
+  const view = presentPreview(m.before, m.after, undoShowUnrelated);
+  const empty = view.before.length === 0 && view.after.length === 0;
+  graphs.innerHTML = empty
+    ? '<p class="dlg-note">Those commits are outside the loaded history.</p>'
+    : `${undoSide('Before', view.before, m.beforeHead)}${undoSide('After', view.after, m.afterHead)}`;
+}
+
+function undoSide(title: string, commits: GraphCommit[], head: string | null): string {
+  if (!commits.length) return `<section class="undo-side"><h3>${esc(title)}</h3><p class="dlg-note">No visible commits</p></section>`;
+  const drawn = undoGraph(commits, head);
+  const rows = commits
+    .map((commit) => {
+      const refs = commit.refs
+        .map((ref) => `<span class="refs${ref.ghost ? ' ghost' : ''}">${esc(ref.name)}</span>`)
+        .join('');
+      return `<div class="undo-row${commit.ghost ? ' ghost' : ''}"><span class="hash">${esc(commit.hash.slice(0, 7))}</span><span class="subj">${esc(commit.subject)}</span>${refs}</div>`;
+    })
+    .join('');
+  return `<section class="undo-side"><h3>${esc(title)}</h3><div class="undo-board"><svg width="${drawn.width}" height="${drawn.height}" aria-hidden="true">${drawn.svg}</svg><div class="undo-rows">${rows}</div></div></section>`;
+}
+
+function undoGraph(commits: GraphCommit[], head: string | null): { svg: string; width: number; height: number } {
+  const layout = layoutCommits(commits);
+  const height = Math.max(commits.length, 1) * ROW;
+  const theme = snap!.config.theme === 'Ray Stream' ? 'classic' : snap!.config.theme;
+  const nodeAt = new Set(layout.vertices.map((vertex) => `${vertex.row}:${vertex.lane}`));
+  const parts: string[] = [];
+  for (const edge of layout.edges) {
+    const from = commits[edge.fromRow];
+    const fromVertex = layout.vertices[edge.fromRow];
+    const fromIsMerge = !!from && from.parents.length > 1 && fromVertex?.lane === edge.fromLane;
+    const colour = colourForLane(edge.lane, snap!.config.graphColours, theme);
+    const d = edgePath(
+      laneX(edge.fromLane),
+      rowY(edge.fromRow),
+      laneX(edge.toLane),
+      rowY(edge.toRow),
+      snap!.config.graphStyle,
+      edgeCurveAt(nodeAt.has(`${edge.toRow}:${edge.toLane}`), fromIsMerge),
+    );
+    const ghost = commits[edge.fromRow]?.ghost || commits[edge.toRow]?.ghost;
+    parts.push(`<path d="${d}" fill="none" stroke="${colour}" stroke-width="2" stroke-linecap="round"${ghost ? ' stroke-dasharray="4 3" opacity="0.45"' : ''}/>`);
+  }
+  for (const vertex of layout.vertices) {
+    const colour = colourForLane(vertex.lane, snap!.config.graphColours, theme);
+    const isHead = head != null && vertex.hash === head;
+    const ghost = commits[vertex.row]?.ghost;
+    parts.push(
+      ghost
+        ? `<circle cx="${laneX(vertex.lane)}" cy="${rowY(vertex.row)}" r="${isHead ? 5.5 : 4}" fill="none" stroke="${colour}" stroke-dasharray="2 2" opacity="0.55"/>`
+        : `<circle cx="${laneX(vertex.lane)}" cy="${rowY(vertex.row)}" r="${isHead ? 5.5 : 4}" fill="${colour}" stroke="${colour}"/>`,
+    );
+  }
+  return { svg: parts.join(''), width: graphWidth(layout.maxLanes), height };
 }
 
 function fillHelp(): void {
@@ -953,6 +1072,8 @@ function fillHelp(): void {
     scrollToStash: 'CTRL/CMD + S',
   };
   const rows: Array<[string, string]> = [
+    ['Undo', 'CTRL/CMD + Z'],
+    ['Redo', 'CTRL/CMD + Shift + Z'],
     ['Find', k.find],
     ['Find next', 'F3'],
     ['Find previous', 'Shift+F3'],
@@ -1434,6 +1555,27 @@ function bind(): void {
       pruneTags: snap.config.fetchAndPruneTags,
     });
   });
+  $('btn-undo').addEventListener('click', () => requestHistory('undo'));
+  $('btn-redo').addEventListener('click', () => requestHistory('redo'));
+  $('undo-ok').addEventListener('click', () => {
+    const direction = undoPending;
+    undoPending = null;
+    (document.getElementById('dlg-undo') as HTMLDialogElement).close();
+    if (direction) post({ type: 'undoApply', direction });
+  });
+  $('undo-cancel').addEventListener('click', () => {
+    undoPending = null;
+    (document.getElementById('dlg-undo') as HTMLDialogElement).close();
+  });
+  $('undo-side').addEventListener('change', () => {
+    undoSideBySide = ($('undo-side') as HTMLInputElement).checked;
+    renderUndoGraphs();
+  });
+  $('undo-unrelated').addEventListener('change', () => {
+    undoShowUnrelated = ($('undo-unrelated') as HTMLInputElement).checked;
+    renderUndoGraphs();
+  });
+  paintUndoButtons();
   $('fail-close').addEventListener('click', () => {
     $('fail-msg').textContent = '';
     $('fail').hidden = true;
@@ -1657,6 +1799,9 @@ function bind(): void {
     post({ type: 'setFetchPrune', prune: $('s-prune').checked, pruneTags: $('s-prune-tags').checked });
   $('s-prune').addEventListener('change', postFetchPrune);
   $('s-prune-tags').addEventListener('change', postFetchPrune);
+  $('s-undo-preview').addEventListener('change', () => {
+    post({ type: 'setUndoPreview', value: $('s-undo-preview').checked });
+  });
   $('add-remote').addEventListener('click', () => {
     gitDialog(
       'Add remote',
@@ -1934,6 +2079,14 @@ function onKey(ev: KeyboardEvent): void {
     paint();
     return;
   }
+  if ((ev.ctrlKey || ev.metaKey) && !ev.altKey && ev.key.toLowerCase() === 'z') {
+    const target = ev.target as HTMLElement | null;
+    if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if (document.querySelector('dialog[open]')) return;
+    ev.preventDefault();
+    requestHistory(ev.shiftKey ? 'redo' : 'undo');
+    return;
+  }
   if (shortcutMatches(snap.config.keyboard.find, ev)) {
     ev.preventDefault();
     $('pop-find').showPopover?.();
@@ -2060,7 +2213,7 @@ function menuCommit(hash: string, x: number, y: number): void {
   ctxCommit = c;
   ctxRef = null;
   ctxFile = null;
-  if (hash === UNCOMMITTED) {
+    if (hash === UNCOMMITTED) {
     const items: string[] = [];
     if (vis('uncommitted', 'stash')) items.push(btn('u-st', 'Stash'));
     if (vis('uncommitted', 'reset')) items.push(btn('u-rs', 'Reset'));

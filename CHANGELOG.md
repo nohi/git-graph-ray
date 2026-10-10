@@ -1,6 +1,19 @@
 # Changelog
 
-## v0.1.6
+## v0.2.0
+
+### Features
+
+- Add Undo and Redo for local Git operations. The header buttons and Ctrl/Cmd+Z or Ctrl/Cmd+Shift+Z apply one step. History stays in the window (up to 50 entries) and is discarded when the repository no longer matches it.
+- Preview the before and after graphs, ref changes, and the Git commands that will run. `git-graph-ray.undo.preview` (default on) skips the graphs; a remote warning or a hard reset with uncommitted changes still asks first.
+- Switch the preview between a vertical stack and side by side, and hide unrelated branches. Commits and branch labels that exist on only one side are faded and dashed.
+- Record commits and amends made in Source Control, and undo them with `git reset --soft` so the changes stay staged.
+- Warn when an operation involves a remote. Remote-tracking refs are not moved. Worktree operations and interactive rebase are not recorded.
+
+### Changes
+
+- Rename Filter to Branches/Tags, and add icons to Branches/Tags, Dates, and Find.
+- Label Undo, Redo, Fetch, and Refresh, and color header buttons by action: filter, Git, and jump.
 
 ### Features
 

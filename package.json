@@ -1,7 +1,7 @@
 {
   "name": "git-graph-ray",
   "displayName": "Git Graph Ray",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "publisher": "nohi",
   "description": "View a Git graph of your repository and run Git actions from it.",
   "license": "MIT",
@@ -429,6 +429,11 @@
           "minimum": 1,
           "maximum": 10,
           "description": "How many Ray Cats to show (1–10). Each cat starts at a random gradient hue."
+        },
+        "git-graph-ray.undo.preview": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show how the graph changes, and which Git commands will run, before Undo or Redo. When off, Undo and Redo run immediately unless a warning is required."
         },
         "git-graph-ray.integratedTerminalShell": {
           "type": "string",

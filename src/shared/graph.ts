@@ -76,6 +76,7 @@ export function defaultViewConfig(): ViewConfig {
     rayCatCount: 1,
     fetchAndPrune: false,
     fetchAndPruneTags: false,
+    undoPreview: true,
   };
 }
 

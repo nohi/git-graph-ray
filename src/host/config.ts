@@ -118,6 +118,7 @@ export function getViewConfig(gitVersion = ''): ViewConfig {
     rayCatCount: Math.max(1, Math.min(10, Math.round(c.get<number>('rayCat.count') ?? 1))),
     fetchAndPrune: c.get('repository.fetchAndPrune') ?? false,
     fetchAndPruneTags: c.get('repository.fetchAndPruneTags') ?? false,
+    undoPreview: c.get('undo.preview') ?? true,
   };
 }
 

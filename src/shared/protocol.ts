@@ -13,7 +13,21 @@ export type HostToView =
   | { type: 'face'; email: string; dataUri: string }
   | { type: 'facesReset' }
   | { type: 'findDiffs'; hashes: string[]; error?: string }
-  | { type: 'jump'; selected: string; compare?: string };
+  | { type: 'jump'; selected: string; compare?: string }
+  | { type: 'undoState'; canUndo: boolean; canRedo: boolean; undoLabel: string | null; redoLabel: string | null }
+  | {
+      type: 'undoPreview';
+      direction: 'undo' | 'redo';
+      label: string;
+      warning: string | null;
+      showGraphs: boolean;
+      before: GraphCommit[];
+      after: GraphCommit[];
+      beforeHead: string | null;
+      afterHead: string | null;
+      changes: Array<{ kind: 'branch' | 'tag' | 'head' | 'stash'; name: string; from: string | null; to: string | null }>;
+      commands: string[];
+    };
 
 export type GraphSnapshot = {
   repos: RepoInfo[];
@@ -61,6 +75,10 @@ export type ViewToHost =
   | { type: 'setFileView'; value: 'File Tree' | 'File List' }
   | { type: 'copy'; text: string }
   | { type: 'git'; action: GitAction }
+  | { type: 'undo' }
+  | { type: 'redo' }
+  | { type: 'undoApply'; direction: 'undo' | 'redo' }
+  | { type: 'setUndoPreview'; value: boolean }
   | { type: 'saveRepoSettings'; settings: RepoSettings }
   | { type: 'addRemote'; name: string; fetchUrl: string; pushUrl?: string }
   | { type: 'editRemote'; name: string; newName: string; fetchUrl: string; pushUrl?: string }

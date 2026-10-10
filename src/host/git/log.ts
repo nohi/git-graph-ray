@@ -119,6 +119,34 @@ export function withUncommitted(commits: GraphCommit[], head: string | null, ena
   return [fake, ...commits];
 }
 
+export async function loadCommitsFromTips(options: {
+  git: string;
+  cwd: string;
+  tips: string[];
+  maxCount: number;
+  order: 'date' | 'author-date' | 'topo';
+  mailmap: boolean;
+  firstParent: boolean;
+  refs: GraphRef[];
+}): Promise<GraphCommit[]> {
+  const tips = [...new Set(options.tips.filter(Boolean))];
+  if (!tips.length) return [];
+  const args = [
+    'log',
+    `--max-count=${options.maxCount}`,
+    `--format=${RS}%H${US}%P${US}%aN${US}%aE${US}%at${US}%cN${US}%cE${US}%ct${US}%s`,
+    '--no-show-signature',
+  ];
+  if (options.order === 'author-date') args.push('--author-date-order');
+  else if (options.order === 'topo') args.push('--topo-order');
+  else args.push('--date-order');
+  if (options.firstParent) args.push('--first-parent');
+  if (options.mailmap) args.push('--use-mailmap');
+  args.push(...tips);
+  const stdout = await gitOk(options.git, options.cwd, args);
+  return applyRefs(parseLog(stdout), options.refs);
+}
+
 export async function findDiffHashes(
   git: string,
   cwd: string,

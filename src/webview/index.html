@@ -10,10 +10,16 @@
       <select id="repo"></select>
       <button type="button" id="btn-repo-help" aria-label="About repository picker">?</button>
       <div id="pop-repo-help" popover="manual" class="pop repo-help">
-        <p>Selects the working copy used for HEAD, uncommitted changes, and Git actions. Other worktrees still appear as chips when Show worktrees is on. Use Filter to choose which branches, tags, and worktree tips to load.</p>
+        <p>Selects the working copy used for HEAD, uncommitted changes, and Git actions. Other worktrees still appear as chips when Show worktrees is on. Use Branches/Tags to choose which branches, tags, and worktree tips to load.</p>
       </div>
+      <span class="bar-gap" aria-hidden="true"></span>
+      <button type="button" id="btn-undo" class="with-icon tone-git is-disabled" aria-disabled="true" aria-label="Undo" title="Nothing to undo"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6.2 3.2 3 6.4l3.2 3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.4 6.4h6.1a3.5 3.5 0 0 1 0 7H8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Undo</button>
+      <button type="button" id="btn-redo" class="with-icon tone-git is-disabled" aria-disabled="true" aria-label="Redo" title="Nothing to redo"><svg class="icon-flip" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6.2 3.2 3 6.4l3.2 3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.4 6.4h6.1a3.5 3.5 0 0 1 0 7H8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Redo</button>
+      <span class="bar-gap" aria-hidden="true"></span>
+      <button type="button" id="btn-fetch" class="with-icon tone-git" hidden title="Fetch" aria-label="Fetch"><svg class="icon-fetch" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M13.2 6.2A5.2 5.2 0 0 0 3.4 5.1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M2.8 9.8A5.2 5.2 0 0 0 12.6 10.9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M3.4 2.6v2.7h2.7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.6 13.4v-2.7h-2.7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg><svg class="icon-spin" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.25" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="14 20"/></svg>Fetch</button>
+      <button type="button" id="btn-reload" class="with-icon" title="Refresh" aria-label="Refresh"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M13.1 8a5.1 5.1 0 1 1-1.5-3.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M13.2 2.4v3.1H10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Refresh</button>
       <span class="bar-end">
-        <button type="button" id="btn-refs" commandfor="pop-refs" command="toggle-popover" aria-pressed="false">Filter</button>
+        <button type="button" id="btn-refs" class="with-icon tone-filter" commandfor="pop-refs" command="toggle-popover" aria-pressed="false"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2.2 3h11.6L9.4 8.1V12.2L6.6 13.4V8.1L2.2 3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg>Branches/Tags</button>
         <div id="pop-refs" popover class="pop">
           <search>
             <input type="search" id="ref-q" placeholder="Find a branch, tag, or worktree" />
@@ -32,7 +38,7 @@
           <button type="button" id="ref-ok">OK</button>
         </div>
       </div>
-      <button type="button" id="btn-dates" commandfor="pop-dates" command="toggle-popover" aria-pressed="false" title="Filter commits by date">Dates</button>
+      <button type="button" id="btn-dates" class="with-icon tone-filter" commandfor="pop-dates" command="toggle-popover" aria-pressed="false" title="Filter commits by date"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2.2 3h11.6L9.4 8.1V12.2L6.6 13.4V8.1L2.2 3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg>Dates</button>
       <div id="pop-dates" popover class="pop">
         <search>
           <input type="search" id="date-q" placeholder="Find a year or month" />
@@ -49,9 +55,8 @@
           <button type="button" id="date-ok">OK</button>
         </div>
       </div>
-      <button type="button" id="btn-fetch" hidden>Fetch</button>
-        <button type="button" id="btn-head" title="Jump to HEAD">HEAD</button>
-        <button type="button" id="btn-date" title="Go back to Date" aria-pressed="false">Go back to Date</button>
+        <button type="button" id="btn-head" class="tone-jump" title="Jump to HEAD">HEAD</button>
+        <button type="button" id="btn-date" class="tone-jump" title="Go back to Date" aria-pressed="false">Go back to Date</button>
         <div id="pop-date" popover="manual" class="pop date-jump">
           <label>Date <input type="date" id="date-jump-input" /></label>
           <fieldset class="date-kind">
@@ -62,8 +67,7 @@
           <button type="button" id="date-jump-go">Go</button>
           <p id="date-jump-miss" class="date-jump-miss" hidden>No commit found for that date.</p>
         </div>
-        <button type="button" id="btn-reload" title="Refresh">↻</button>
-        <button type="button" id="btn-find" commandfor="pop-find" command="toggle-popover" title="Find" aria-pressed="false">⌕</button>
+        <button type="button" id="btn-find" class="with-icon" commandfor="pop-find" command="toggle-popover" title="Find" aria-label="Find" aria-pressed="false"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="7" cy="7" r="4.25" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10.2 10.2 13.2 13.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Find</button>
         <div id="pop-find" popover class="pop find">
           <div class="find-row">
             <search>
@@ -161,6 +165,23 @@
       </form>
     </dialog>
 
+    <dialog id="dlg-undo">
+      <h2 id="undo-title">Undo</h2>
+      <p id="undo-warning" class="dlg-warn" hidden></p>
+      <div id="undo-options" class="undo-options" hidden>
+        <label><input type="checkbox" id="undo-side" /> Side by side</label>
+        <label><input type="checkbox" id="undo-unrelated" /> Show unrelated branches</label>
+      </div>
+      <div id="undo-graphs" class="undo-graphs" hidden></div>
+      <ul id="undo-changes" class="undo-changes"></ul>
+      <h3 class="undo-cmd-h">Commands</h3>
+      <pre id="undo-cmds" class="undo-cmds"></pre>
+      <div class="dlg-actions">
+        <button type="button" id="undo-ok">Undo</button>
+        <button type="button" id="undo-cancel" class="btn-cancel">Cancel</button>
+      </div>
+    </dialog>
+
     <div id="pop-settings" popover="manual" class="pop settings">
       <section class="settings-block">
         <h3 class="settings-h">Appearance</h3>
@@ -190,6 +211,7 @@
           <label><input type="checkbox" id="s-first" /> First parent only</label>
           <label><input type="checkbox" id="s-prune" /> Fetch prune</label>
           <label><input type="checkbox" id="s-prune-tags" /> Fetch prune tags</label>
+          <label><input type="checkbox" id="s-undo-preview" /> Preview Undo and Redo</label>
         </div>
       </section>
       <section class="settings-block">

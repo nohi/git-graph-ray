@@ -7,7 +7,9 @@ describe('graphHtml', () => {
     for (const id of ['repo', 's-theme', 's-raycat', 's-raycat-count', 'scroll', 'rows', 'fail', 'fail-msg', 'fail-close', 'git-busy-overlay', 'git-busy-hint', 'cols-clip', 'head', 'svg', 'g-clip', 'ray-cats', 'inline-details', 'btn-settings', 'btn-date', 'date-jump-go', 'date-kind-author', 'date-kind-committer', 'btn-dates', 'date-q', 'date-show-all', 'date-tab-author', 'date-tab-committer', 'date-list', 'date-ok', 'show-remotes', 'ref-ok', 'btn-repo-help', 'find-case', 'find-regex', 'find-diff', 'find-prev', 'find-next', 'help-settings', 'help-keys', 's-prune', 's-prune-tags', 'pop-confirm', 'confirm-ok', 'confirm-cancel']) {
       expect(html).toContain(`id="${id}"`);
     }
-    expect(html).toContain('Filter');
+    expect(html).toContain('Branches/Tags');
+    expect(html).toContain('>Undo</button>');
+    expect(html).toContain('>Refresh</button>');
     expect(html).not.toContain('>Refs</button>');
     expect(html).toContain('Go back to Date');
     expect(html).toContain('class="col-resizer"');

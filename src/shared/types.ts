@@ -12,6 +12,8 @@ export type GraphRef = {
   hash: string;
   remote?: string;
   worktreePath?: string;
+  /** Drawn dashed in an undo preview when this ref is absent on that side. */
+  ghost?: boolean;
 };
 
 export type GraphCommit = {
@@ -27,6 +29,8 @@ export type GraphCommit = {
   refs: GraphRef[];
   /** Null when the commit object was scanned and has no signature. */
   signatureKind?: SignatureKind | null;
+  /** Drawn dashed in an undo preview when this commit is absent on that side. */
+  ghost?: boolean;
 };
 
 export type GraphWorktree = {
@@ -152,6 +156,8 @@ export type ViewConfig = {
   rayCatCount: number;
   fetchAndPrune: boolean;
   fetchAndPruneTags: boolean;
+  /** Show the before/after graph before Undo or Redo. */
+  undoPreview: boolean;
 };
 
 export const RAY_COLOURS = ['#5cff47', '#00f6ff', '#ff3cf0', '#ffe600', '#8b6bff', '#ff7a18'];

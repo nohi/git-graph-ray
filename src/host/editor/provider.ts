@@ -1,7 +1,22 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { UNCOMMITTED } from '../../shared/types';
+import { UNCOMMITTED, type GraphRef } from '../../shared/types';
 import type { GitAction, GraphSnapshot, HostToView, ViewToHost } from '../../shared/protocol';
+import {
+  checkpointsEqual,
+  externalCommitChange,
+  moveUndo,
+  needsUndoDialog,
+  planRestore,
+  previewWindow,
+  pushUndo,
+  undoEnds,
+  undoLabel,
+  undoPolicy,
+  type LocalCheckpoint,
+  type UndoEntry,
+  type UndoStack,
+} from '../../shared/undo';
 import { fillPrUrl } from '../../shared/issueLinks';
 import { cfg, getCustomPrProviders, getEmojiMaps, getGlobPatterns, getMenuVisibility, getViewConfig, updateSetting, viewColumn } from '../config';
 import { AvatarStore } from '../avatars';
@@ -14,6 +29,7 @@ import { listWorktrees } from '../git/worktree';
 import { discoverRepos, norm } from '../repos/discover';
 import { loadRepoSettings, saveRepoSettings } from '../repoSettings';
 import { gitOk, gitMaybe } from '../git/runner';
+import { applyRestorePlan, captureCheckpoint, captureRemoteTips, loadCheckpointCommits, workingTreeHasTrackedChanges } from '../git/undo';
 import { diffUri } from '../diff/provider';
 import { diffEditorSides } from '../../shared/diffSides';
 import { primaryWorktreePath } from '../../shared/worktreeDialog';
@@ -335,6 +351,9 @@ class GraphSession {
   private reloadGen = 0;
   private lastFingerprint = '';
   private scrollHeadOnLoad = true;
+  private opChain: Promise<void> = Promise.resolve();
+  private undoStacks = new Map<string, UndoStack>();
+  private lastCheckpoints = new Map<string, LocalCheckpoint>();
 
   constructor(
     private readonly ctx: vscode.ExtensionContext,
@@ -392,11 +411,13 @@ class GraphSession {
   }
 
   async fetchRemotes(): Promise<void> {
-    await this.run({
-      kind: 'fetchRemote',
-      prune: cfg('repository.fetchAndPrune', false),
-      pruneTags: cfg('repository.fetchAndPruneTags', false),
-    });
+    await this.enqueue(() =>
+      this.run({
+        kind: 'fetchRemote',
+        prune: cfg('repository.fetchAndPrune', false),
+        pruneTags: cfg('repository.fetchAndPruneTags', false),
+      }),
+    );
   }
 
   private async onMessage(msg: ViewToHost): Promise<void> {
@@ -406,12 +427,16 @@ class GraphSession {
         case 'ready':
           await this.reload();
           if (this.fetchOnOpen) {
-            await this.run({
-              kind: 'fetchRemote',
-              prune: cfg('repository.fetchAndPrune', false),
-              pruneTags: cfg('repository.fetchAndPruneTags', false),
-            });
+            await this.enqueue(() =>
+              this.run({
+                kind: 'fetchRemote',
+                prune: cfg('repository.fetchAndPrune', false),
+                pruneTags: cfg('repository.fetchAndPruneTags', false),
+              }),
+            );
+            return;
           }
+          this.postUndoState();
           return;
         case 'reload':
           await this.reload();
@@ -420,11 +445,13 @@ class GraphSession {
           await this.loadMore();
           return;
         case 'fetchAll':
-          await this.run({
-            kind: 'fetchRemote',
-            prune: cfg('repository.fetchAndPrune', false),
-            pruneTags: cfg('repository.fetchAndPruneTags', false),
-          });
+          await this.enqueue(() =>
+            this.run({
+              kind: 'fetchRemote',
+              prune: cfg('repository.fetchAndPrune', false),
+              pruneTags: cfg('repository.fetchAndPruneTags', false),
+            }),
+          );
           return;
         case 'pickRepo':
           this.repoPath = msg.path;
@@ -435,6 +462,7 @@ class GraphSession {
           this.onRepoChange();
           this.watch();
           await this.reload();
+          this.postUndoState();
           return;
         case 'setBranches':
           this.selected = msg.branches;
@@ -491,6 +519,10 @@ class GraphSession {
           await updateSetting('repository.fetchAndPruneTags', msg.pruneTags);
           this.post({ type: 'patch', payload: { config: getViewConfig(this.gitVer) } });
           return;
+        case 'setUndoPreview':
+          await updateSetting('undo.preview', msg.value);
+          this.post({ type: 'patch', payload: { config: getViewConfig(this.gitVer) } });
+          return;
         case 'openSettings':
           await vscode.commands.executeCommand('workbench.action.openSettings', 'git-graph-ray');
           return;
@@ -524,7 +556,16 @@ class GraphSession {
           await vscode.env.clipboard.writeText(msg.text);
           return;
         case 'git':
-          await this.run(msg.action);
+          await this.enqueue(() => this.run(msg.action));
+          return;
+        case 'undo':
+          await this.enqueue(() => this.presentUndo('undo'));
+          return;
+        case 'redo':
+          await this.enqueue(() => this.presentUndo('redo'));
+          return;
+        case 'undoApply':
+          await this.enqueue(() => this.applyUndo(msg.direction));
           return;
         case 'saveRepoSettings':
           await saveRepoSettings(this.ctx, this.repoPath, msg.settings);
@@ -682,7 +723,7 @@ class GraphSession {
     });
   }
 
-  private async reload(opts?: { fromWatch?: boolean }): Promise<void> {
+  private async reload(opts?: { fromWatch?: boolean; recordExternal?: boolean }): Promise<void> {
     if (this.disposed) return;
     const gen = ++this.reloadGen;
     this.quietUntil = Date.now() + 1500;
@@ -694,6 +735,8 @@ class GraphSession {
       if (opts?.fromWatch && fp === this.lastFingerprint) return;
       this.lastFingerprint = fp;
       this.post({ type: 'snapshot', payload });
+      if (opts?.recordExternal === false) await this.rememberCheckpoint();
+      else await this.noteExternalCommit();
       if (this.scrollHeadOnLoad) {
         this.scrollHeadOnLoad = false;
         if (cfg('repository.onLoad.scrollToHead', false) && payload.head) {
@@ -772,10 +815,28 @@ class GraphSession {
     await vscode.window.showTextDocument(uri, { viewColumn: viewColumn(), preview: true });
   }
 
+  private enqueue(task: () => Promise<void>): Promise<void> {
+    const run = this.opChain.then(task, task);
+    this.opChain = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
   private async run(action: GitAction): Promise<void> {
+    const policy = undoPolicy(action);
     this.quietUntil = Date.now() + 60_000;
     this.post({ type: 'busy', on: true, fetch: action.kind === 'fetchRemote' });
     try {
+      let before: LocalCheckpoint | null = null;
+      if (policy.record && this.repoPath) {
+        try {
+          before = await captureCheckpoint(this.git(), this.repoPath);
+        } catch {
+          before = null;
+        }
+      }
       if (action.kind === 'worktreeOpen') {
         this.quietUntil = Date.now() + 800;
         await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(action.path), action.newWindow);
@@ -786,17 +847,220 @@ class GraphSession {
         await vscode.commands.executeCommand('workbench.view.scm');
         return;
       }
-      if (action.kind === 'checkoutBranch' && action.pullAfterwards === undefined) {
-        /* ok */
-      }
       await runGitAction(this.git(), this.repoPath, action, {
         signCommits: cfg('repository.sign.commits', false),
         signTags: cfg('repository.sign.tags', false),
         shellPath: cfg('integratedTerminalShell', '') || undefined,
       });
-      await this.reload();
+      await this.reload({ recordExternal: false });
+      if (before) {
+        try {
+          await this.recordUndo(action, before, policy.warning);
+        } catch {
+          /* the git action succeeded; skip history if the after-snapshot fails */
+        }
+      }
     } finally {
       this.post({ type: 'busy', on: false });
+      this.postUndoState();
+    }
+  }
+
+  private stack(): UndoStack {
+    let stack = this.undoStacks.get(this.repoPath);
+    if (!stack) {
+      stack = { undo: [], redo: [] };
+      this.undoStacks.set(this.repoPath, stack);
+    }
+    return stack;
+  }
+
+  private postUndoState(): void {
+    const stack = this.stack();
+    this.post({
+      type: 'undoState',
+      canUndo: stack.undo.length > 0,
+      canRedo: stack.redo.length > 0,
+      undoLabel: stack.undo.at(-1)?.label ?? null,
+      redoLabel: stack.redo.at(-1)?.label ?? null,
+    });
+  }
+
+  private clearUndo(): void {
+    const stack = this.stack();
+    stack.undo = [];
+    stack.redo = [];
+    this.postUndoState();
+  }
+
+  private entry(direction: 'undo' | 'redo'): UndoEntry | undefined {
+    const stack = this.stack();
+    return direction === 'undo' ? stack.undo.at(-1) : stack.redo.at(-1);
+  }
+
+  private async recordUndo(action: GitAction, before: LocalCheckpoint, actionWarning: string | null): Promise<void> {
+    const after = await captureCheckpoint(this.git(), this.repoPath);
+    if (checkpointsEqual(before, after)) return;
+    pushUndo(this.stack(), { label: undoLabel(action), actionWarning, before, after });
+  }
+
+  private async presentUndo(direction: 'undo' | 'redo'): Promise<void> {
+    this.post({ type: 'busy', on: true });
+    try {
+      const prepared = await this.prepareUndo(direction);
+      if (!prepared) return;
+      const preview = getViewConfig(this.gitVer).undoPreview;
+      if (!needsUndoDialog(prepared.plan, preview)) {
+        await this.restorePrepared(direction, prepared.entry, prepared.plan.args);
+        return;
+      }
+      let before: GraphSnapshot['commits'] = [];
+      let after: GraphSnapshot['commits'] = [];
+      if (preview) {
+        const { from, to } = undoEnds(prepared.entry, direction);
+        [before, after] = await Promise.all([
+          this.previewGraph(from).catch(() => []),
+          this.previewGraph(to).catch(() => []),
+        ]);
+        const slice = previewWindow(before, after);
+        before = slice.before;
+        after = slice.after;
+      }
+      this.post({
+        type: 'undoPreview',
+        direction,
+        label: prepared.entry.label,
+        warning: prepared.plan.warning,
+        showGraphs: preview,
+        before,
+        after,
+        beforeHead: undoEnds(prepared.entry, direction).from.headHash,
+        afterHead: undoEnds(prepared.entry, direction).to.headHash,
+        changes: prepared.plan.changes,
+        commands: prepared.plan.commands,
+      });
+    } finally {
+      this.post({ type: 'busy', on: false });
+    }
+  }
+
+  private async applyUndo(direction: 'undo' | 'redo'): Promise<void> {
+    this.post({ type: 'busy', on: true });
+    try {
+      const prepared = await this.prepareUndo(direction);
+      if (!prepared) return;
+      await this.restorePrepared(direction, prepared.entry, prepared.plan.args);
+    } finally {
+      this.post({ type: 'busy', on: false });
+      this.postUndoState();
+    }
+  }
+
+  private async prepareUndo(direction: 'undo' | 'redo'): Promise<{ entry: UndoEntry; plan: ReturnType<typeof planRestore> } | null> {
+    const entry = this.entry(direction);
+    if (!entry) {
+      this.postUndoState();
+      return null;
+    }
+    const { from, to } = undoEnds(entry, direction);
+    const live = await captureCheckpoint(this.git(), this.repoPath);
+    if (!checkpointsEqual(live, from)) {
+      this.clearUndo();
+      throw new Error('The repository changed since this operation, so the undo history was discarded.');
+    }
+    const [dirty, remotes] = await Promise.all([
+      workingTreeHasTrackedChanges(this.git(), this.repoPath),
+      captureRemoteTips(this.git(), this.repoPath),
+    ]);
+    return {
+      entry,
+      plan: planRestore({ current: live, target: to, remotes, dirty, actionWarning: entry.actionWarning, tipReset: entry.tipReset }),
+    };
+  }
+
+  private async restorePrepared(direction: 'undo' | 'redo', entry: UndoEntry, args: string[][]): Promise<void> {
+    if (!args.length) return;
+    this.quietUntil = Date.now() + 60_000;
+    try {
+      await applyRestorePlan(this.git(), this.repoPath, args);
+      if (this.entry(direction) === entry) moveUndo(this.stack(), direction);
+      await this.reload({ recordExternal: false });
+    } finally {
+      this.postUndoState();
+    }
+  }
+
+  private async previewGraph(checkpoint: LocalCheckpoint): Promise<GraphSnapshot['commits']> {
+    const config = getViewConfig(this.gitVer);
+    const loaded = await loadRefs(this.git(), this.repoPath, true).catch(() => ({ refs: [] as GraphRef[] }));
+    return loadCheckpointCommits(
+      this.git(),
+      this.repoPath,
+      checkpoint,
+      loaded.refs.filter((ref) => ref.kind === 'remote'),
+      {
+        maxCount: cfg('repository.commits.initialLoad', 300),
+        order: config.commitOrder,
+        mailmap: cfg('repository.useMailmap', false),
+        firstParent: false,
+      },
+    );
+  }
+
+  private async rememberCheckpoint(): Promise<void> {
+    if (!this.repoPath) return;
+    try {
+      this.lastCheckpoints.set(this.repoPath, await captureCheckpoint(this.git(), this.repoPath));
+    } catch {
+      this.lastCheckpoints.delete(this.repoPath);
+    }
+  }
+
+  private async noteExternalCommit(): Promise<void> {
+    if (!this.repoPath) return;
+    const prev = this.lastCheckpoints.get(this.repoPath) ?? null;
+    let next: LocalCheckpoint;
+    try {
+      next = await captureCheckpoint(this.git(), this.repoPath);
+    } catch {
+      return;
+    }
+    this.lastCheckpoints.set(this.repoPath, next);
+    if (!prev || checkpointsEqual(prev, next)) return;
+    const detected = externalCommitChange({
+      prev,
+      next,
+      parentOfNext: await this.commitParent(next.headHash),
+      parentOfPrev: await this.commitParent(prev.headHash),
+      subject: await this.commitSubject(next.headHash),
+    });
+    if (!detected) return;
+    pushUndo(this.stack(), {
+      label: detected.label,
+      actionWarning: null,
+      before: prev,
+      after: next,
+      tipReset: detected.tipReset,
+    });
+    this.postUndoState();
+  }
+
+  private async commitParent(hash: string | null): Promise<string | null> {
+    if (!hash) return null;
+    try {
+      const parent = (await gitOk(this.git(), this.repoPath, ['rev-parse', '--verify', `${hash}^`])).trim();
+      return parent || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async commitSubject(hash: string | null): Promise<string> {
+    if (!hash) return '';
+    try {
+      return (await gitOk(this.git(), this.repoPath, ['log', '-1', '--format=%s', hash])).trim();
+    } catch {
+      return '';
     }
   }
 
