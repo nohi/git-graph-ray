@@ -43,6 +43,14 @@
 - Draw worktree labels with a folder icon.
 - Style OK and Save as primary buttons, and leave Cancel as a normal button.
 
+### Features
+
+- Log each Git command this extension runs to the Output channel Git Graph Ray, in the same `> git ... [Nms]` form as the VS Code Git extension. Quote values that a terminal would not accept as bare words, so the line can be pasted into a terminal.
+
+### Changes
+
+- Write `git log --format` separators as `%x1e` and `%x1f` instead of raw control characters.
+
 ## v0.1.5
 
 ### Features

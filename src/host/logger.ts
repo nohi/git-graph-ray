@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 
-export function logChannel(): vscode.OutputChannel {
-  const ch = vscode.window.createOutputChannel('Git Graph Ray');
-  return ch;
+let channel: vscode.LogOutputChannel | undefined;
+
+export function logChannel(): vscode.LogOutputChannel {
+  channel ??= vscode.window.createOutputChannel('Git Graph Ray', { log: true });
+  return channel;
 }

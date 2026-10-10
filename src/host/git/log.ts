@@ -5,6 +5,8 @@ import { attachSignatureKinds } from './signature';
 
 const RS = '\u001e';
 const US = '\u001f';
+// `%xNN` is the same bytes as the raw separators, and it survives being pasted into a terminal.
+const LOG_FORMAT = '%x1e%H%x1f%P%x1f%aN%x1f%aE%x1f%at%x1f%cN%x1f%cE%x1f%ct%x1f%s';
 
 export async function loadCommits(options: {
   git: string;
@@ -27,7 +29,7 @@ export async function loadCommits(options: {
     'log',
     `--max-count=${options.maxCount + 1}`,
     `--skip=${options.skip}`,
-    `--format=${RS}%H${US}%P${US}%aN${US}%aE${US}%at${US}%cN${US}%cE${US}%ct${US}%s`,
+    `--format=${LOG_FORMAT}`,
     '--no-show-signature',
   ];
   if (options.order === 'author-date') args.push('--author-date-order');
@@ -134,7 +136,7 @@ export async function loadCommitsFromTips(options: {
   const args = [
     'log',
     `--max-count=${options.maxCount}`,
-    `--format=${RS}%H${US}%P${US}%aN${US}%aE${US}%at${US}%cN${US}%cE${US}%ct${US}%s`,
+    `--format=${LOG_FORMAT}`,
     '--no-show-signature',
   ];
   if (options.order === 'author-date') args.push('--author-date-order');

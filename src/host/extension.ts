@@ -6,9 +6,15 @@ import { cfg, getGitPathSetting } from './config';
 import { DiffFiles } from './diff/provider';
 import { GraphEditorProvider } from './editor/provider';
 import { findGit, gitVersionString } from './git/executable';
+import { setGitCommandLogger } from './git/runner';
+import { logChannel } from './logger';
 import { createStatusBar } from './statusBar';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  const output = logChannel();
+  setGitCommandLogger((line) => output.appendLine(line));
+  context.subscriptions.push(output, { dispose: () => setGitCommandLogger(() => {}) });
+
   const git = await findGit(getGitPathSetting());
   const version = await gitVersionString(git);
   await startAskpassServer(context);
