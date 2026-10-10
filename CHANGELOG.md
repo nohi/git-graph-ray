@@ -2,10 +2,6 @@
 
 ## v0.2.0
 
-### Changes
-
-- Lower the minimum Visual Studio Code version to 1.120 so the extension can appear in Cursor from the Open VSX Registry.
-
 ### Features
 
 - Add Undo and Redo for local Git operations. The header buttons and Ctrl/Cmd+Z or Ctrl/Cmd+Shift+Z apply one step. History stays in the window (up to 50 entries) and is discarded when the repository no longer matches it.
@@ -15,46 +11,28 @@
 - Warn when an operation involves a remote. Remote-tracking refs are not moved. Worktree operations and interactive rebase are not recorded.
 - Undo or redo several steps at once from the history menu beside Undo and Redo.
 - Add Show HEAD to the undo preview so the checked-out branch stays visible.
+- Add a Signature column on the right of the commit list. It shows whether a commit is signed and the type (GPG, SSH, or X.509) without verifying every commit. The column is visible by default.
+- Add a collapsible Signature row under Committer Date in the details panel. It starts collapsed and expands in place.
+- Show verification fields when Git can check the signature: status, signer, key, fingerprint, primary key, and trust.
+- Read extra fields from the signature itself. SSH shows key type, hash algorithm, namespace, and fingerprint. GPG shows the public-key algorithm, hash algorithm, signature time, key expiration, and signature expiration.
+- Warn when deleting a local branch that is not fully merged, and keep OK disabled until force is checked. The check matches `git branch -d`: merged into the upstream when one exists, otherwise into HEAD.
+- Open Git action dialogs beside the pointer, and keep them inside the window.
+- Log each Git command this extension runs to the Output channel Git Graph Ray, in the same `> git ... [Nms]` form as the VS Code Git extension. Quote values that a terminal would not accept as bare words, so the line can be pasted into a terminal.
 
 ### Changes
 
 - Change extension icon.
 - Rename Filter to Branches/Tags, and add icons to Branches/Tags, Dates, and Find.
 - Label Undo, Redo, Fetch, and Refresh, and color header buttons by action: filter, Git, and jump.
-
-### Features
-
-- Add a Signature column on the right of the commit list. It shows whether a commit is signed and the type (GPG, SSH, or X.509) without verifying every commit. The column is visible by default.
-- Add a collapsible Signature row under Committer Date in the details panel. It starts collapsed and expands in place.
-- Show verification fields when Git can check the signature: status, signer, key, fingerprint, primary key, and trust.
-- Read extra fields from the signature itself. SSH shows key type, hash algorithm, namespace, and fingerprint. GPG shows the public-key algorithm, hash algorithm, signature time, key expiration, and signature expiration.
-
-### Changes
-
 - Remove `repository.commits.showSignatureStatus`. The details panel always includes signature information.
+- Draw worktree labels with a folder icon.
+- Style OK and Save as primary buttons, and leave Cancel as a normal button.
+- Write `git log --format` separators as `%x1e` and `%x1f` instead of raw control characters.
 
 ### Fixes
 
 - Keep an SSH-signed commit marked signed when Git reports no signature because `gpg.ssh.allowedSignersFile` is not configured.
 - Show branch, tag, and other labels on commits that load when scrolling further down the graph.
-
-### Features
-
-- Warn when deleting a local branch that is not fully merged, and keep OK disabled until force is checked. The check matches `git branch -d`: merged into the upstream when one exists, otherwise into HEAD.
-- Open Git action dialogs beside the pointer, and keep them inside the window.
-
-### Changes
-
-- Draw worktree labels with a folder icon.
-- Style OK and Save as primary buttons, and leave Cancel as a normal button.
-
-### Features
-
-- Log each Git command this extension runs to the Output channel Git Graph Ray, in the same `> git ... [Nms]` form as the VS Code Git extension. Quote values that a terminal would not accept as bare words, so the line can be pasted into a terminal.
-
-### Changes
-
-- Write `git log --format` separators as `%x1e` and `%x1f` instead of raw control characters.
 
 ## v0.1.5
 
