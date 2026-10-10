@@ -13,8 +13,16 @@
         <p>Selects the working copy used for HEAD, uncommitted changes, and Git actions. Other worktrees still appear as chips when Show worktrees is on. Use Branches/Tags to choose which branches, tags, and worktree tips to load.</p>
       </div>
       <span class="bar-gap" aria-hidden="true"></span>
-      <button type="button" id="btn-undo" class="with-icon tone-git is-disabled" aria-disabled="true" aria-label="Undo" title="Nothing to undo"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6.2 3.2 3 6.4l3.2 3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.4 6.4h6.1a3.5 3.5 0 0 1 0 7H8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Undo</button>
-      <button type="button" id="btn-redo" class="with-icon tone-git is-disabled" aria-disabled="true" aria-label="Redo" title="Nothing to redo"><svg class="icon-flip" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6.2 3.2 3 6.4l3.2 3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.4 6.4h6.1a3.5 3.5 0 0 1 0 7H8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Redo</button>
+      <span class="hist-group">
+        <button type="button" id="btn-undo" class="with-icon tone-git is-disabled" aria-disabled="true" aria-label="Undo" title="Nothing to undo"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6.2 3.2 3 6.4l3.2 3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.4 6.4h6.1a3.5 3.5 0 0 1 0 7H8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Undo</button>
+        <button type="button" id="btn-undo-menu" class="hist-more tone-git is-disabled" commandfor="pop-undo" command="toggle-popover" aria-disabled="true" aria-pressed="false" aria-label="Undo history" title="Undo history"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 6.5 8 10.5 12 6.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </span>
+      <div id="pop-undo" popover class="pop hist-pop"></div>
+      <span class="hist-group">
+        <button type="button" id="btn-redo" class="with-icon tone-git is-disabled" aria-disabled="true" aria-label="Redo" title="Nothing to redo"><svg class="icon-flip" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6.2 3.2 3 6.4l3.2 3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.4 6.4h6.1a3.5 3.5 0 0 1 0 7H8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Redo</button>
+        <button type="button" id="btn-redo-menu" class="hist-more tone-git is-disabled" commandfor="pop-redo" command="toggle-popover" aria-disabled="true" aria-pressed="false" aria-label="Redo history" title="Redo history"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 6.5 8 10.5 12 6.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </span>
+      <div id="pop-redo" popover class="pop hist-pop"></div>
       <span class="bar-gap" aria-hidden="true"></span>
       <button type="button" id="btn-fetch" class="with-icon tone-git" hidden title="Fetch" aria-label="Fetch"><svg class="icon-fetch" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M13.2 6.2A5.2 5.2 0 0 0 3.4 5.1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M2.8 9.8A5.2 5.2 0 0 0 12.6 10.9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M3.4 2.6v2.7h2.7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.6 13.4v-2.7h-2.7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg><svg class="icon-spin" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.25" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="14 20"/></svg>Fetch</button>
       <button type="button" id="btn-reload" class="with-icon" title="Refresh" aria-label="Refresh"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M13.1 8a5.1 5.1 0 1 1-1.5-3.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M13.2 2.4v3.1H10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Refresh</button>
@@ -171,6 +179,7 @@
       <div id="undo-options" class="undo-options" hidden>
         <label><input type="checkbox" id="undo-side" /> Side by side</label>
         <label><input type="checkbox" id="undo-unrelated" /> Show unrelated branches</label>
+        <label><input type="checkbox" id="undo-head" /> Show HEAD</label>
       </div>
       <div id="undo-graphs" class="undo-graphs" hidden></div>
       <ul id="undo-changes" class="undo-changes"></ul>

@@ -8,7 +8,11 @@ import {
   externalCommitChange,
   formatGitCommand,
   formatRefChange,
+  historyRange,
   moveUndo,
+  moveUndoSteps,
+  rangeLabel,
+  rangeTipReset,
   needsUndoDialog,
   planRestore,
   presentPreview,
@@ -327,6 +331,21 @@ describe('presentPreview', () => {
     expect(ghost?.refs.map((ref) => ref.name)).toEqual(['feature']);
     expect(view.after.map((item) => item.hash)).toContain(A);
   });
+
+  it('shows the checked-out branch only when Show HEAD is on', () => {
+    const head = S1;
+    const base = S2;
+    const before = [commit(head, [main(head)], [base]), commit(base, [], [A]), commit(F, [feature(F)], [A]), commit(A, [])];
+    const after = [commit(head, [main(head)], [base]), commit(base, [], [A]), commit(B, [feature(B)], [F]), commit(F, [], [A]), commit(A, [])];
+    const headRef = { branch: 'main', hash: head };
+    const slice = previewWindow(before, after, headRef);
+    expect(slice.before.map((item) => item.hash)).toContain(head);
+    const hidden = presentPreview(slice.before, slice.after, { showUnrelated: false, showHead: false, head: headRef });
+    const shown = presentPreview(slice.before, slice.after, { showUnrelated: false, showHead: true, head: headRef });
+    expect(hidden.before.some((item) => item.refs.some((ref) => ref.name === 'main' && ref.hash === head))).toBe(false);
+    expect(shown.before.some((item) => item.hash === head && item.refs.some((ref) => ref.name === 'main'))).toBe(true);
+    expect(shown.before.some((item) => item.refs.some((ref) => ref.name === 'feature'))).toBe(true);
+  });
 });
 
 describe('checkpoints and stack', () => {
@@ -345,6 +364,24 @@ describe('checkpoints and stack', () => {
     stack.redo.push(entry);
     pushUndo(stack, { ...entry, label: '4' }, 2);
     expect(stack.redo).toEqual([]);
+  });
+
+  it('undoes and redoes several steps back to one checkpoint', () => {
+    const at = (hash: string) => cp({ headHash: hash, branches: [point('main', hash)] });
+    const first = { label: 'Commit 1', actionWarning: null, before: at(A), after: at(B), tipReset: 'soft' as const };
+    const second = { label: 'Commit 2', actionWarning: 'pulled', before: at(B), after: at(C), tipReset: 'soft' as const };
+    const stack: UndoStack = { undo: [first, second], redo: [] };
+    const undo = historyRange(stack.undo, 'undo', 2);
+    expect(undo?.from).toEqual(at(C));
+    expect(undo?.to).toEqual(at(A));
+    expect(rangeLabel(undo!.entries)).toBe('Commit 2 (+1 more)');
+    expect(rangeTipReset(undo!.entries)).toBe('soft');
+    moveUndoSteps(stack, 'undo', 2);
+    expect(stack.undo).toEqual([]);
+    const redo = historyRange(stack.redo, 'redo', 2);
+    expect(redo?.from).toEqual(at(A));
+    expect(redo?.to).toEqual(at(C));
+    expect(historyRange([first, { ...second, before: at(A) }], 'undo', 2)).toBeNull();
   });
 
   it('moves the top entry between undo and redo', () => {

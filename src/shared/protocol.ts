@@ -14,7 +14,16 @@ export type HostToView =
   | { type: 'facesReset' }
   | { type: 'findDiffs'; hashes: string[]; error?: string }
   | { type: 'jump'; selected: string; compare?: string }
-  | { type: 'undoState'; canUndo: boolean; canRedo: boolean; undoLabel: string | null; redoLabel: string | null }
+  | {
+      type: 'undoState';
+      canUndo: boolean;
+      canRedo: boolean;
+      undoLabel: string | null;
+      redoLabel: string | null;
+      /** Newest first. */
+      undoLabels: string[];
+      redoLabels: string[];
+    }
   | {
       type: 'undoPreview';
       direction: 'undo' | 'redo';
@@ -25,6 +34,9 @@ export type HostToView =
       after: GraphCommit[];
       beforeHead: string | null;
       afterHead: string | null;
+      /** Checked-out branch at the start of this undo or redo. Null when detached. */
+      headBranch: string | null;
+      steps: number;
       changes: Array<{ kind: 'branch' | 'tag' | 'head' | 'stash'; name: string; from: string | null; to: string | null }>;
       commands: string[];
     };
@@ -75,9 +87,9 @@ export type ViewToHost =
   | { type: 'setFileView'; value: 'File Tree' | 'File List' }
   | { type: 'copy'; text: string }
   | { type: 'git'; action: GitAction }
-  | { type: 'undo' }
-  | { type: 'redo' }
-  | { type: 'undoApply'; direction: 'undo' | 'redo' }
+  | { type: 'undo'; steps?: number }
+  | { type: 'redo'; steps?: number }
+  | { type: 'undoApply'; direction: 'undo' | 'redo'; steps?: number }
   | { type: 'setUndoPreview'; value: boolean }
   | { type: 'saveRepoSettings'; settings: RepoSettings }
   | { type: 'addRemote'; name: string; fetchUrl: string; pushUrl?: string }

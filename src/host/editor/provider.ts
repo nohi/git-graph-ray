@@ -5,12 +5,15 @@ import type { GitAction, GraphSnapshot, HostToView, ViewToHost } from '../../sha
 import {
   checkpointsEqual,
   externalCommitChange,
-  moveUndo,
+  historyRange,
+  moveUndoSteps,
   needsUndoDialog,
   planRestore,
   previewWindow,
   pushUndo,
-  undoEnds,
+  rangeLabel,
+  rangeTipReset,
+  rangeWarning,
   undoLabel,
   undoPolicy,
   type LocalCheckpoint,
@@ -559,13 +562,13 @@ class GraphSession {
           await this.enqueue(() => this.run(msg.action));
           return;
         case 'undo':
-          await this.enqueue(() => this.presentUndo('undo'));
+          await this.enqueue(() => this.presentUndo('undo', msg.steps ?? 1));
           return;
         case 'redo':
-          await this.enqueue(() => this.presentUndo('redo'));
+          await this.enqueue(() => this.presentUndo('redo', msg.steps ?? 1));
           return;
         case 'undoApply':
-          await this.enqueue(() => this.applyUndo(msg.direction));
+          await this.enqueue(() => this.applyUndo(msg.direction, msg.steps ?? 1));
           return;
         case 'saveRepoSettings':
           await saveRepoSettings(this.ctx, this.repoPath, msg.settings);
@@ -877,12 +880,16 @@ class GraphSession {
 
   private postUndoState(): void {
     const stack = this.stack();
+    const undoLabels = stack.undo.map((entry) => entry.label).reverse();
+    const redoLabels = stack.redo.map((entry) => entry.label).reverse();
     this.post({
       type: 'undoState',
-      canUndo: stack.undo.length > 0,
-      canRedo: stack.redo.length > 0,
-      undoLabel: stack.undo.at(-1)?.label ?? null,
-      redoLabel: stack.redo.at(-1)?.label ?? null,
+      canUndo: undoLabels.length > 0,
+      canRedo: redoLabels.length > 0,
+      undoLabel: undoLabels[0] ?? null,
+      redoLabel: redoLabels[0] ?? null,
+      undoLabels,
+      redoLabels,
     });
   }
 
@@ -893,49 +900,45 @@ class GraphSession {
     this.postUndoState();
   }
 
-  private entry(direction: 'undo' | 'redo'): UndoEntry | undefined {
-    const stack = this.stack();
-    return direction === 'undo' ? stack.undo.at(-1) : stack.redo.at(-1);
-  }
-
   private async recordUndo(action: GitAction, before: LocalCheckpoint, actionWarning: string | null): Promise<void> {
     const after = await captureCheckpoint(this.git(), this.repoPath);
     if (checkpointsEqual(before, after)) return;
     pushUndo(this.stack(), { label: undoLabel(action), actionWarning, before, after });
   }
 
-  private async presentUndo(direction: 'undo' | 'redo'): Promise<void> {
+  private async presentUndo(direction: 'undo' | 'redo', steps: number): Promise<void> {
     this.post({ type: 'busy', on: true });
     try {
-      const prepared = await this.prepareUndo(direction);
+      const prepared = await this.prepareUndo(direction, steps);
       if (!prepared) return;
       const preview = getViewConfig(this.gitVer).undoPreview;
       if (!needsUndoDialog(prepared.plan, preview)) {
-        await this.restorePrepared(direction, prepared.entry, prepared.plan.args);
+        await this.restorePrepared(direction, prepared.entries, prepared.plan.args);
         return;
       }
       let before: GraphSnapshot['commits'] = [];
       let after: GraphSnapshot['commits'] = [];
       if (preview) {
-        const { from, to } = undoEnds(prepared.entry, direction);
         [before, after] = await Promise.all([
-          this.previewGraph(from).catch(() => []),
-          this.previewGraph(to).catch(() => []),
+          this.previewGraph(prepared.from).catch(() => []),
+          this.previewGraph(prepared.to).catch(() => []),
         ]);
-        const slice = previewWindow(before, after);
+        const slice = previewWindow(before, after, { branch: prepared.from.branch, hash: prepared.from.headHash });
         before = slice.before;
         after = slice.after;
       }
       this.post({
         type: 'undoPreview',
         direction,
-        label: prepared.entry.label,
+        label: rangeLabel(prepared.entries),
         warning: prepared.plan.warning,
         showGraphs: preview,
         before,
         after,
-        beforeHead: undoEnds(prepared.entry, direction).from.headHash,
-        afterHead: undoEnds(prepared.entry, direction).to.headHash,
+        beforeHead: prepared.from.headHash,
+        afterHead: prepared.to.headHash,
+        headBranch: prepared.from.branch,
+        steps: prepared.entries.length,
         changes: prepared.plan.changes,
         commands: prepared.plan.commands,
       });
@@ -944,27 +947,34 @@ class GraphSession {
     }
   }
 
-  private async applyUndo(direction: 'undo' | 'redo'): Promise<void> {
+  private async applyUndo(direction: 'undo' | 'redo', steps: number): Promise<void> {
     this.post({ type: 'busy', on: true });
     try {
-      const prepared = await this.prepareUndo(direction);
+      const prepared = await this.prepareUndo(direction, steps);
       if (!prepared) return;
-      await this.restorePrepared(direction, prepared.entry, prepared.plan.args);
+      await this.restorePrepared(direction, prepared.entries, prepared.plan.args);
     } finally {
       this.post({ type: 'busy', on: false });
       this.postUndoState();
     }
   }
 
-  private async prepareUndo(direction: 'undo' | 'redo'): Promise<{ entry: UndoEntry; plan: ReturnType<typeof planRestore> } | null> {
-    const entry = this.entry(direction);
-    if (!entry) {
+  private async prepareUndo(
+    direction: 'undo' | 'redo',
+    steps: number,
+  ): Promise<{ entries: UndoEntry[]; from: LocalCheckpoint; to: LocalCheckpoint; plan: ReturnType<typeof planRestore> } | null> {
+    const list = direction === 'undo' ? this.stack().undo : this.stack().redo;
+    if (!Number.isInteger(steps) || steps < 1 || steps > list.length) {
       this.postUndoState();
       return null;
     }
-    const { from, to } = undoEnds(entry, direction);
+    const range = historyRange(list, direction, steps);
+    if (!range) {
+      this.clearUndo();
+      throw new Error('The repository changed since this operation, so the undo history was discarded.');
+    }
     const live = await captureCheckpoint(this.git(), this.repoPath);
-    if (!checkpointsEqual(live, from)) {
+    if (!checkpointsEqual(live, range.from)) {
       this.clearUndo();
       throw new Error('The repository changed since this operation, so the undo history was discarded.');
     }
@@ -973,17 +983,30 @@ class GraphSession {
       captureRemoteTips(this.git(), this.repoPath),
     ]);
     return {
-      entry,
-      plan: planRestore({ current: live, target: to, remotes, dirty, actionWarning: entry.actionWarning, tipReset: entry.tipReset }),
+      entries: range.entries,
+      from: range.from,
+      to: range.to,
+      plan: planRestore({
+        current: live,
+        target: range.to,
+        remotes,
+        dirty,
+        actionWarning: rangeWarning(range.entries),
+        tipReset: rangeTipReset(range.entries),
+      }),
     };
   }
 
-  private async restorePrepared(direction: 'undo' | 'redo', entry: UndoEntry, args: string[][]): Promise<void> {
+  private async restorePrepared(direction: 'undo' | 'redo', entries: UndoEntry[], args: string[][]): Promise<void> {
     if (!args.length) return;
     this.quietUntil = Date.now() + 60_000;
     try {
       await applyRestorePlan(this.git(), this.repoPath, args);
-      if (this.entry(direction) === entry) moveUndo(this.stack(), direction);
+      const list = direction === 'undo' ? this.stack().undo : this.stack().redo;
+      const top = list.slice(-entries.length);
+      if (top.length === entries.length && top.every((entry, index) => entry === entries[index])) {
+        moveUndoSteps(this.stack(), direction, entries.length);
+      }
       await this.reload({ recordExternal: false });
     } finally {
       this.postUndoState();

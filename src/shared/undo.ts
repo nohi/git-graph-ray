@@ -179,6 +179,51 @@ export function moveUndo(stack: UndoStack, direction: 'undo' | 'redo', limit = U
   return entry;
 }
 
+export function moveUndoSteps(stack: UndoStack, direction: 'undo' | 'redo', steps: number, limit = UNDO_LIMIT): UndoEntry[] {
+  const moved: UndoEntry[] = [];
+  for (let i = 0; i < steps; i++) {
+    const entry = moveUndo(stack, direction, limit);
+    if (!entry) break;
+    moved.push(entry);
+  }
+  return moved;
+}
+
+/** Entries are oldest-first, matching the stack arrays. `steps` counts from the newest end. */
+export function historyRange(
+  entries: UndoEntry[],
+  direction: 'undo' | 'redo',
+  steps: number,
+): { entries: UndoEntry[]; from: LocalCheckpoint; to: LocalCheckpoint } | null {
+  if (!Number.isInteger(steps) || steps < 1 || steps > entries.length) return null;
+  const slice = entries.slice(-steps);
+  for (let i = 0; i < slice.length - 1; i++) {
+    const older = direction === 'undo' ? slice[i]! : slice[i + 1]!;
+    const newer = direction === 'undo' ? slice[i + 1]! : slice[i]!;
+    if (!checkpointsEqual(older.after, newer.before)) return null;
+  }
+  const top = slice[slice.length - 1]!;
+  const far = slice[0]!;
+  if (direction === 'undo') return { entries: slice, from: top.after, to: far.before };
+  return { entries: slice, from: top.before, to: far.after };
+}
+
+export function rangeTipReset(entries: UndoEntry[]): 'soft' | 'hard' {
+  return entries.length > 0 && entries.every((entry) => entry.tipReset === 'soft') ? 'soft' : 'hard';
+}
+
+export function rangeWarning(entries: UndoEntry[]): string | null {
+  const parts = [...new Set(entries.map((entry) => entry.actionWarning).filter((warning): warning is string => Boolean(warning)))];
+  return parts.length ? parts.join(' ') : null;
+}
+
+export function rangeLabel(entries: UndoEntry[]): string {
+  const top = entries[entries.length - 1];
+  if (!top) return '';
+  if (entries.length === 1) return top.label;
+  return `${top.label} (+${entries.length - 1} more)`;
+}
+
 export function undoEnds(entry: UndoEntry, direction: 'undo' | 'redo'): { from: LocalCheckpoint; to: LocalCheckpoint } {
   return direction === 'undo' ? { from: entry.after, to: entry.before } : { from: entry.before, to: entry.after };
 }
@@ -294,9 +339,19 @@ export function checkpointRefs(checkpoint: LocalCheckpoint, remoteRefs: GraphRef
   return refs;
 }
 
-export function previewWindow(before: GraphCommit[], after: GraphCommit[]): { before: GraphCommit[]; after: GraphCommit[] } {
-  const keep = relatedCommitSet(before, after);
-  return { before: expandSpan(before, keep), after: expandSpan(after, keep) };
+export type PreviewHead = { branch: string | null; hash: string | null };
+
+export function previewWindow(
+  before: GraphCommit[],
+  after: GraphCommit[],
+  head?: PreviewHead | null,
+): { before: GraphCommit[]; after: GraphCommit[] } {
+  const related = relatedCommitSet(before, after);
+  const headKeep = head ? headCommitSet(before, after, related, head) : new Set<string>();
+  return {
+    before: pickPreviewCommits(before, related, headKeep),
+    after: pickPreviewCommits(after, related, headKeep),
+  };
 }
 
 /**
@@ -305,18 +360,35 @@ export function previewWindow(before: GraphCommit[], after: GraphCommit[]): { be
  * so a deleted branch or merge commit stays visible on the other graph.
  * Unrelated branches that merely sit inside that span are omitted unless `showUnrelated` is set.
  */
+export type PreviewOptions = {
+  showUnrelated?: boolean;
+  showHead?: boolean;
+  head?: PreviewHead | null;
+};
+
 export function presentPreview(
   before: GraphCommit[],
   after: GraphCommit[],
-  showUnrelated: boolean,
+  options: boolean | PreviewOptions = {},
 ): { before: GraphCommit[]; after: GraphCommit[] } {
+  const opts: PreviewOptions = typeof options === 'boolean' ? { showUnrelated: options } : options;
+  const showUnrelated = opts.showUnrelated === true;
+  const showHead = opts.showHead === true;
   const related = relatedCommitSet(before, after);
   const relatedKeys = relatedRefKeys(before, after);
-  const pick = (commits: GraphCommit[]) => (showUnrelated ? commits : commits.filter((commit) => related.has(commit.hash)));
+  const headKeep = opts.head ? headCommitSet(before, after, related, opts.head) : new Set<string>();
+  const headKey = showHead ? headRefKey(opts.head) : null;
+  const keepKeys = new Set<string>(headKey ? [headKey] : []);
+  const wanted = (commits: GraphCommit[], hash: string) => {
+    if (related.has(hash)) return true;
+    if (showHead && headKeep.has(hash)) return true;
+    return showUnrelated && spanHashes(commits, related).has(hash);
+  };
+  const pick = (commits: GraphCommit[]) => commits.filter((commit) => wanted(commits, commit.hash));
   const union = orderPreview(dedupeCommits([...pick(before), ...pick(after)]));
   return {
-    before: projectSide(before, union, related, relatedKeys, showUnrelated),
-    after: projectSide(after, union, related, relatedKeys, showUnrelated),
+    before: projectSide(before, union, related, relatedKeys, showUnrelated, keepKeys),
+    after: projectSide(after, union, related, relatedKeys, showUnrelated, keepKeys),
   };
 }
 
@@ -530,6 +602,55 @@ function takeNewest(byHash: Map<string, GraphCommit>, start: string, limit: numb
   }
 }
 
+const HEAD_CAP = 12;
+
+function headRefKey(head: PreviewHead | null | undefined): string | null {
+  if (!head) return null;
+  if (head.branch) return `head:${head.branch}`;
+  if (head.hash) return 'head:HEAD';
+  return null;
+}
+
+function headTip(byHash: Map<string, GraphCommit>, head: PreviewHead): string | null {
+  if (head.branch) {
+    for (const commit of byHash.values()) {
+      if (commit.refs.some((ref) => ref.kind === 'head' && ref.name === head.branch)) return commit.hash;
+    }
+  }
+  if (head.hash && byHash.has(head.hash)) return head.hash;
+  return null;
+}
+
+function headCommitSet(before: GraphCommit[], after: GraphCommit[], related: Set<string>, head: PreviewHead): Set<string> {
+  const byHash = combinedCommits(before, after);
+  const tip = headTip(byHash, head);
+  if (!tip) return new Set();
+  const keep = new Set<string>();
+  const seen = new Set<string>();
+  let queue = [tip];
+  while (queue.length && keep.size < HEAD_CAP) {
+    const next: string[] = [];
+    for (const hash of queue) {
+      if (seen.has(hash) || !byHash.has(hash)) continue;
+      seen.add(hash);
+      keep.add(hash);
+      if (related.has(hash) || keep.size >= HEAD_CAP) continue;
+      next.push(...(byHash.get(hash)?.parents ?? []));
+    }
+    queue = next;
+  }
+  return keep;
+}
+
+function spanHashes(commits: GraphCommit[], related: Set<string>): Set<string> {
+  return new Set(expandSpan(commits, related).map((commit) => commit.hash));
+}
+
+function pickPreviewCommits(commits: GraphCommit[], related: Set<string>, headKeep: Set<string>): GraphCommit[] {
+  const span = spanHashes(commits, related);
+  return commits.filter((commit) => span.has(commit.hash) || headKeep.has(commit.hash));
+}
+
 function expandSpan(commits: GraphCommit[], keep: Set<string>): GraphCommit[] {
   let min = -1;
   let max = -1;
@@ -570,6 +691,7 @@ function projectSide(
   related: Set<string>,
   relatedKeys: Set<string>,
   showUnrelated: boolean,
+  keepKeys: Set<string>,
 ): GraphCommit[] {
   const have = new Map(side.map((commit) => [commit.hash, commit]));
   const rows: GraphCommit[] = [];
@@ -579,7 +701,7 @@ function projectSide(
     const ghost = !real;
     rows.push({
       ...(real ?? commit),
-      refs: decorateRefs(real?.refs ?? null, refsForHash(union, commit.hash), relatedKeys, showUnrelated, ghost),
+      refs: decorateRefs(real?.refs ?? null, refsForHash(union, commit.hash), relatedKeys, showUnrelated, ghost, keepKeys),
       ghost,
     });
   }
@@ -601,6 +723,7 @@ function decorateRefs(
   relatedKeys: Set<string>,
   showUnrelated: boolean,
   commitGhost: boolean,
+  keepKeys: Set<string>,
 ): GraphRef[] {
   const mine = new Set((realRefs ?? []).map(refKey));
   const chosen: GraphRef[] = [];
@@ -609,7 +732,7 @@ function decorateRefs(
     if (ref.kind === 'worktree' && !showUnrelated) return;
     const key = refKey(ref);
     if (seen.has(key)) return;
-    const related = relatedKeys.has(key);
+    const related = relatedKeys.has(key) || keepKeys.has(key);
     if (commitGhost) {
       if (!related && !showUnrelated) return;
     } else if (!related && !(showUnrelated && mine.has(key))) {

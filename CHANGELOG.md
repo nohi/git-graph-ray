@@ -9,6 +9,8 @@
 - Switch the preview between a vertical stack and side by side, and hide unrelated branches. Commits and branch labels that exist on only one side are faded and dashed.
 - Record commits and amends made in Source Control, and undo them with `git reset --soft` so the changes stay staged.
 - Warn when an operation involves a remote. Remote-tracking refs are not moved. Worktree operations and interactive rebase are not recorded.
+- Undo or redo several steps at once from the history menu beside Undo and Redo.
+- Add Show HEAD to the undo preview so the checked-out branch stays visible.
 
 ### Changes
 

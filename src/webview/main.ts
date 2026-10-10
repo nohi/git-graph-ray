@@ -83,7 +83,16 @@ let undoPending: 'undo' | 'redo' | null = null;
 let undoPreviewMsg: Extract<HostToView, { type: 'undoPreview' }> | null = null;
 let undoSideBySide = false;
 let undoShowUnrelated = false;
-let undoButtons = { canUndo: false, canRedo: false, undoLabel: null as string | null, redoLabel: null as string | null };
+let undoShowHead = false;
+let undoSteps = 1;
+let undoButtons = {
+  canUndo: false,
+  canRedo: false,
+  undoLabel: null as string | null,
+  redoLabel: null as string | null,
+  undoLabels: [] as string[],
+  redoLabels: [] as string[],
+};
 let dateDraft: DateFilter | null = null;
 let dateTab: DateField = 'author';
 let lastPointer = { x: 24, y: 24 };
@@ -162,8 +171,16 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }
   } else if (m.type === 'undoState') {
-    undoButtons = { canUndo: m.canUndo, canRedo: m.canRedo, undoLabel: m.undoLabel, redoLabel: m.redoLabel };
+    undoButtons = {
+      canUndo: m.canUndo,
+      canRedo: m.canRedo,
+      undoLabel: m.undoLabel,
+      redoLabel: m.redoLabel,
+      undoLabels: m.undoLabels,
+      redoLabels: m.redoLabels,
+    };
     paintUndoButtons();
+    closeHistoryMenus();
   } else if (m.type === 'undoPreview') {
     showUndoPreview(m);
   }
@@ -960,25 +977,68 @@ function sendGit(action: GitAction): void {
 
 function paintUndoButtons(): void {
   const busy = document.documentElement.classList.contains('git-busy');
-  setHistoryButton($('btn-undo'), undoButtons.canUndo && !busy, undoButtons.undoLabel, 'Undo', 'Ctrl/Cmd+Z');
-  setHistoryButton($('btn-redo'), undoButtons.canRedo && !busy, undoButtons.redoLabel, 'Redo', 'Ctrl/Cmd+Shift+Z');
+  setHistoryButton($('btn-undo'), $('btn-undo-menu'), undoButtons.canUndo && !busy, undoButtons.undoLabel, 'Undo', 'Ctrl/Cmd+Z');
+  setHistoryButton($('btn-redo'), $('btn-redo-menu'), undoButtons.canRedo && !busy, undoButtons.redoLabel, 'Redo', 'Ctrl/Cmd+Shift+Z');
 }
 
-function setHistoryButton(el: HTMLElement, enabled: boolean, label: string | null, name: string, keys: string): void {
-  el.classList.toggle('is-disabled', !enabled);
-  el.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+function setHistoryButton(el: HTMLElement, menu: HTMLElement, enabled: boolean, label: string | null, name: string, keys: string): void {
+  for (const node of [el, menu]) {
+    node.classList.toggle('is-disabled', !enabled);
+    node.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+  }
   el.title = label ? `${name}: ${label} (${keys})` : `Nothing to ${name.toLowerCase()}`;
+  menu.title = enabled ? `${name} history` : `Nothing to ${name.toLowerCase()}`;
 }
 
-function requestHistory(direction: 'undo' | 'redo'): void {
+function closeHistoryMenus(): void {
+  for (const id of ['pop-undo', 'pop-redo']) {
+    const pop = $(id);
+    if (pop.matches(':popover-open')) pop.hidePopover?.();
+  }
+}
+
+function requestHistory(direction: 'undo' | 'redo', steps = 1): void {
   const enabled = direction === 'undo' ? undoButtons.canUndo : undoButtons.canRedo;
-  if (!enabled || document.documentElement.classList.contains('git-busy')) return;
-  post({ type: direction });
+  const labels = direction === 'undo' ? undoButtons.undoLabels : undoButtons.redoLabels;
+  if (!enabled || steps < 1 || steps > labels.length || document.documentElement.classList.contains('git-busy')) return;
+  closeHistoryMenus();
+  post({ type: direction, steps });
+}
+
+function bindHistoryMenu(direction: 'undo' | 'redo'): void {
+  const menu = $(direction === 'undo' ? 'btn-undo-menu' : 'btn-redo-menu');
+  const pop = $(direction === 'undo' ? 'pop-undo' : 'pop-redo');
+  pop.addEventListener('beforetoggle', (ev) => {
+    if ((ev as ToggleEvent).newState !== 'open') return;
+    const labels = direction === 'undo' ? undoButtons.undoLabels : undoButtons.redoLabels;
+    if (menu.classList.contains('is-disabled') || !labels.length) {
+      ev.preventDefault();
+      return;
+    }
+    const verb = direction === 'undo' ? 'Undo' : 'Redo';
+    pop.innerHTML = labels
+      .map((label, index) => {
+        const steps = index + 1;
+        const count = steps > 1 ? `<span class="hist-count">${steps} steps</span>` : '';
+        const hint = steps === 1 ? label : `${verb} ${steps} steps, including newer entries`;
+        return `<button type="button" data-steps="${steps}" title="${esc(hint)}">${esc(label)}${count}</button>`;
+      })
+      .join('');
+  });
+  pop.addEventListener('click', (ev) => {
+    const button = (ev.target as HTMLElement).closest('button');
+    if (!button) return;
+    const steps = Number(button.dataset.steps);
+    pop.hidePopover?.();
+    if (steps > 0) requestHistory(direction, steps);
+  });
+  bindPopoverAnchor(menu.id, pop.id, { align: 'left' });
 }
 
 function showUndoPreview(m: Extract<HostToView, { type: 'undoPreview' }>): void {
   if (!snap) return;
   undoPending = m.direction;
+  undoSteps = m.steps;
   undoPreviewMsg = m;
   const verb = m.direction === 'undo' ? 'Undo' : 'Redo';
   $('undo-title').textContent = `${verb} ${m.label}`;
@@ -987,6 +1047,7 @@ function showUndoPreview(m: Extract<HostToView, { type: 'undoPreview' }>): void 
   warn.textContent = m.warning ?? '';
   ($('undo-side') as HTMLInputElement).checked = undoSideBySide;
   ($('undo-unrelated') as HTMLInputElement).checked = undoShowUnrelated;
+  ($('undo-head') as HTMLInputElement).checked = undoShowHead;
   renderUndoGraphs();
   $('undo-changes').innerHTML = m.changes.map((change) => `<li>${esc(formatRefChange(change))}</li>`).join('');
   $('undo-cmds').textContent = m.commands.join('\n');
@@ -1008,7 +1069,11 @@ function renderUndoGraphs(): void {
   graphs.hidden = false;
   options.hidden = false;
   graphs.classList.toggle('side-by-side', undoSideBySide);
-  const view = presentPreview(m.before, m.after, undoShowUnrelated);
+  const view = presentPreview(m.before, m.after, {
+    showUnrelated: undoShowUnrelated,
+    showHead: undoShowHead,
+    head: { branch: m.headBranch, hash: m.beforeHead },
+  });
   const empty = view.before.length === 0 && view.after.length === 0;
   graphs.innerHTML = empty
     ? '<p class="dlg-note">Those commits are outside the loaded history.</p>'
@@ -1020,13 +1085,27 @@ function undoSide(title: string, commits: GraphCommit[], head: string | null): s
   const drawn = undoGraph(commits, head);
   const rows = commits
     .map((commit) => {
-      const refs = commit.refs
-        .map((ref) => `<span class="refs${ref.ghost ? ' ghost' : ''}">${esc(ref.name)}</span>`)
-        .join('');
+      const refs = undoShowUnrelated ? undoChips(commit.refs) : commit.refs.map((ref) => `<span class="refs${ref.ghost ? ' ghost' : ''}">${esc(ref.name)}</span>`).join('');
       return `<div class="undo-row${commit.ghost ? ' ghost' : ''}"><span class="hash">${esc(commit.hash.slice(0, 7))}</span><span class="subj">${esc(commit.subject)}</span>${refs}</div>`;
     })
     .join('');
   return `<section class="undo-side"><h3>${esc(title)}</h3><div class="undo-board"><svg width="${drawn.width}" height="${drawn.height}" aria-hidden="true">${drawn.svg}</svg><div class="undo-rows">${rows}</div></div></section>`;
+}
+
+function undoChips(refs: GraphRef[]): string {
+  if (!snap || !refs.length) return '';
+  const groups = groupChipRefs(refs, snap.config.combineLocalAndRemote);
+  const mk = (ref: GraphRef, short = false) => {
+    const detached = ref.kind === 'head' && ref.name === 'HEAD';
+    const current = ref.kind === 'head' && Boolean(snap!.currentBranch) && ref.name === snap!.currentBranch;
+    const ico = ref.kind === 'head' || ref.kind === 'tag' ? '<span class="chip-ico" aria-hidden="true"></span>' : '';
+    const label = short && ref.kind === 'remote' ? remoteShortName(ref) : refDisplayName(ref);
+    return `<span class="chip ${ref.kind}${detached ? ' detached' : ''}${current ? ' current' : ''}${ref.ghost ? ' ghost' : ''}">${ico}${esc(label)}</span>`;
+  };
+  const html = groups
+    .map((group) => (group.kind === 'pair' ? `<span class="chip-pair">${mk(group.local)}${mk(group.remote, true)}</span>` : mk(group.ref)))
+    .join('');
+  return `<span class="undo-chips">${html}</span>`;
 }
 
 function undoGraph(commits: GraphCommit[], head: string | null): { svg: string; width: number; height: number } {
@@ -1150,6 +1229,8 @@ const ANCHOR_POPS: Array<[string, string, AnchoredPopoverOpts?]> = [
   ['btn-find', 'pop-find'],
   ['btn-date', 'pop-date'],
   ['btn-repo-help', 'pop-repo-help', { align: 'left', maxWidth: 400 }],
+  ['btn-undo-menu', 'pop-undo', { align: 'left' }],
+  ['btn-redo-menu', 'pop-redo', { align: 'left' }],
 ];
 
 function repositionOpenAnchoredPopovers(): void {
@@ -1557,11 +1638,14 @@ function bind(): void {
   });
   $('btn-undo').addEventListener('click', () => requestHistory('undo'));
   $('btn-redo').addEventListener('click', () => requestHistory('redo'));
+  bindHistoryMenu('undo');
+  bindHistoryMenu('redo');
   $('undo-ok').addEventListener('click', () => {
     const direction = undoPending;
+    const steps = undoSteps;
     undoPending = null;
     (document.getElementById('dlg-undo') as HTMLDialogElement).close();
-    if (direction) post({ type: 'undoApply', direction });
+    if (direction) post({ type: 'undoApply', direction, steps });
   });
   $('undo-cancel').addEventListener('click', () => {
     undoPending = null;
@@ -1573,6 +1657,10 @@ function bind(): void {
   });
   $('undo-unrelated').addEventListener('change', () => {
     undoShowUnrelated = ($('undo-unrelated') as HTMLInputElement).checked;
+    renderUndoGraphs();
+  });
+  $('undo-head').addEventListener('change', () => {
+    undoShowHead = ($('undo-head') as HTMLInputElement).checked;
     renderUndoGraphs();
   });
   paintUndoButtons();
