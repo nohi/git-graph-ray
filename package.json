@@ -787,11 +787,11 @@
     "vsce:package": "npm run compile && npx @vscode/vsce package -o ./dist/"
   },
   "devDependencies": {
-    "@types/node": "^26.4.0",
+    "@types/node": "^26.6.5",
     "@types/vscode": "~1.120.0",
-    "concurrently": "^10.0.5",
+    "concurrently": "^10.0.6",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2",
+    "vite": "^8.3.4",
     "vitest": "^4.1.11"
   }
 }
