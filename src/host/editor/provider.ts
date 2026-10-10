@@ -27,6 +27,7 @@ import { runGitAction } from '../git/actions';
 import { loadDetails } from '../git/details';
 import { loadCommits, withUncommitted, workingTreeDirty, findDiffHashes } from '../git/log';
 import { addRemote, deleteRemote, editRemote, listRemotes } from '../git/remotes';
+import { branchFullyMerged } from '../git/branchMerged';
 import { loadRefs } from '../git/refs';
 import { listWorktrees } from '../git/worktree';
 import { discoverRepos, norm } from '../repos/discover';
@@ -594,6 +595,11 @@ class GraphSession {
         case 'openUrl':
           await vscode.env.openExternal(vscode.Uri.parse(msg.url));
           return;
+        case 'branchMerged': {
+          const merged = await branchFullyMerged(this.git(), this.repoPath, msg.name).catch(() => null);
+          this.post({ type: 'branchMerged', requestId: msg.requestId, merged });
+          return;
+        }
         case 'pickFolder': {
           const pick = await vscode.window.showOpenDialog({
             canSelectFolders: true,

@@ -33,6 +33,16 @@
 - Keep an SSH-signed commit marked signed when Git reports no signature because `gpg.ssh.allowedSignersFile` is not configured.
 - Show branch, tag, and other labels on commits that load when scrolling further down the graph.
 
+### Features
+
+- Warn when deleting a local branch that is not fully merged, and keep OK disabled until force is checked. The check matches `git branch -d`: merged into the upstream when one exists, otherwise into HEAD.
+- Open Git action dialogs beside the pointer, and keep them inside the window.
+
+### Changes
+
+- Draw worktree labels with a folder icon.
+- Style OK and Save as primary buttons, and leave Cancel as a normal button.
+
 ## v0.1.5
 
 ### Features

@@ -10,6 +10,7 @@ export type HostToView =
   | { type: 'busy'; on: boolean; fetch?: boolean }
   | { type: 'notice'; message: string }
   | { type: 'picked'; requestId: string; path: string | null }
+  | { type: 'branchMerged'; requestId: string; merged: boolean | null }
   | { type: 'face'; email: string; dataUri: string }
   | { type: 'facesReset' }
   | { type: 'findDiffs'; hashes: string[]; error?: string }
@@ -97,6 +98,7 @@ export type ViewToHost =
   | { type: 'deleteRemote'; name: string }
   | { type: 'openUrl'; url: string }
   | { type: 'pickFolder'; requestId: string; defaultPath?: string }
+  | { type: 'branchMerged'; requestId: string; name: string }
   | { type: 'faces'; emails: string[] };
 
 export type SquashMessageFormat = 'Default' | 'Git SQUASH_MSG';

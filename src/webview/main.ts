@@ -22,6 +22,7 @@ import { foldBridgeEdges, layoutCommits, type Layout } from '../shared/layout';
 import { buildFileTree } from '../shared/fileTree';
 import { decideNamedRemoteCheckout, startCheckoutFromRef } from '../shared/checkout';
 import { applySpaceSubstitution, defaultRepoSettings, type RepoSettings } from '../shared/dialogs';
+import { deleteBranchConfirm, deleteBranchDialogHtml, type BranchMergeState } from '../shared/deleteBranch';
 import { parsePushMode, pushBranchDialogHtml } from '../shared/pushDialog';
 import {
   defaultWorktreeLocation,
@@ -37,7 +38,7 @@ import { formatRefChange, presentPreview } from '../shared/undo';
 import { branchMenuEntries, commitMenuEntries, menuHtml } from '../shared/commitMenu';
 import { UNCOMMITTED, type ColumnVisibility, type CommitDetails, type GraphCommit, type GraphRef } from '../shared/types';
 import type { GitAction, GraphSnapshot, HostToView, ViewToHost } from '../shared/protocol';
-import { anchoredPopoverPlacement, type AnchoredPopoverAlign } from '../shared/popover';
+import { anchoredPopoverPlacement, cursorDialogPlacement, type AnchoredPopoverAlign } from '../shared/popover';
 import { syncRayCats } from './rayCat';
 import './styles.css';
 
@@ -65,6 +66,9 @@ let autoDetailsH = 180;
 let fitGen = 0;
 let userG: number | null = null;
 let dialogOk: (() => void) | null = null;
+let deleteBranchReq = '';
+let deleteBranchSeq = 0;
+let deleteBranchMerge: BranchMergeState = 'unknown';
 let confirmOk: (() => void) | null = null;
 let faces = new Map<string, string>();
 let findHits: number[] = [];
@@ -164,6 +168,10 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
     selected = m.selected;
     compare = m.compare;
     scrollToHash(m.selected);
+  } else if (m.type === 'branchMerged') {
+    if (m.requestId !== deleteBranchReq) return;
+    deleteBranchMerge = m.merged === true ? 'merged' : m.merged === false ? 'unmerged' : 'unknown';
+    syncDeleteBranchForm();
   } else if (m.type === 'picked') {
     const input = document.querySelector<HTMLInputElement>(`[data-pick="${m.requestId}"]`);
     if (input) {
@@ -601,7 +609,7 @@ function chips(c: GraphCommit): string {
   const mk = (r: GraphRef, short = false) => {
     const detached = r.kind === 'head' && r.name === 'HEAD';
     const current = r.kind === 'head' && Boolean(snap!.currentBranch) && r.name === snap!.currentBranch;
-    const ico = r.kind === 'head' || r.kind === 'tag' ? '<span class="chip-ico" aria-hidden="true"></span>' : '';
+    const ico = chipIcon(r.kind);
     const label = short && r.kind === 'remote' ? remoteShortName(r) : refDisplayName(r);
     return `<span class="chip ${r.kind}${detached ? ' detached' : ''}${current ? ' current' : ''}" data-kind="${r.kind}" data-name="${esc(r.name)}" data-hash="${esc(r.hash)}" data-remote="${esc(r.remote ?? '')}" data-wt="${esc(r.worktreePath ?? '')}">${ico}${findMark(label)}</span>`;
   };
@@ -1098,7 +1106,7 @@ function undoChips(refs: GraphRef[]): string {
   const mk = (ref: GraphRef, short = false) => {
     const detached = ref.kind === 'head' && ref.name === 'HEAD';
     const current = ref.kind === 'head' && Boolean(snap!.currentBranch) && ref.name === snap!.currentBranch;
-    const ico = ref.kind === 'head' || ref.kind === 'tag' ? '<span class="chip-ico" aria-hidden="true"></span>' : '';
+    const ico = chipIcon(ref.kind);
     const label = short && ref.kind === 'remote' ? remoteShortName(ref) : refDisplayName(ref);
     return `<span class="chip ${ref.kind}${detached ? ' detached' : ''}${current ? ' current' : ''}${ref.ghost ? ' ghost' : ''}">${ico}${esc(label)}</span>`;
   };
@@ -1260,16 +1268,51 @@ function syncWorktreeForm(): void {
   $('git-ok').disabled = !state.canCreate;
 }
 
-function gitDialog(title: string, body: string, onOk: () => void): void {
+let gitDialogAt: { x: number; y: number } | null = null;
+
+function chipIcon(kind: string): string {
+  return kind === 'head' || kind === 'tag' || kind === 'worktree' ? '<span class="chip-ico" aria-hidden="true"></span>' : '';
+}
+
+function clearCursorDialog(dlg: HTMLElement): void {
+  dlg.classList.remove('at-cursor');
+  dlg.style.left = '';
+  dlg.style.top = '';
+}
+
+function placeCursorDialog(dlg: HTMLElement, at: { x: number; y: number }): void {
+  dlg.classList.add('at-cursor');
+  const place = cursorDialogPlacement(
+    at,
+    { width: dlg.offsetWidth, height: dlg.offsetHeight },
+    { width: window.innerWidth, height: window.innerHeight },
+  );
+  dlg.style.left = `${place.left}px`;
+  dlg.style.top = `${place.top}px`;
+}
+
+function gitDialog(title: string, body: string, onOk: () => void, at?: { x: number; y: number }): void {
   dialogOk = onOk;
+  gitDialogAt = at ?? null;
   $('git-title').textContent = title;
   $('git-body').innerHTML = body;
   $('git-ok').disabled = false;
   syncGitOkFromRemotes();
+  syncDeleteBranchForm();
   const dlg = $('dlg-git') as unknown as HTMLDialogElement;
+  clearCursorDialog(dlg);
+  if (at) {
+    dlg.classList.add('at-cursor');
+    dlg.style.left = `${Math.round(at.x)}px`;
+    dlg.style.top = `${Math.round(at.y)}px`;
+  }
   dlg.showModal();
+  if (at) placeCursorDialog(dlg, at);
   const field = $('git-body').querySelector<HTMLElement>('input:not([type=checkbox]):not([type=radio]), textarea, select');
-  (field ?? $('git-ok')).focus();
+  const ok = $('git-ok');
+  if (field) field.focus();
+  else if (!ok.disabled) ok.focus();
+  else $('git-body').querySelector<HTMLElement>('input')?.focus();
 }
 
 function selectedPushRemotes(): string[] {
@@ -1277,6 +1320,15 @@ function selectedPushRemotes(): string[] {
   if (checked.length) return checked;
   const sel = $('git-body').querySelector<HTMLSelectElement>('select#rm');
   return sel?.value ? [sel.value] : [];
+}
+
+function syncDeleteBranchForm(): void {
+  const force = document.getElementById('fr') as HTMLInputElement | null;
+  const warn = document.getElementById('del-unmerged');
+  if (!force || !warn) return;
+  const state = deleteBranchConfirm(deleteBranchMerge, force.checked);
+  warn.hidden = !state.showWarning;
+  $('git-ok').disabled = !state.okEnabled;
 }
 
 function syncGitOkFromRemotes(): void {
@@ -1457,7 +1509,10 @@ function bindDialogs(): void {
     dialogOk = null;
     if (!submitter || submitter.id === 'git-ok' || submitter.value === 'ok') ok?.();
   });
-  $('git-body').addEventListener('change', syncGitOkFromRemotes);
+  $('git-body').addEventListener('change', () => {
+    syncGitOkFromRemotes();
+    syncDeleteBranchForm();
+  });
   $('git-body').addEventListener('input', () => {
     if (document.getElementById('wt-name')) syncWorktreeForm();
   });
@@ -1467,6 +1522,10 @@ function bindDialogs(): void {
   });
   dlg.addEventListener('cancel', () => {
     dialogOk = null;
+  });
+  dlg.addEventListener('close', () => {
+    gitDialogAt = null;
+    clearCursorDialog(dlg);
   });
   dlg.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape') {
@@ -1990,6 +2049,8 @@ function bind(): void {
   window.addEventListener('resize', () => {
     syncHeaderScroll();
     repositionOpenAnchoredPopovers();
+    const dlg = $('dlg-git') as unknown as HTMLDialogElement;
+    if (gitDialogAt && dlg.open) placeCursorDialog(dlg, gitDialogAt);
   });
   bindColResize();
   bindSashes();
@@ -2210,7 +2271,7 @@ function checkoutChip(chip: HTMLElement): void {
   runPlan(plan);
 }
 
-function runPlan(plan: ReturnType<typeof startCheckoutFromRef>): void {
+function runPlan(plan: ReturnType<typeof startCheckoutFromRef>, at?: { x: number; y: number }): void {
   if (plan.kind === 'local') sendGit({ kind: 'checkoutBranch', name: plan.name });
   if (plan.kind === 'promptCreate') {
     gitDialog(
@@ -2223,6 +2284,7 @@ function runPlan(plan: ReturnType<typeof startCheckoutFromRef>): void {
           localName: (document.getElementById('ln') as HTMLInputElement).value,
         });
       },
+      at,
     );
   }
   if (plan.kind === 'confirmPull') {
@@ -2246,6 +2308,7 @@ function runPlan(plan: ReturnType<typeof startCheckoutFromRef>): void {
             : undefined,
         });
       },
+      at,
     );
   }
 }
@@ -2359,10 +2422,25 @@ function onMenu(ev: Event): void {
     }
     if (id === 'tag-push') gitDialog('Push tag', `<input id="rm" value="${esc(snap.remotes[0]?.name ?? 'origin')}" />`, () => act({ kind: 'pushTag', name: r.name, remote: (document.getElementById('rm') as HTMLInputElement).value }));
     if (id === 'br-co') runPlan({ kind: 'local', name: r.name });
-    if (id === 'br-rn') gitDialog('Rename', `<input id="nn" value="${esc(r.name)}" />`, () => act({ kind: 'renameBranch', oldName: r.name, newName: applySpaceSubstitution((document.getElementById('nn') as HTMLInputElement).value, sp) }));
-    if (id === 'br-del') gitDialog('Delete branch', `<label><input type="checkbox" id="fr" ${d.deleteBranchForce ? 'checked' : ''}/> force</label>`, () => act({ kind: 'deleteBranch', name: r.name, force: (document.getElementById('fr') as HTMLInputElement).checked }));
-    if (id === 'br-mg') gitDialog('Merge', checks(d), () => act({ kind: 'merge', ref: r.name, noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }));
-    if (id === 'br-rb') gitDialog('Rebase', `<label><input type="checkbox" id="id" ${d.rebaseIgnoreDate ? 'checked' : ''}/> ignore date</label><label><input type="checkbox" id="ir" ${d.rebaseInteractive ? 'checked' : ''}/> interactive</label>`, () => act({ kind: 'rebase', ref: r.name, ignoreDate: (document.getElementById('id') as HTMLInputElement).checked, interactive: (document.getElementById('ir') as HTMLInputElement).checked }));
+    if (id === 'br-rn') gitDialog('Rename', `<input id="nn" value="${esc(r.name)}" />`, () => act({ kind: 'renameBranch', oldName: r.name, newName: applySpaceSubstitution((document.getElementById('nn') as HTMLInputElement).value, sp) }), clickPoint(ev));
+    if (id === 'br-del') {
+      const p = clickPoint(ev);
+      const requestId = String(++deleteBranchSeq);
+      deleteBranchReq = requestId;
+      deleteBranchMerge = 'pending';
+      gitDialog(
+        'Delete branch',
+        deleteBranchDialogHtml(d.deleteBranchForce),
+        () => act({ kind: 'deleteBranch', name: r.name, force: (document.getElementById('fr') as HTMLInputElement).checked }),
+        p,
+      );
+      post({ type: 'branchMerged', requestId, name: r.name });
+    }
+    if (id === 'br-mg') {
+      const p = clickPoint(ev);
+      gitDialog('Merge', checks(d), () => act({ kind: 'merge', ref: r.name, noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }), p);
+    }
+    if (id === 'br-rb') gitDialog('Rebase', `<label><input type="checkbox" id="id" ${d.rebaseIgnoreDate ? 'checked' : ''}/> ignore date</label><label><input type="checkbox" id="ir" ${d.rebaseInteractive ? 'checked' : ''}/> interactive</label>`, () => act({ kind: 'rebase', ref: r.name, ignoreDate: (document.getElementById('id') as HTMLInputElement).checked, interactive: (document.getElementById('ir') as HTMLInputElement).checked }), clickPoint(ev));
     if (id === 'br-ps') {
       gitDialog('Push branch', pushBranchDialogHtml(snap.remotes.map((x) => x.name)), () => {
         const remotes = selectedPushRemotes();
@@ -2374,9 +2452,9 @@ function onMenu(ev: Event): void {
           setUpstream: (document.getElementById('su') as HTMLInputElement).checked,
           mode: parsePushMode($('git-body').querySelector<HTMLInputElement>('input[name="pm"]:checked')?.value),
         });
-      });
+      }, clickPoint(ev));
     }
-    if (id === 'rm-co') runPlan(decideNamedRemoteCheckout(snap.commits, r.name, r.name.slice(r.name.indexOf('/') + 1), r.hash, snap.currentBranch));
+    if (id === 'rm-co') runPlan(decideNamedRemoteCheckout(snap.commits, r.name, r.name.slice(r.name.indexOf('/') + 1), r.hash, snap.currentBranch), clickPoint(ev));
     if (id === 'rm-del') {
       const p = clickPoint(ev);
       showConfirmTip(`Delete remote branch ${r.name}?`, () => act({ kind: 'deleteRemoteBranch', remote: r.remote ?? r.name.split('/')[0]!, name: r.name }), p.x, p.y);
@@ -2402,19 +2480,25 @@ function onMenu(ev: Event): void {
       showConfirmTip('Delete untracked files?', () => act({ kind: 'cleanUntracked', directories: true }), p.x, p.y);
     }
     if (id === 'u-scm') act({ kind: 'openScm' });
-    if (id === 'c-tag') gitDialog('Add tag', `<input id="tn" /><label><input type="checkbox" id="an" ${d.addTagType === 'Annotated' ? 'checked' : ''}/> annotated</label>`, () => act({ kind: 'addTag', hash: c.hash, name: applySpaceSubstitution((document.getElementById('tn') as HTMLInputElement).value, sp), annotated: (document.getElementById('an') as HTMLInputElement).checked, pushTo: d.addTagPushToRemote ? snap!.remotes[0]?.name : undefined }));
-    if (id === 'c-br') gitDialog('Create branch', `<input id="bn" /><label><input type="checkbox" id="co" ${d.createBranchCheckOut ? 'checked' : ''}/> checkout</label>`, () => act({ kind: 'createBranch', hash: c.hash, name: applySpaceSubstitution((document.getElementById('bn') as HTMLInputElement).value, sp), checkout: (document.getElementById('co') as HTMLInputElement).checked }));
+    if (id === 'c-tag') gitDialog('Add tag', `<input id="tn" /><label><input type="checkbox" id="an" ${d.addTagType === 'Annotated' ? 'checked' : ''}/> annotated</label>`, () => act({ kind: 'addTag', hash: c.hash, name: applySpaceSubstitution((document.getElementById('tn') as HTMLInputElement).value, sp), annotated: (document.getElementById('an') as HTMLInputElement).checked, pushTo: d.addTagPushToRemote ? snap!.remotes[0]?.name : undefined }), clickPoint(ev));
+    if (id === 'c-br') {
+      const p = clickPoint(ev);
+      gitDialog('Create branch', `<input id="bn" /><label><input type="checkbox" id="co" ${d.createBranchCheckOut ? 'checked' : ''}/> checkout</label>`, () => act({ kind: 'createBranch', hash: c.hash, name: applySpaceSubstitution((document.getElementById('bn') as HTMLInputElement).value, sp), checkout: (document.getElementById('co') as HTMLInputElement).checked }), p);
+    }
     if (id === 'c-co') act({ kind: 'checkoutCommit', hash: c.hash });
-    if (id === 'c-cp') gitDialog('Cherry-pick', `<label><input type="checkbox" id="nc" ${d.cherryPickNoCommit ? 'checked' : ''}/> no commit</label>`, () => act({ kind: 'cherryPick', hash: c.hash, noCommit: (document.getElementById('nc') as HTMLInputElement).checked, recordOrigin: d.cherryPickRecordOrigin }));
-    if (id === 'c-rv') gitDialog('Revert', 'Revert this commit?', () => act({ kind: 'revert', hash: c.hash }));
+    if (id === 'c-cp') gitDialog('Cherry-pick', `<label><input type="checkbox" id="nc" ${d.cherryPickNoCommit ? 'checked' : ''}/> no commit</label>`, () => act({ kind: 'cherryPick', hash: c.hash, noCommit: (document.getElementById('nc') as HTMLInputElement).checked, recordOrigin: d.cherryPickRecordOrigin }), clickPoint(ev));
+    if (id === 'c-rv') gitDialog('Revert', 'Revert this commit?', () => act({ kind: 'revert', hash: c.hash }), clickPoint(ev));
     if (id === 'c-dr') {
       const p = clickPoint(ev);
       showConfirmTip('Drop this commit and rewrite history?', () => act({ kind: 'dropCommit', hash: c.hash }), p.x, p.y, 'Drop');
     }
-    if (id === 'c-mg') gitDialog('Merge', checks(d), () => act({ kind: 'merge', ref: c.hash, noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }));
-    if (id === 'c-rb') gitDialog('Rebase', `<label><input type="checkbox" id="id" ${d.rebaseIgnoreDate ? 'checked' : ''}/> ignore date</label>`, () => act({ kind: 'rebase', ref: c.hash, ignoreDate: (document.getElementById('id') as HTMLInputElement).checked, interactive: false }));
+    if (id === 'c-mg') {
+      const p = clickPoint(ev);
+      gitDialog('Merge', checks(d), () => act({ kind: 'merge', ref: c.hash, noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }), p);
+    }
+    if (id === 'c-rb') gitDialog('Rebase', `<label><input type="checkbox" id="id" ${d.rebaseIgnoreDate ? 'checked' : ''}/> ignore date</label>`, () => act({ kind: 'rebase', ref: c.hash, ignoreDate: (document.getElementById('id') as HTMLInputElement).checked, interactive: false }), clickPoint(ev));
     if (id === 'c-rbi') act({ kind: 'rebase', ref: c.hash, ignoreDate: false, interactive: true });
-    if (id === 'c-rs') gitDialog('Reset', 'Reset current branch?', () => act({ kind: 'reset', hash: c.hash, mode: d.resetBranchMode.toLowerCase() as 'soft' | 'mixed' | 'hard' }));
+    if (id === 'c-rs') gitDialog('Reset', 'Reset current branch?', () => act({ kind: 'reset', hash: c.hash, mode: d.resetBranchMode.toLowerCase() as 'soft' | 'mixed' | 'hard' }), clickPoint(ev));
     if (id === 'c-wt') {
       const main = snap.mainWorktreePath || snap.repoPath;
       const rid = 'p' + Date.now();
@@ -2432,6 +2516,7 @@ function onMenu(ev: Event): void {
           if (!state.canCreate) return;
           act({ kind: 'worktreeAdd', hash: c.hash, path: state.destination });
         },
+        clickPoint(ev),
       );
       document.getElementById('wt-browse')?.addEventListener('click', () => {
         const loc = (document.getElementById('wt-loc') as HTMLInputElement).value;
@@ -2442,7 +2527,7 @@ function onMenu(ev: Event): void {
       nameInput?.focus();
       nameInput?.select();
     }
-    if (id === 'c-rw') gitDialog('Reword', `<textarea id="msg">${esc(c.subject)}</textarea>`, () => act({ kind: 'reword', hash: c.hash, message: (document.getElementById('msg') as HTMLTextAreaElement).value }));
+    if (id === 'c-rw') gitDialog('Reword', `<textarea id="msg">${esc(c.subject)}</textarea>`, () => act({ kind: 'reword', hash: c.hash, message: (document.getElementById('msg') as HTMLTextAreaElement).value }), clickPoint(ev));
   }
   if (ctxFile && details) {
     if (id === 'f-diff') postDiff(ctxFile);

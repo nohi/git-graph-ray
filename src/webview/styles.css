@@ -7,6 +7,7 @@
   --bar: light-dark(#efe8dc, #181c26);
   --accent: #ff5a1f;
   --tone-filter: #3b82f6;
+  --ico-worktree: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='black' d='M2 3.25h4.05l1.15 1.35H14V12.75H2z'/%3E%3C/svg%3E");
   --tone-git: var(--accent);
   --tone-jump: #a855f7;
   --ray: #5cff47;
@@ -650,7 +651,12 @@ mark.find-hit {
 
   &.kind-worktree {
     .ref-mark {
+      width: 0.9rem;
+      height: 0.75rem;
+      border-radius: 0;
       background: #34d399;
+      -webkit-mask: var(--ico-worktree) center / contain no-repeat;
+      mask: var(--ico-worktree) center / contain no-repeat;
     }
 
     .ref-name {
@@ -771,6 +777,26 @@ dialog button:disabled {
 
 #git-body:has(#wt-loc) {
   width: min(36rem, 72vw);
+}
+
+#dlg-git:has(#del-unmerged) {
+  box-sizing: border-box;
+  width: min(24rem, calc(100vw - 16px));
+}
+
+#dlg-git:has(#co) {
+  box-sizing: border-box;
+  width: min(400px, calc(100vw - 16px));
+}
+
+#dlg-git:has(#su) {
+  box-sizing: border-box;
+  width: min(200px, calc(100vw - 16px));
+
+  .dlg-stack,
+  select {
+    min-width: 0;
+  }
 }
 
 #git-body {
@@ -1105,6 +1131,7 @@ dialog button:disabled {
 
   &.worktree {
     color: #34d399;
+    --chip-ico: var(--ico-worktree);
   }
 }
 
@@ -1218,10 +1245,10 @@ dialog button:disabled {
 
 .fv-btn:hover,
 .fv-btn[aria-pressed="true"],
-.settings button:hover:not(.btn-cancel),
+.settings button:hover:not(.btn-primary),
 .date-jump button:hover,
-dialog button:hover:not(.btn-cancel):not(:disabled),
-.confirm-tip button:hover:not(.btn-cancel) {
+dialog button:hover:not(:disabled):not(.btn-primary),
+.confirm-tip button:hover:not(.btn-primary) {
   background: var(--hl-bg);
   border-color: var(--hl);
 }
@@ -1623,7 +1650,7 @@ body {
       box-shadow: inset 3px 0 0 #5cff47, inset 0 0 14px color-mix(in srgb, #5cff47 28%, transparent);
     }
 
-    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-cancel):not(:disabled):not(.is-disabled) {
+    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-primary):not(:disabled):not(.is-disabled) {
       background: linear-gradient(90deg, color-mix(in srgb, #5cff47 34%, transparent), color-mix(in srgb, #00f6ff 16%, transparent));
       box-shadow: inset 3px 0 0 #5cff47, inset 0 0 14px color-mix(in srgb, #5cff47 28%, transparent);
       border-color: #5cff47;
@@ -1657,7 +1684,7 @@ body {
       animation: wave-sel 2.4s ease-in-out infinite;
     }
 
-    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-cancel):not(:disabled):not(.is-disabled) {
+    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-primary):not(:disabled):not(.is-disabled) {
       animation: wave-sel 2.4s ease-in-out infinite;
       border-color: #00f6ff;
     }
@@ -1687,7 +1714,7 @@ body {
       animation: cycle-sel 5s linear infinite;
     }
 
-    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-cancel):not(:disabled):not(.is-disabled) {
+    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-primary):not(:disabled):not(.is-disabled) {
       animation: cycle-sel 5s linear infinite;
       border-color: #ff3cf0;
     }
@@ -1720,7 +1747,7 @@ body {
       box-shadow: none;
     }
 
-    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-cancel):not(:disabled):not(.is-disabled) {
+    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-primary):not(:disabled):not(.is-disabled) {
       background-image: none;
       animation: cycle-sel 5s linear infinite;
       border-color: #ff3cf0;
@@ -1900,6 +1927,16 @@ dialog {
 
   code {
     font-size: inherit;
+  }
+
+  &.at-cursor {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    box-sizing: border-box;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    overflow: auto;
   }
 }
 
@@ -2087,32 +2124,16 @@ dialog {
   line-height: 1.45;
 }
 
-.btn-cancel {
-
-  &,
-  &:hover,
-  &:focus-visible,
-  :is(body[data-theme="Ray"], body[data-theme="Ray Wave"], body[data-theme="Ray Cycle"], body[data-theme="Ray Stream"]) &:hover {
-    background: color-mix(in srgb, var(--muted) 16%, transparent);
-    border-color: var(--line);
-    color: var(--muted);
-    animation: none !important;
-    background-image: none !important;
-    box-shadow: none !important;
-  }
+button.btn-primary {
+  background: #3b82f6;
+  border-color: #60a5fa;
+  color: #fff;
 }
 
-#dlg-help {
-  .btn-cancel {
-
-    &,
-    &:hover,
-    &:focus-visible,
-    :is(body[data-theme="Ray"], body[data-theme="Ray Wave"], body[data-theme="Ray Cycle"], body[data-theme="Ray Stream"]) &:hover {
-      color: var(--fg);
-      opacity: 1;
-    }
-  }
+button.btn-primary:is(:hover, :focus-visible):not(:disabled) {
+  background: #60a5fa;
+  border-color: #93c5fd;
+  color: #fff;
 }
 
 a {

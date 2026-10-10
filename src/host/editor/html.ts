@@ -41,7 +41,7 @@ const SHELL = `
       </div>
       <div id="ref-list"></div>
       <div class="dlg-actions">
-        <button type="button" id="ref-ok">OK</button>
+        <button type="button" id="ref-ok" class="btn-primary">OK</button>
       </div>
     </div>
     <button type="button" id="btn-dates" class="with-icon tone-filter" commandfor="pop-dates" command="toggle-popover" aria-pressed="false" title="Filter commits by date"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2.2 3h11.6L9.4 8.1V12.2L6.6 13.4V8.1L2.2 3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg>Dates</button>
@@ -58,7 +58,7 @@ const SHELL = `
       </div>
       <div id="date-list"></div>
       <div class="dlg-actions">
-        <button type="button" id="date-ok">OK</button>
+        <button type="button" id="date-ok" class="btn-primary">OK</button>
       </div>
     </div>
     <button type="button" id="btn-head" class="tone-jump" title="Jump to HEAD">HEAD</button>
@@ -133,7 +133,7 @@ const SHELL = `
   <p id="confirm-msg"></p>
   <div class="dlg-actions">
     <button type="button" id="confirm-ok">Delete</button>
-    <button type="button" id="confirm-cancel" class="btn-cancel">Cancel</button>
+    <button type="button" id="confirm-cancel">Cancel</button>
   </div>
 </div>
 <dialog id="dlg-help">
@@ -149,7 +149,7 @@ const SHELL = `
     </ul>
     <div class="dlg-actions">
       <button type="button" id="help-settings">Open Settings</button>
-      <button value="ok" class="btn-cancel">Close</button>
+      <button value="ok">Close</button>
     </div>
   </form>
 </dialog>
@@ -158,8 +158,8 @@ const SHELL = `
     <h2 id="git-title"></h2>
     <div id="git-body"></div>
     <div class="dlg-actions">
-      <button id="git-ok" value="ok" type="submit">OK</button>
-      <button id="git-cancel" type="button" class="btn-cancel">Cancel</button>
+      <button id="git-ok" value="ok" type="submit" class="btn-primary">OK</button>
+      <button id="git-cancel" type="button">Cancel</button>
     </div>
   </form>
 </dialog>
@@ -177,7 +177,7 @@ const SHELL = `
   <pre id="undo-cmds" class="undo-cmds"></pre>
   <div class="dlg-actions">
     <button type="button" id="undo-ok">Undo</button>
-    <button type="button" id="undo-cancel" class="btn-cancel">Cancel</button>
+    <button type="button" id="undo-cancel">Cancel</button>
   </div>
 </dialog>
 <div id="pop-settings" popover="manual" class="pop settings">
@@ -224,12 +224,12 @@ const SHELL = `
       <input id="issue-url" placeholder="https://…/$1" />
       <label class="issue-global"><input type="checkbox" id="issue-global" /> Use globally</label>
     </div>
-    <div class="settings-save"><button type="button" id="issue-save">Save</button></div>
+    <div class="settings-save"><button type="button" id="issue-save" class="btn-primary">Save</button></div>
   </section>
   <section class="settings-block">
     <h3 class="settings-h">Pull request</h3>
     <select id="pr-provider"></select>
-    <div class="settings-save"><button type="button" id="pr-save">Save</button></div>
+    <div class="settings-save"><button type="button" id="pr-save" class="btn-primary">Save</button></div>
   </section>
 </div>
 <canvas id="ray-cats" class="ray-cats" hidden></canvas>

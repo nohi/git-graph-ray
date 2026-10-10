@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anchoredPopoverPlacement } from './popover';
+import { anchoredPopoverPlacement, cursorDialogPlacement } from './popover';
 
 describe('anchoredPopoverPlacement', () => {
   it('pins the popover right edge to the button right edge', () => {
@@ -61,5 +61,44 @@ describe('anchoredPopoverPlacement', () => {
         { align: 'left', maxWidth: 400 },
       ).maxWidth,
     ).toBe(248);
+  });
+});
+
+describe('cursorDialogPlacement', () => {
+  const viewport = { width: 800, height: 600 };
+
+  it('opens just below and to the right of the pointer', () => {
+    expect(cursorDialogPlacement({ x: 100, y: 80 }, { width: 180, height: 120 }, viewport)).toEqual({
+      left: 108,
+      top: 88,
+    });
+  });
+
+  it('flips to the left of the pointer when the right edge would leave the viewport', () => {
+    expect(cursorDialogPlacement({ x: 700, y: 40 }, { width: 200, height: 80 }, viewport)).toEqual({
+      left: 492,
+      top: 48,
+    });
+  });
+
+  it('flips above the pointer when the bottom edge would leave the viewport', () => {
+    expect(cursorDialogPlacement({ x: 20, y: 500 }, { width: 160, height: 180 }, viewport)).toEqual({
+      left: 28,
+      top: 312,
+    });
+  });
+
+  it('keeps the dialog beside a pointer in the bottom-right corner', () => {
+    expect(cursorDialogPlacement({ x: 790, y: 580 }, { width: 220, height: 140 }, viewport)).toEqual({
+      left: 562,
+      top: 432,
+    });
+  });
+
+  it('pins to the margin when the dialog is larger than the viewport', () => {
+    expect(cursorDialogPlacement({ x: 400, y: 300 }, { width: 900, height: 800 }, viewport)).toEqual({
+      left: 8,
+      top: 8,
+    });
   });
 });

@@ -37,7 +37,12 @@ describe('graphHtml', () => {
     expect(html).toContain('class="settings-row issue-row"');
     expect(html).toContain('class="settings-save"');
     expect(html.match(/id="s-theme"/g)?.length).toBe(1);
-    expect(html).toContain('class="btn-cancel"');
+    expect(html).toContain('id="git-ok" value="ok" type="submit" class="btn-primary"');
+    expect(html).toContain('id="ref-ok" class="btn-primary"');
+    expect(html).toContain('id="date-ok" class="btn-primary"');
+    expect(html).toContain('id="issue-save" class="btn-primary"');
+    expect(html).toContain('id="pr-save" class="btn-primary"');
+    expect(html).not.toContain('btn-cancel');
     expect(html).not.toContain('id="app"');
   });
 });
