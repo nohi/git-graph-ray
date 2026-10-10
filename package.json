@@ -37,10 +37,7 @@
         "command": "git-graph-ray.view",
         "title": "View Git Graph",
         "category": "Git Graph Ray",
-        "icon": {
-          "light": "resources/icon-grey.svg",
-          "dark": "resources/icon.svg"
-        }
+        "icon": "resources/icon.png"
       },
       {
         "command": "git-graph-ray.addGitRepository",
@@ -776,14 +773,6 @@
             "More Actions"
           ],
           "default": "Inline"
-        },
-        "git-graph-ray.tabIconColourTheme": {
-          "type": "string",
-          "enum": [
-            "colour",
-            "grey"
-          ],
-          "default": "colour"
         }
       }
     }

@@ -151,11 +151,7 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.ctx.extensionUri, 'dist'), vscode.Uri.joinPath(this.ctx.extensionUri, 'resources')],
     };
-    const colour = cfg<string>('tabIconColourTheme', 'colour');
-    panel.iconPath =
-      colour === 'grey'
-        ? vscode.Uri.joinPath(this.ctx.extensionUri, 'resources/icon-grey.svg')
-        : vscode.Uri.joinPath(this.ctx.extensionUri, 'resources/icon.svg');
+    panel.iconPath = vscode.Uri.joinPath(this.ctx.extensionUri, 'resources/icon.png');
     panel.title = graphDocumentLabel(root);
     const session = new GraphSession(this.ctx, root, panel, () => this.gitBin, this.gitVer, this.avatars, () => this.persistPins(), fetchOnOpen);
     this.sessions.add(session);

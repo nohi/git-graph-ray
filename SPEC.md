@@ -128,7 +128,6 @@
 - `fileEncoding`
 - `contextMenuActionsVisibility`
 - `customEmojiShortcodeMappings`
-- `tabIconColourTheme`
 - `retainContextWhenHidden`
 - `integratedTerminalShell`
 - `repositoryDropdownOrder` の Workspace Full Path

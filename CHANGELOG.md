@@ -14,6 +14,7 @@
 
 ### Changes
 
+- Change extension icon.
 - Rename Filter to Branches/Tags, and add icons to Branches/Tags, Dates, and Find.
 - Label Undo, Redo, Fetch, and Refresh, and color header buttons by action: filter, Git, and jump.
 
