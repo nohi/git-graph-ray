@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.1
+
+### Changes
+
+- Lower the minimum Visual Studio Code version to 1.120 so the extension can appear in Cursor from the Open VSX Registry.
+
+### Fixes
+
+- Update npm package for fixing vulnerabilities
+
 ## v0.2.0
 
 ### Features
