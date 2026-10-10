@@ -31,6 +31,7 @@
 ### Fixes
 
 - Keep an SSH-signed commit marked signed when Git reports no signature because `gpg.ssh.allowedSignersFile` is not configured.
+- Show branch, tag, and other labels on commits that load when scrolling further down the graph.
 
 ## v0.1.5
 

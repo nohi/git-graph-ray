@@ -21,7 +21,7 @@ export async function loadCommits(options: {
   branches: string[] | 'all';
   includeTagOnly: boolean;
   includeHead?: boolean;
-  refs?: GraphRef[];
+  refs: GraphRef[];
 }): Promise<{ commits: GraphCommit[]; hasMore: boolean }> {
   const args = [
     'log',
@@ -51,7 +51,7 @@ export async function loadCommits(options: {
   const raw = parseLog(stdout);
   const hasMore = raw.length > options.maxCount;
   const sliced = hasMore ? raw.slice(0, options.maxCount) : raw;
-  const commits = options.refs ? applyRefs(sliced, options.refs) : sliced;
+  const commits = applyRefs(sliced, options.refs);
   // `%G?` verifies every commit. The column only needs the armor type, which is in the object.
   await attachSignatureKinds(options.git, options.cwd, commits).catch(() => undefined);
   return { commits, hasMore };

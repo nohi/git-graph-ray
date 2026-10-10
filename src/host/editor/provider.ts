@@ -347,6 +347,8 @@ class GraphSession {
   private commits: GraphSnapshot['commits'] = [];
   private hasMore = false;
   private skip = 0;
+  /** Branch, tag, and other labels from the last full load. Later pages must reuse them. */
+  private visibleRefs: GraphRef[] = [];
   private debounce: NodeJS.Timeout | undefined;
   private quietUntil = 0;
   private watcher: vscode.Disposable | undefined;
@@ -663,6 +665,7 @@ class GraphSession {
       if (r.kind === 'remote' && r.remote && settings.hideRemotes.includes(r.remote)) return false;
       return true;
     });
+    this.visibleRefs = visibleRefs;
 
     this.skip = 0;
     const page = cfg('repository.commits.initialLoad', 300);
@@ -769,6 +772,7 @@ class GraphSession {
       branches: this.selected === 'all' ? 'all' : this.selected,
       includeTagOnly: cfg('repository.showCommitsOnlyReferencedByTags', true),
       includeHead: this.includeHead,
+      refs: this.visibleRefs,
     });
     this.commits = [...this.commits, ...extra.commits];
     this.hasMore = extra.hasMore;
