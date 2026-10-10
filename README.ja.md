@@ -21,7 +21,7 @@
 
 ## 必要環境
 
-- Visual Studio Code 1.128 以降
+- Visual Studio Code 1.120 以降
 - PATH 上で利用できる Git
 
 ## コマンド

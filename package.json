@@ -10,7 +10,7 @@
     "url": "https://github.com/nohi/git-graph-ray.git"
   },
   "engines": {
-    "vscode": "^1.128.0"
+    "vscode": "^1.120.0"
   },
   "categories": [
     "Other",
@@ -788,7 +788,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
-    "@types/vscode": "^1.125.0",
+    "@types/vscode": "~1.120.0",
     "concurrently": "^10.0.5",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",

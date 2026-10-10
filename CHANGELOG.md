@@ -2,6 +2,10 @@
 
 ## v0.2.0
 
+### Changes
+
+- Lower the minimum Visual Studio Code version to 1.120 so the extension can appear in Cursor from the Open VSX Registry.
+
 ### Features
 
 - Add Undo and Redo for local Git operations. The header buttons and Ctrl/Cmd+Z or Ctrl/Cmd+Shift+Z apply one step. History stays in the window (up to 50 entries) and is discarded when the repository no longer matches it.

@@ -21,7 +21,7 @@ Open the graph from the Command Palette (**Git Graph Ray: View Git Graph**), the
 
 ## Requirements
 
-- Visual Studio Code 1.128 or later
+- Visual Studio Code 1.120 or later
 - Git available on your PATH
 
 ## Commands
