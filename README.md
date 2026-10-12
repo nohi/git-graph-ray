@@ -4,7 +4,7 @@
 
 View a Git graph of your repository and run Git actions from it.
 
-![Git Graph Ray](resources/screenshot001.png)
+![Demo](https://raw.githubusercontent.com/nohi/git-graph-ray/main/docs/screenshots/demo.gif)
 
 Open the graph from the Command Palette (**Git Graph Ray: View Git Graph**), the SCM title bar, or the status bar. Commits, branches, tags, remotes, stashes, and worktrees are shown together so you can inspect history and act on it without leaving the editor.
 
@@ -48,6 +48,15 @@ Defaults. Find, Refresh, Jump to HEAD, and Jump to stash can be reassigned in se
 | Refresh | Ctrl/Cmd+R |
 | Jump to HEAD | Ctrl/Cmd+H |
 | Jump to stash | Ctrl/Cmd+S |
+
+## Screenshots
+
+![Git Graph Ray](https://raw.githubusercontent.com/nohi/git-graph-ray/main/docs/screenshots/SS-001-overview.png)
+![Context Menu1](https://raw.githubusercontent.com/nohi/git-graph-ray/main/docs/screenshots/SS-011-context-menu1.png)
+![Context Menu2](https://raw.githubusercontent.com/nohi/git-graph-ray/main/docs/screenshots/SS-012-context-menu2.png)
+![Go back to Date](https://raw.githubusercontent.com/nohi/git-graph-ray/main/docs/screenshots/SS-013-go-back-to-date.png)
+![Undo / Redo previw](https://raw.githubusercontent.com/nohi/git-graph-ray/main/docs/screenshots/SS-020-undo-redo-preview.png)
+
 
 ## License
 

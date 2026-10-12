@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.2.2
+
+- Update README and screenshots. Old screenshots were moved out of the resources directory.
+
 ## v0.2.1
 
 ### Changes

@@ -4,7 +4,7 @@
 
 リポジトリの Git グラフを表示し、そこから Git 操作を実行できます。
 
-![Git Graph Ray](resources/screenshot001.png)
+![Demo](https://raw.githubusercontent.com/nohi/git-graph-ray/main/docs/screenshots/demo.gif)
 
 コマンドパレット（**Git Graph Ray: View Git Graph**）、SCM のタイトルバー、またはステータスバーからグラフを開けます。コミット、ブランチ、タグ、リモート、stash、worktree をまとめて表示し、エディタを離れずに履歴の確認と操作ができます。
 
@@ -48,6 +48,15 @@
 | Refresh | Ctrl/Cmd+R |
 | Jump to HEAD | Ctrl/Cmd+H |
 | Jump to stash | Ctrl/Cmd+S |
+
+## スクリーンショット
+
+![Git Graph Ray](https://raw.githubusercontent.com/nohi/git-graph-ray/main/docs/screenshots/SS-001-overview.png)
+![Context Menu1](https://raw.githubusercontent.com/nohi/git-graph-ray/main/docs/screenshots/SS-011-context-menu1.png)
+![Context Menu2](https://raw.githubusercontent.com/nohi/git-graph-ray/main/docs/screenshots/SS-012-context-menu2.png)
+![Go back to Date](https://raw.githubusercontent.com/nohi/git-graph-ray/main/docs/screenshots/SS-013-go-back-to-date.png)
+![Undo / Redo previw](https://raw.githubusercontent.com/nohi/git-graph-ray/main/docs/screenshots/SS-020-undo-redo-preview.png)
+
 
 ## ライセンス
 
