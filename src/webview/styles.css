@@ -40,7 +40,8 @@
   --cm: 11rem;
   --cd: 14rem;
   --sig: 7.5rem;
-  --details-meta: minmax(32rem, 42%);
+  --details-meta-min: 470px;
+  --details-files-min: 300px;
   --sash: 4px;
   font-family: ui-sans-serif, system-ui, sans-serif;
   font-size: 12px;
@@ -50,17 +51,25 @@ html,
 body {
   margin: 0 !important;
   padding: 0 !important;
-  width: 100%;
-  max-width: 100%;
   height: 100%;
-  overflow: hidden;
   background: var(--bg);
   color: var(--fg);
+}
 
-  &:is(body) {
-    display: flex;
-    flex-direction: column;
-  }
+html {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+body {
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+html.details-open body {
+  min-width: calc(var(--g) + var(--details-meta-min) + var(--sash) + var(--details-files-min));
 }
 
 .bar {
@@ -1176,11 +1185,13 @@ dialog button:disabled {
 }
 
 .details-body {
-  display: grid;
-  grid-template-columns: var(--details-meta) var(--sash) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
+  display: flex;
+  flex-direction: row;
   flex: 1;
+  width: 100%;
   min-height: 0;
+  min-width: calc(var(--details-meta-min) + var(--sash) + var(--details-files-min));
+  box-sizing: border-box;
 }
 
 .sash {
@@ -1189,6 +1200,9 @@ dialog button:disabled {
   touch-action: none;
   position: relative;
   z-index: 3;
+  flex: 0 0 var(--sash);
+  width: var(--sash);
+  box-sizing: border-box;
 
   &::after {
     content: '';
@@ -1216,8 +1230,10 @@ dialog button:disabled {
 .files-pane {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  flex: 1 1 var(--details-files-min);
+  min-width: var(--details-files-min);
   min-height: 0;
+  box-sizing: border-box;
 }
 
 .files-toolbar {
@@ -1349,6 +1365,17 @@ dialog button:hover:not(:disabled):not(.btn-primary),
     display: block;
   }
 
+  .file-act-mark {
+    font-family: ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    margin-left: 0.1rem;
+    padding: 0 0.12rem;
+    border-radius: 2px;
+    background: color-mix(in srgb, currentColor 16%, transparent);
+  }
+
   &.copied {
     color: var(--hl);
     border-color: var(--hl);
@@ -1356,8 +1383,55 @@ dialog button:hover:not(:disabled):not(.btn-primary),
   }
 }
 
-.file-dir {
+.file-act[data-fa="copy-full"],
+.file-act[data-fa="copy-rel"] {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0.08rem 0.28rem;
+  gap: 0.12rem;
+
+  &:hover {
+    border-color: currentColor;
+  }
+
+  &.copied {
+    border-color: var(--hl);
+  }
+
+  .file-act-mark {
+    margin-left: 0;
+    padding: 0;
+    background: none;
+    font-size: 10px;
+  }
+}
+
+.file-end {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.file-stats {
+  display: inline-flex;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.file-add {
+  color: var(--vscode-gitDecoration-addedResourceForeground, #73c991);
+}
+
+.file-del {
+  color: var(--vscode-gitDecoration-deletedResourceForeground, #c74e39);
+}
+
+.file-dir {
   color: var(--muted);
   font-size: 11px;
   overflow: hidden;
@@ -1398,8 +1472,20 @@ dialog button:hover:not(:disabled):not(.btn-primary),
 .meta {
   overflow: auto;
   padding: 0.5rem;
-  min-width: 0;
+  flex: 0 1 auto;
+  min-width: var(--details-meta-min);
+  /* Unset --details-meta centers the sash once half the panes is at least the left minimum. Drag and double-click set a px width. */
+  width: var(
+    --details-meta,
+    clamp(
+      var(--details-meta-min),
+      calc((100% - var(--sash)) / 2),
+      calc(100% - var(--sash) - var(--details-files-min))
+    )
+  );
+  max-width: var(--details-meta, calc(100% - var(--sash) - var(--details-files-min)));
   min-height: 0;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;

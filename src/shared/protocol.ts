@@ -84,6 +84,7 @@ export type ViewToHost =
   | { type: 'compare'; a: string; b: string }
   | { type: 'diff'; hash: string; path: string; oldPath?: string; parent?: string; compare?: string }
   | { type: 'openWorkFile'; path: string }
+  | { type: 'openFolder'; path: string }
   | { type: 'showBlob'; hash: string; path: string }
   | { type: 'setFileView'; value: 'File Tree' | 'File List' }
   | { type: 'copy'; text: string }

@@ -15,17 +15,19 @@ describe('hashCopies', () => {
     const hash = 'f4a6769abcdef1234567890';
     expect(hashCopies(hash)).toEqual([
       { label: '8', text: 'f4a6769a', title: 'Copy 8 characters' },
-      { label: 'full', text: hash, title: 'Copy full hash' },
+      { label: 'F', text: hash, title: 'Copy full hash' },
     ]);
   });
 });
 
 describe('personCopies', () => {
-  it('offers full, name, and email', () => {
-    expect(personCopies('Ada', 'ada@ex').map((c) => c.label)).toEqual(['full', 'name', 'email']);
+  it('offers contact, name, and email as distinct icons', () => {
+    expect(personCopies('Ada', 'ada@ex').map((c) => c.icon)).toEqual(['contact', 'person', 'mail']);
+    expect(personCopies('Ada', 'ada@ex').map((c) => c.label)).toEqual(['', '', '']);
+    expect(new Set(personCopies('Ada', 'ada@ex').map((c) => c.icon)).size).toBe(3);
   });
   it('omits empty fields', () => {
-    expect(personCopies('Ada', '').map((c) => c.label)).toEqual(['full', 'name']);
+    expect(personCopies('Ada', '').map((c) => c.icon)).toEqual(['contact', 'person']);
   });
 });
 
@@ -54,7 +56,7 @@ describe('detailsMetaRows', () => {
     expect(rows[0]?.value).toBe('f4a6769abcdef1234567890aaaaaaaaaaaaaaa');
     expect(rows[1]?.value).toHaveLength(40);
     expect(rows[1]?.hashLink).toBe(rows[1]?.value);
-    expect(rows.find((r) => r.label === 'Author')?.copies.map((c) => c.label)).toEqual(['full', 'name', 'email']);
+    expect(rows.find((r) => r.label === 'Author')?.copies.map((c) => c.icon)).toEqual(['contact', 'person', 'mail']);
   });
 
   it('omits commit and person rows for uncommitted changes', () => {

@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { UNCOMMITTED, type GraphRef } from '../../shared/types';
@@ -24,7 +25,7 @@ import { fillPrUrl } from '../../shared/issueLinks';
 import { cfg, getCustomPrProviders, getEmojiMaps, getGlobPatterns, getMenuVisibility, getViewConfig, updateSetting, viewColumn } from '../config';
 import { AvatarStore } from '../avatars';
 import { runGitAction } from '../git/actions';
-import { loadDetails } from '../git/details';
+import { loadDetails, resolveRepoRelative } from '../git/details';
 import { loadCommits, withUncommitted, workingTreeDirty, findDiffHashes } from '../git/log';
 import { addRemote, deleteRemote, editRemote, listRemotes } from '../git/remotes';
 import { branchFullyMerged } from '../git/branchMerged';
@@ -548,6 +549,12 @@ class GraphSession {
         case 'openWorkFile':
           await vscode.window.showTextDocument(vscode.Uri.file(path.join(this.repoPath, msg.path)), { viewColumn: viewColumn() });
           return;
+        case 'openFolder': {
+          const full = resolveRepoRelative(this.repoPath, msg.path);
+          if (!full || !fs.existsSync(full)) throw new Error(`Folder not found: ${msg.path}`);
+          await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(full));
+          return;
+        }
         case 'showBlob':
           await this.openBlob(msg.hash, msg.path);
           return;

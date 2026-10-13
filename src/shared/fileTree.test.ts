@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FOLDER_MENU, folderFoldPlan, wantsNestedFolderToggle } from './fileTree';
+import { buildFileTree, FOLDER_MENU, folderFoldPlan, wantsNestedFolderToggle } from './fileTree';
 
 describe('folderFoldPlan', () => {
   it('opens the folder and every nested folder', () => {
@@ -24,9 +24,50 @@ describe('folderFoldPlan', () => {
 });
 
 describe('FOLDER_MENU', () => {
-  it('offers expand, collapse, and collapse child folders', () => {
-    expect(FOLDER_MENU.map((item) => item.label)).toEqual(['Expand', 'Collapse', 'Collapse child folders']);
-    expect(FOLDER_MENU.map((item) => item.action)).toEqual(['expand', 'collapse', 'collapse-children']);
+  it('offers fold actions, then copy and open', () => {
+    expect(FOLDER_MENU.map((item) => item.label)).toEqual([
+      'Expand',
+      'Collapse',
+      'Collapse child folders',
+      'Copy Path',
+      'Copy Full Path',
+      'Open folder',
+    ]);
+    expect(FOLDER_MENU.map((item) => item.action ?? item.command)).toEqual([
+      'expand',
+      'collapse',
+      'collapse-children',
+      'copy-path',
+      'copy-full-path',
+      'open-folder',
+    ]);
+  });
+});
+
+describe('buildFileTree', () => {
+  const files = [
+    { path: 'src/host/a.ts', status: 'M', additions: 3, deletions: 1 },
+    { path: 'src/host/b.ts', status: 'A', additions: 10, deletions: 0 },
+    { path: 'README.md', status: 'D', additions: 0, deletions: 4 },
+  ];
+
+  it('keeps each folder path and file line counts', () => {
+    const [src, readme] = buildFileTree(files, false);
+    expect(readme).toMatchObject({ name: 'README.md', path: 'README.md', additions: 0, deletions: 4 });
+    expect(src).toMatchObject({ name: 'src', path: 'src' });
+    const host = src?.children?.[0];
+    expect(host).toMatchObject({ name: 'host', path: 'src/host' });
+    expect(host?.children?.map((file) => ({ path: file.path, additions: file.additions, deletions: file.deletions }))).toEqual([
+      { path: 'src/host/a.ts', additions: 3, deletions: 1 },
+      { path: 'src/host/b.ts', additions: 10, deletions: 0 },
+    ]);
+  });
+
+  it('compacts a single nested folder and keeps the deepest path', () => {
+    const tree = buildFileTree(files, true);
+    const folder = tree.find((node) => node.children);
+    expect(folder).toMatchObject({ name: 'src/host', path: 'src/host' });
+    expect(folder?.children?.map((file) => file.name)).toEqual(['a.ts', 'b.ts']);
   });
 });
 

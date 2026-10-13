@@ -30,7 +30,8 @@ import {
   worktreeDialogHtml,
   worktreeFormState,
 } from '../shared/worktreeDialog';
-import { detailsMetaRows, commitMessageText, type DetailsMetaRow } from '../shared/detailsMeta';
+import { detailsMetaRows, commitMessageText, type DetailsMetaRow, type MetaCopyIcon } from '../shared/detailsMeta';
+import { DETAILS_FILES_MIN, DETAILS_META_DEFAULT, draggedDetailsMeta, fittedDetailsMeta } from '../shared/detailsPane';
 import { signatureColumn, signatureInfoRows, signatureSummary, type SignatureInfoRow } from '../shared/signature';
 import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg, groupChipRefs, remoteShortName, type FilterTab } from '../shared/refsList';
 import { compileFindRegex, formatFindCount, highlightFind, matchCommit } from '../shared/commitFind';
@@ -628,6 +629,7 @@ function chips(c: GraphCommit): string {
 function renderDetails(): void {
   const dock = $('dock');
   const inline = $('inline-details');
+  document.documentElement.classList.remove('details-open');
   if (!snap) return;
   if (snap.config.detailsLocation === 'Docked to Bottom') {
     inline.hidden = true;
@@ -639,6 +641,7 @@ function renderDetails(): void {
     }
     dock.style.height = `${currentDetailsHeight()}px`;
     dock.innerHTML = `<div class="sash-y" id="sash-y" data-dir="up"></div><div class="details-body">${detailsHtml(details)}</div>`;
+    document.documentElement.classList.add('details-open');
     return;
   }
   dock.hidden = true;
@@ -655,6 +658,7 @@ function renderDetails(): void {
     inline.innerHTML = '';
     return;
   }
+  document.documentElement.classList.add('details-open');
   inline.hidden = false;
   inline.style.top = `${(idx + 1) * ROW}px`;
   inline.style.height = `${currentDetailsHeight()}px`;
@@ -686,13 +690,27 @@ function detailsHtml(d: CommitDetails): string {
 
 const COPY_SVG =
   '<svg class="copy-ic" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M4 2h7a1 1 0 0 1 1 1v1h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm3 11h6V5H7v8zM4 12h1V4h6V3H4v9z"/></svg>';
+const ICON_MAIL =
+  '<svg class="copy-ic" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M1.75 3.25h12.5a.75.75 0 0 1 .75.75v8.5a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75v-8.5a.75.75 0 0 1 .75-.75zM2.5 4.6v.65l5.5 3.25 5.5-3.25V4.6h-11zm11 1.95L8.15 9.7a.75.75 0 0 1-.8 0L2.5 6.55V11.5h11V6.55z"/></svg>';
+const ICON_PERSON =
+  '<svg class="copy-ic" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1.6a2.4 2.4 0 1 1 0 4.8 2.4 2.4 0 0 1 0-4.8zM3.15 13.7c.3-2.5 2.15-3.9 4.85-3.9s4.55 1.4 4.85 3.9z"/></svg>';
+const ICON_CONTACT =
+  '<svg class="copy-ic" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M1.6 3.1h12.8v9.8H1.6zm1.15 1.15v7.5h10.5v-7.5z"/><circle cx="5.55" cy="6.85" r="1.05" fill="currentColor"/><path fill="currentColor" d="M4.15 10.15c.25-.8.85-1.2 1.4-1.2s1.15.4 1.4 1.2zM8.55 6.15h3.7v.8h-3.7zm0 1.75h3.7v.8h-3.7z"/></svg>';
+
+const COPY_ICONS: Record<MetaCopyIcon, string> = {
+  copy: COPY_SVG,
+  mail: ICON_MAIL,
+  person: ICON_PERSON,
+  contact: ICON_CONTACT,
+};
 
 function copyBtns(copies: DetailsMetaRow['copies']): string {
   return copies
-    .map(
-      (c) =>
-        `<button type="button" class="copy-btn" data-copy="${esc(c.text)}" title="${esc(c.title)}">${COPY_SVG}${c.label ? `<span>${esc(c.label)}</span>` : ''}</button>`,
-    )
+    .map((c) => {
+      const icon = COPY_ICONS[c.icon ?? 'copy'];
+      const label = c.label ? `<span>${esc(c.label)}</span>` : '';
+      return `<button type="button" class="copy-btn" data-copy="${esc(c.text)}" title="${esc(c.title)}" aria-label="${esc(c.title)}">${icon}${label}</button>`;
+    })
     .join('');
 }
 
@@ -773,18 +791,33 @@ function fileActionsHtml(): string {
     <button type="button" class="file-act" data-fa="diff" title="Diff">${ICON_DIFF}</button>
     <button type="button" class="file-act" data-fa="open" title="Open File">${ICON_OPEN}</button>
     <button type="button" class="file-act" data-fa="blob" title="View at revision">${ICON_BLOB}</button>
-    <button type="button" class="file-act" data-fa="copy-full" title="Copy Full Path">${ICON_COPY_FULL}</button>
-    <button type="button" class="file-act" data-fa="copy-rel" title="Copy Relative Path">${ICON_COPY_REL}</button>
+    <button type="button" class="file-act" data-fa="copy-full" title="Copy Full Path" aria-label="Copy Full Path">${ICON_COPY_FULL}<span class="file-act-mark" aria-hidden="true">F</span></button>
+    <button type="button" class="file-act" data-fa="copy-rel" title="Copy Relative Path" aria-label="Copy Relative Path">${ICON_COPY_REL}<span class="file-act-mark" aria-hidden="true">R</span></button>
   </span>`;
 }
 
-function fileRow(path: string, name: string, status: string, oldPath = '', dir = ''): string {
+function fileStatHtml(additions?: number, deletions?: number): string {
+  const parts: string[] = [];
+  if (additions != null && additions > 0) parts.push(`<span class="file-add" title="${additions} added">+${additions}</span>`);
+  if (deletions != null && deletions > 0) parts.push(`<span class="file-del" title="${deletions} deleted">-${deletions}</span>`);
+  if (!parts.length) return '';
+  return `<span class="file-stats">${parts.join('')}</span>`;
+}
+
+function fileEnd(dir: string, additions?: number, deletions?: number): string {
+  const stats = fileStatHtml(additions, deletions);
+  const directory = dir ? `<span class="file-dir">${esc(dir)}</span>` : '';
+  if (!stats && !directory) return '';
+  return `<span class="file-end">${stats}${directory}</span>`;
+}
+
+function fileRow(path: string, name: string, status: string, oldPath = '', dir = '', additions?: number, deletions?: number): string {
   const added = status === 'A' || status === 'U';
   return `<div class="file scm-file" data-path="${esc(path)}" data-old="${esc(oldPath)}" data-st="${status}">
     <span class="badge st-${status}" title="${statusTitle(status)}">${status}</span>
     <span class="file-name" data-open="${added ? 'blob' : 'diff'}">${esc(name)}</span>
     ${fileActionsHtml()}
-    ${dir ? `<span class="file-dir">${esc(dir)}</span>` : ''}
+    ${fileEnd(dir, additions, deletions)}
   </div>`;
 }
 
@@ -794,7 +827,7 @@ function fileListHtml(files: CommitDetails['files']): string {
       const i = f.path.lastIndexOf('/');
       const name = i >= 0 ? f.path.slice(i + 1) : f.path;
       const dir = i >= 0 ? f.path.slice(0, i) : '';
-      return fileRow(f.path, name, f.status, f.oldPath ?? '', dir);
+      return fileRow(f.path, name, f.status, f.oldPath ?? '', dir, f.additions, f.deletions);
     })
     .join('');
 }
@@ -807,9 +840,10 @@ function treeNode(n: ReturnType<typeof buildFileTree>[number]): string {
   if (n.children) {
     const key = macPlatform() ? 'Cmd+click' : 'Ctrl+click';
     const hint = `${n.name} — ${key} expands or collapses nested folders`;
-    return `<li><details open class="scm-folder"><summary title="${esc(hint)}">${esc(n.name)}</summary>${treeHtml(n.children)}</details></li>`;
+    const folderPath = n.path ?? n.name;
+    return `<li><details open class="scm-folder" data-path="${esc(folderPath)}"><summary title="${esc(hint)}">${esc(n.name)}</summary>${treeHtml(n.children)}</details></li>`;
   }
-  return `<li>${fileRow(n.path ?? '', n.name, n.status ?? '')}</li>`;
+  return `<li>${fileRow(n.path ?? '', n.name, n.status ?? '', '', '', n.additions, n.deletions)}</li>`;
 }
 
 function eventElement(target: EventTarget | null): Element | null {
@@ -1465,6 +1499,48 @@ function autosizeColumn(cls: string): void {
   setColWidth(key, max + 8);
 }
 
+function intrinsicRowWidth(row: HTMLElement): number {
+  const probe = row.cloneNode(true) as HTMLElement;
+  probe.style.cssText =
+    'position:fixed;left:0;top:0;visibility:hidden;display:flex;flex-wrap:nowrap;width:max-content;max-width:none;white-space:nowrap;';
+  document.body.append(probe);
+  for (const el of probe.querySelectorAll<HTMLElement>('.meta-main, .meta-value')) {
+    el.style.whiteSpace = 'nowrap';
+    el.style.overflow = 'visible';
+    el.style.textOverflow = 'clip';
+    el.style.flex = '0 0 auto';
+    el.style.width = 'max-content';
+    el.style.minWidth = 'max-content';
+    el.style.maxWidth = 'none';
+  }
+  const main = probe.querySelector<HTMLElement>('.meta-main');
+  if (main) main.style.flexWrap = 'nowrap';
+  const width = probe.getBoundingClientRect().width;
+  probe.remove();
+  return width;
+}
+
+function measureMetaContent(meta: HTMLElement): number {
+  const style = getComputedStyle(meta);
+  const pad = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+  const border = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0);
+  const table = meta.querySelector('.meta-table');
+  if (!table) return 0;
+  let widest = 0;
+  for (const row of table.querySelectorAll<HTMLElement>('.meta-row')) {
+    widest = Math.max(widest, intrinsicRowWidth(row));
+  }
+  return widest + pad + border;
+}
+
+function fitDetailsMeta(): void {
+  const meta = document.querySelector<HTMLElement>('.details-body .meta');
+  if (!meta) return;
+  const screen = document.documentElement.clientWidth;
+  const w = fittedDetailsMeta(measureMetaContent(meta), screen);
+  document.documentElement.style.setProperty('--details-meta', `${w}px`);
+}
+
 function detailsMax(): number {
   const sc = document.getElementById('scroll');
   const cap = sc ? Math.floor(sc.clientHeight * 0.85) : DETAILS_MAX;
@@ -1481,10 +1557,13 @@ function bindSashes(): void {
       ev.preventDefault();
       const startX = ev.clientX;
       const meta = document.querySelector('.details-body .meta');
-      const startW = meta?.getBoundingClientRect().width ?? 384;
+      const startW = meta?.getBoundingClientRect().width ?? DETAILS_META_DEFAULT;
+      const detailsBody = sashX.closest('.details-body');
       sashX.setPointerCapture(ev.pointerId);
       const move = (e: PointerEvent) => {
-        const w = Math.max(220, Math.min(720, startW + (e.clientX - startX)));
+        const sashW = sashX.getBoundingClientRect().width || 4;
+        const detailsW = detailsBody?.getBoundingClientRect().width ?? startW + sashW + DETAILS_FILES_MIN;
+        const w = draggedDetailsMeta(startW + (e.clientX - startX), detailsW, sashW);
         document.documentElement.style.setProperty('--details-meta', `${w}px`);
       };
       const up = () => {
@@ -1526,7 +1605,7 @@ function bindSashes(): void {
   });
   document.addEventListener('dblclick', (ev) => {
     const t = ev.target as HTMLElement;
-    if (t.closest?.('#sash-x')) document.documentElement.style.removeProperty('--details-meta');
+    if (t.closest?.('#sash-x')) fitDetailsMeta();
     if (t.closest?.('#sash-y')) {
       detailsH = null;
       if (details) autoDetailsH = estimateFromDetails(details);
@@ -2073,7 +2152,7 @@ function bind(): void {
       ctxFolder = null;
       ctxFile = { path: file.dataset.path ?? '', oldPath: file.dataset.old || undefined };
       openCtx(
-        `${btn('f-diff', 'Diff')}${btn('f-open', 'Open file')}${btn('f-blob', 'View at revision')}${btn('f-copy', 'Copy path')}`,
+        `${btn('f-diff', 'Diff')}${btn('f-open', 'Open file')}${btn('f-blob', 'View at revision')}${btn('f-copy', 'Copy path')}${btn('f-copy-full', 'Copy Full Path')}`,
         ev.clientX,
         ev.clientY,
       );
@@ -2468,10 +2547,21 @@ function onMenu(ev: Event): void {
   const id = (ev.target as HTMLElement).dataset.act;
   if (!id) return;
   $('pop-ctx').hidePopover?.();
-  const folderAction = FOLDER_MENU.find((item) => item.id === id);
-  if (folderAction) {
+  const folderItem = FOLDER_MENU.find((item) => item.id === id);
+  if (folderItem?.action) {
     const folder = ctxFolder;
-    if (folder?.isConnected) applyFolderFold(folder, folderFoldPlan(folder.open, folderAction.action));
+    if (folder?.isConnected) applyFolderFold(folder, folderFoldPlan(folder.open, folderItem.action));
+    return;
+  }
+  if (folderItem?.command && ctxFolder) {
+    const rel = ctxFolder.dataset.path ?? '';
+    if (folderItem.command === 'copy-path') {
+      post({ type: 'copy', text: rel });
+      showCopiedToast((ev as MouseEvent).clientX, (ev as MouseEvent).clientY);
+    } else if (folderItem.command === 'copy-full-path') {
+      post({ type: 'copy', text: joinRepoPath(rel) });
+      showCopiedToast((ev as MouseEvent).clientX, (ev as MouseEvent).clientY);
+    } else post({ type: 'openFolder', path: rel });
     return;
   }
   if (!snap) return;
@@ -2616,6 +2706,10 @@ function onMenu(ev: Event): void {
     if (id === 'f-blob') post({ type: 'showBlob', hash: details.hash === '*' ? 'HEAD' : details.hash, path: ctxFile.path });
     if (id === 'f-copy') {
       post({ type: 'copy', text: ctxFile.path });
+      showCopiedToast((ev as MouseEvent).clientX, (ev as MouseEvent).clientY);
+    }
+    if (id === 'f-copy-full') {
+      post({ type: 'copy', text: joinRepoPath(ctxFile.path) });
       showCopiedToast((ev as MouseEvent).clientX, (ev as MouseEvent).clientY);
     }
   }

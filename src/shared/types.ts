@@ -63,6 +63,8 @@ export type FileChange = {
   path: string;
   oldPath?: string;
   status: 'A' | 'M' | 'D' | 'R' | 'U' | 'C' | 'T';
+  additions?: number;
+  deletions?: number;
 };
 
 export type CommitDetails = {

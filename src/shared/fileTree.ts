@@ -1,18 +1,33 @@
-export type FileNode = { name: string; path?: string; status?: string; children?: FileNode[] };
+export type FileNode = {
+  name: string;
+  path?: string;
+  status?: string;
+  additions?: number;
+  deletions?: number;
+  children?: FileNode[];
+};
 
-export function buildFileTree(paths: Array<{ path: string; oldPath?: string; status: string }>, compact: boolean): FileNode[] {
+export function buildFileTree(
+  paths: Array<{ path: string; oldPath?: string; status: string; additions?: number; deletions?: number }>,
+  compact: boolean,
+): FileNode[] {
   const root: FileNode[] = [];
   for (const file of paths) {
     const parts = file.path.split('/');
     let level = root;
+    let dir = '';
     parts.forEach((part, i) => {
       const last = i === parts.length - 1;
+      const here = dir ? `${dir}/${part}` : part;
       let node = level.find((n) => n.name === part);
       if (!node) {
-        node = last ? { name: part, path: file.path, status: file.status } : { name: part, children: [] };
+        node = last
+          ? { name: part, path: file.path, status: file.status, additions: file.additions, deletions: file.deletions }
+          : { name: part, path: here, children: [] };
         level.push(node);
       }
       if (!last) {
+        dir = here;
         node.children ??= [];
         level = node.children;
       }
@@ -25,10 +40,22 @@ export type FolderFold = 'expand' | 'collapse' | 'collapse-children' | 'toggle-n
 export type FolderMenuAction = Exclude<FolderFold, 'toggle-nested'>;
 export type FolderFoldPlan = { self: boolean; descendants: boolean };
 
-export const FOLDER_MENU: ReadonlyArray<{ id: string; label: string; action: FolderMenuAction }> = [
+export type FolderPathCommand = 'copy-path' | 'copy-full-path' | 'open-folder';
+
+export type FolderMenuItem = {
+  id: string;
+  label: string;
+  action?: FolderMenuAction;
+  command?: FolderPathCommand;
+};
+
+export const FOLDER_MENU: readonly FolderMenuItem[] = [
   { id: 'fd-expand', label: 'Expand', action: 'expand' },
   { id: 'fd-collapse', label: 'Collapse', action: 'collapse' },
   { id: 'fd-children', label: 'Collapse child folders', action: 'collapse-children' },
+  { id: 'fd-copy', label: 'Copy Path', command: 'copy-path' },
+  { id: 'fd-copy-full', label: 'Copy Full Path', command: 'copy-full-path' },
+  { id: 'fd-open', label: 'Open folder', command: 'open-folder' },
 ];
 
 /**
@@ -66,7 +93,7 @@ export function wantsNestedFolderToggle(
 function compactNodes(nodes: FileNode[]): FileNode[] {
   return nodes.map((n) => {
     let cur = n;
-    while (cur.children && cur.children.length === 1 && !cur.children[0]!.path) {
+    while (cur.children && cur.children.length === 1 && cur.children[0]!.children) {
       const only = cur.children[0]!;
       cur = { ...only, name: `${cur.name}/${only.name}` };
     }

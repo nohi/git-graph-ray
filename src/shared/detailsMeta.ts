@@ -1,6 +1,8 @@
 import { UNCOMMITTED, type CommitDetails } from './types';
 
-export type MetaCopy = { label: string; text: string; title: string };
+export type MetaCopyIcon = 'copy' | 'mail' | 'person' | 'contact';
+
+export type MetaCopy = { label: string; text: string; title: string; icon?: MetaCopyIcon };
 
 export type DetailsMetaRow = {
   label: string;
@@ -17,16 +19,16 @@ export function personIdentity(name: string, email: string): string {
 export function hashCopies(hash: string): MetaCopy[] {
   return [
     { label: '8', text: hash.slice(0, 8), title: 'Copy 8 characters' },
-    { label: 'full', text: hash, title: 'Copy full hash' },
+    { label: 'F', text: hash, title: 'Copy full hash' },
   ];
 }
 
 export function personCopies(name: string, email: string): MetaCopy[] {
   const copies: MetaCopy[] = [];
   const full = personIdentity(name, email);
-  if (full) copies.push({ label: 'full', text: full, title: 'Copy name and email' });
-  if (name) copies.push({ label: 'name', text: name, title: 'Copy name' });
-  if (email) copies.push({ label: 'email', text: email, title: 'Copy email' });
+  if (full) copies.push({ label: '', text: full, title: 'Copy name and email', icon: 'contact' });
+  if (name) copies.push({ label: '', text: name, title: 'Copy name', icon: 'person' });
+  if (email) copies.push({ label: '', text: email, title: 'Copy email', icon: 'mail' });
   return copies;
 }
 

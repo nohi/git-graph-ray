@@ -6,6 +6,16 @@
 
 - In the commit details file tree, Ctrl/Cmd+click a folder to expand or collapse it together with every nested folder.
 - Right-click a folder to Expand, Collapse, or Collapse child folders. Collapse child folders keeps that folder open and closes the folders inside it.
+- Copy a folder path, copy its full path, or open the folder in the file manager from the folder context menu.
+- Copy a file's full path from the file context menu. The F and R buttons on each file row copy the full path and the relative path.
+- Show added lines in green and deleted lines in red on each file. Hide a side that is zero, and hide counts for binary files.
+
+### Changes
+
+- Set the commit details left pane minimum to 470px and the right pane minimum to 300px. When the two panes together are at least 940px, the divider starts in the middle.
+- Double-click the divider to fit the left pane to the metadata rows, excluding the commit message. The pane stays within the window and does not go below its minimum.
+- Show the full-hash copy control as an icon and F. The email, name, and name-and-email copy controls are icons only.
+- Scroll the page horizontally while commit details are open when the window is narrower than the graph column plus both pane minimums.
 
 ## v0.2.2
 
