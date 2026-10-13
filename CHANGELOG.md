@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.3
+
+### Features
+
+- In the commit details file tree, Ctrl/Cmd+click a folder to expand or collapse it together with every nested folder.
+- Right-click a folder to Expand, Collapse, or Collapse child folders. Collapse child folders keeps that folder open and closes the folders inside it.
+
 ## v0.2.2
 
 - Update README and screenshots. Old screenshots were moved out of the resources directory.

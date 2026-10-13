@@ -19,7 +19,7 @@ import {
   type DateFilter,
 } from '../shared/dateFilter';
 import { foldBridgeEdges, layoutCommits, type Layout } from '../shared/layout';
-import { buildFileTree } from '../shared/fileTree';
+import { buildFileTree, FOLDER_MENU, folderFoldPlan, wantsNestedFolderToggle, type FolderFoldPlan } from '../shared/fileTree';
 import { decideNamedRemoteCheckout, startCheckoutFromRef } from '../shared/checkout';
 import { applySpaceSubstitution, defaultRepoSettings, type RepoSettings } from '../shared/dialogs';
 import { deleteBranchConfirm, deleteBranchDialogHtml, type BranchMergeState } from '../shared/deleteBranch';
@@ -81,6 +81,8 @@ let stashI = 0;
 let ctxRef: GraphRef | null = null;
 let ctxCommit: GraphCommit | null = null;
 let ctxFile: { path: string; oldPath?: string } | null = null;
+let ctxFolder: HTMLDetailsElement | null = null;
+let summaryPointer: { folder: HTMLDetailsElement; open: boolean } | null = null;
 let pendingDateJump: { day: string; field: 'author' | 'committer' } | null = null;
 let dateFilter: DateFilter = emptyDateFilter();
 let undoPending: 'undo' | 'redo' | null = null;
@@ -803,9 +805,46 @@ function treeHtml(nodes: ReturnType<typeof buildFileTree>): string {
 
 function treeNode(n: ReturnType<typeof buildFileTree>[number]): string {
   if (n.children) {
-    return `<li><details open class="scm-folder"><summary>${esc(n.name)}</summary>${treeHtml(n.children)}</details></li>`;
+    const key = macPlatform() ? 'Cmd+click' : 'Ctrl+click';
+    const hint = `${n.name} — ${key} expands or collapses nested folders`;
+    return `<li><details open class="scm-folder"><summary title="${esc(hint)}">${esc(n.name)}</summary>${treeHtml(n.children)}</details></li>`;
   }
   return `<li>${fileRow(n.path ?? '', n.name, n.status ?? '')}</li>`;
+}
+
+function eventElement(target: EventTarget | null): Element | null {
+  if (target instanceof Element) return target;
+  if (target instanceof Node) return target.parentElement;
+  return null;
+}
+
+function summaryFolder(target: EventTarget | null): HTMLDetailsElement | null {
+  const folder = eventElement(target)?.closest('summary')?.closest('details.scm-folder');
+  return folder instanceof HTMLDetailsElement ? folder : null;
+}
+
+function treeFolder(target: EventTarget | null): HTMLDetailsElement | null {
+  const folder = eventElement(target)?.closest('details.scm-folder');
+  return folder instanceof HTMLDetailsElement ? folder : null;
+}
+
+function applyFolderFold(folder: HTMLDetailsElement, plan: FolderFoldPlan): void {
+  folder.open = plan.self;
+  for (const node of folder.querySelectorAll('details.scm-folder')) {
+    if (node instanceof HTMLDetailsElement) node.open = plan.descendants;
+  }
+}
+
+function macPlatform(): boolean {
+  return /Mac|iPhone|iPad/.test(navigator.platform);
+}
+
+function toggleNestedFolders(folder: HTMLDetailsElement, openBefore: boolean): void {
+  const plan = folderFoldPlan(openBefore, 'toggle-nested');
+  applyFolderFold(folder, plan);
+  queueMicrotask(() => {
+    if (folder.isConnected) applyFolderFold(folder, plan);
+  });
 }
 
 function paintDetails(): void {
@@ -2005,16 +2044,49 @@ function bind(): void {
     if ((ev as ToggleEvent).newState === 'closed') confirmOk = null;
   });
   $('pop-ctx').addEventListener('click', onMenu);
+  document.addEventListener(
+    'pointerdown',
+    (ev) => {
+      const folder = summaryFolder(ev.target);
+      summaryPointer = folder ? { folder, open: folder.open } : null;
+    },
+    true,
+  );
+  document.addEventListener(
+    'click',
+    (ev) => {
+      if (!wantsNestedFolderToggle(ev, macPlatform())) return;
+      const folder = summaryFolder(ev.target);
+      if (!folder) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const openBefore = summaryPointer?.folder === folder ? summaryPointer.open : folder.open;
+      toggleNestedFolders(folder, openBefore);
+    },
+    true,
+  );
   document.addEventListener('contextmenu', (ev) => {
-    const file = (ev.target as HTMLElement).closest<HTMLElement>('.file');
-    if (!file || !details) return;
+    if (!details) return;
+    const file = eventElement(ev.target)?.closest<HTMLElement>('.file') ?? null;
+    if (file) {
+      ev.preventDefault();
+      ctxFolder = null;
+      ctxFile = { path: file.dataset.path ?? '', oldPath: file.dataset.old || undefined };
+      openCtx(
+        `${btn('f-diff', 'Diff')}${btn('f-open', 'Open file')}${btn('f-blob', 'View at revision')}${btn('f-copy', 'Copy path')}`,
+        ev.clientX,
+        ev.clientY,
+      );
+      return;
+    }
+    const folder = treeFolder(ev.target);
+    if (!folder) return;
     ev.preventDefault();
-    ctxFile = { path: file.dataset.path ?? '', oldPath: file.dataset.old || undefined };
-    openCtx(
-      `${btn('f-diff', 'Diff')}${btn('f-open', 'Open file')}${btn('f-blob', 'View at revision')}${btn('f-copy', 'Copy path')}`,
-      ev.clientX,
-      ev.clientY,
-    );
+    ctxFolder = folder;
+    ctxFile = null;
+    ctxCommit = null;
+    ctxRef = null;
+    openCtx(FOLDER_MENU.map((item) => btn(item.id, item.label)).join(''), ev.clientX, ev.clientY);
   });
   bindPopoverAnchor('btn-refs', 'pop-refs');
   bindPopoverAnchor('btn-dates', 'pop-dates');
@@ -2314,6 +2386,7 @@ function runPlan(plan: ReturnType<typeof startCheckoutFromRef>, at?: { x: number
 }
 
 function menuRef(chip: HTMLElement, x: number, y: number): void {
+  ctxFolder = null;
   const kind = chip.dataset.kind ?? '';
   const name = chip.dataset.name ?? '';
   const items: string[] = [];
@@ -2359,6 +2432,7 @@ function menuRef(chip: HTMLElement, x: number, y: number): void {
 }
 
 function menuCommit(hash: string, x: number, y: number): void {
+  ctxFolder = null;
   const c = snap?.commits.find((x) => x.hash === hash);
   if (!c || !snap) return;
   ctxCommit = c;
@@ -2392,8 +2466,15 @@ function btn(id: string, label: string): string {
 
 function onMenu(ev: Event): void {
   const id = (ev.target as HTMLElement).dataset.act;
-  if (!id || !snap) return;
+  if (!id) return;
   $('pop-ctx').hidePopover?.();
+  const folderAction = FOLDER_MENU.find((item) => item.id === id);
+  if (folderAction) {
+    const folder = ctxFolder;
+    if (folder?.isConnected) applyFolderFold(folder, folderFoldPlan(folder.open, folderAction.action));
+    return;
+  }
+  if (!snap) return;
   const d = snap.config.dialogs;
   const sp = d.spaceSubstitution;
   const act = (a: GitAction) => sendGit(a);
