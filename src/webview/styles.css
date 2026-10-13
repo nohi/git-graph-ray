@@ -1315,26 +1315,35 @@ dialog button:hover:not(:disabled):not(.btn-primary),
 
 .scm-folder {
   >summary {
+    display: flex;
+    align-items: center;
+    gap: 2px;
     cursor: pointer;
     list-style: none;
-    padding: 0.12rem 0.35rem;
+    padding: 0.12rem 0.35rem 0.12rem 0;
     color: var(--muted);
 
     &:hover {
       background: var(--hl-bg);
     }
 
-    &::-webkit-details-marker {
+    &::-webkit-details-marker,
+    &::marker {
+      content: '';
       display: none;
-    }
-
-    &::before {
-      content: '▸ ';
     }
   }
 
-  &[open]>summary::before {
-    content: '▾ ';
+  .scm-twist {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    color: var(--vscode-icon-foreground, var(--fg));
+    transform: rotate(-90deg);
+  }
+
+  &[open]>summary .scm-twist {
+    transform: none;
   }
 }
 

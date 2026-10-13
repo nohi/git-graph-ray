@@ -1046,12 +1046,15 @@ function treeHtml(nodes: ReturnType<typeof buildFileTree>): string {
   return `<ul class="scm-tree">${nodes.map((n) => treeNode(n)).join('')}</ul>`;
 }
 
+const FOLDER_CHEVRON =
+  '<svg class="scm-twist" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M3.146 5.854 7.646 10.354c.195.195.512.195.707 0l4.5-4.5c.195-.195.195-.512 0-.707s-.512-.195-.707 0L8 9.293 3.854 5.147c-.195-.195-.512-.195-.707 0s-.195.512 0 .707z"/></svg>';
+
 function treeNode(n: ReturnType<typeof buildFileTree>[number]): string {
   if (n.children) {
     const key = macPlatform() ? 'Cmd+click' : 'Ctrl+click';
     const hint = `${n.name} — ${key} expands or collapses nested folders`;
     const folderPath = n.path ?? n.name;
-    return `<li><details open class="scm-folder" data-path="${esc(folderPath)}"><summary title="${esc(hint)}">${esc(n.name)}</summary>${treeHtml(n.children)}</details></li>`;
+    return `<li><details open class="scm-folder" data-path="${esc(folderPath)}"><summary title="${esc(hint)}">${FOLDER_CHEVRON}${esc(n.name)}</summary>${treeHtml(n.children)}</details></li>`;
   }
   return `<li>${fileRow(n.path ?? '', n.name, n.status ?? '', '', '', n.additions, n.deletions)}</li>`;
 }

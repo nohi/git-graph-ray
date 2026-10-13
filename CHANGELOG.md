@@ -23,6 +23,7 @@
 - Double-click the divider to fit the left pane to the metadata rows, excluding the commit message. The pane stays within the window and does not go below its minimum.
 - Show the full-hash copy control as an icon and F. The email, name, and name-and-email copy controls are icons only.
 - Scroll the page horizontally while commit details are open when the window is narrower than the graph column plus both pane minimums.
+- Use the Explorer chevron for expanding and collapsing folders in the commit details file tree.
 
 ## v0.2.2
 
