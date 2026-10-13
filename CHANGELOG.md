@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.2.4
+## v0.2.3
 
 ### Features
 
@@ -9,16 +9,6 @@
 - Open `git blame` for a file in an editor.
 - Show an in-progress merge, rebase, cherry-pick, or revert, including conflicted files, with Continue and Abort.
 - Show how many commits the checked-out branch is ahead of and behind its upstream.
-
-### Changes
-
-- Rebuild the graph lines only when the commits, date filter, details gap, or theme change. Scrolling updates the visible rows and leaves the open commit details in place.
-- Keep column widths, the date filter, and the selected commit when the graph for that repository is opened again.
-
-## v0.2.3
-
-### Features
-
 - In the commit details file tree, Ctrl/Cmd+click a folder to expand or collapse it together with every nested folder.
 - Right-click a folder to Expand, Collapse, or Collapse child folders. Collapse child folders keeps that folder open and closes the folders inside it.
 - Copy a folder path, copy its full path, or open the folder in the file manager from the folder context menu.
@@ -27,6 +17,8 @@
 
 ### Changes
 
+- Rebuild the graph lines only when the commits, date filter, details gap, or theme change. Scrolling updates the visible rows and leaves the open commit details in place.
+- Keep column widths, the date filter, and the selected commit when the graph for that repository is opened again.
 - Set the commit details left pane minimum to 470px and the right pane minimum to 300px. When the two panes together are at least 940px, the divider starts in the middle.
 - Double-click the divider to fit the left pane to the metadata rows, excluding the commit message. The pane stays within the window and does not go below its minimum.
 - Show the full-hash copy control as an icon and F. The email, name, and name-and-email copy controls are icons only.
