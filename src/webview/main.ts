@@ -1,6 +1,6 @@
 import { firstCommitIndexForDate, formatDate, localDayBounds } from '../shared/date';
 import { applyEmoji, fillPrUrl, formatCommitMessageHtml } from '../shared/issueLinks';
-import { ancestorHashes, colourForLane, DETAILS_MAX, DETAILS_MIN, edgeCurveAt, edgePath, estimateDetailsHeight, gitAtLeast, graphWidth, laneX, rayStreamGradient, RAY_STREAM_PERIOD, ROW, rowTop, rowY, scrollNeededToRevealDetails, shortcutMatches } from '../shared/graph';
+import { ancestorHashes, colourForLane, DETAILS_MAX, DETAILS_MIN, edgeCurveAt, edgePath, estimateDetailsHeight, gitAtLeast, graphWidth, laneX, rayStreamGradient, RAY_STREAM_PERIOD, ROW, rowTop, rowY, scrollNeededToRevealDetails, shortcutMatches, visibleRowRange } from '../shared/graph';
 import {
   commitHidden,
   copyDateFilter,
@@ -34,7 +34,7 @@ import { detailsMetaRows, commitMessageText, type DetailsMetaRow, type MetaCopyI
 import { DETAILS_FILES_MIN, DETAILS_META_DEFAULT, draggedDetailsMeta, fittedDetailsMeta } from '../shared/detailsPane';
 import { signatureColumn, signatureInfoRows, signatureSummary, type SignatureInfoRow } from '../shared/signature';
 import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg, groupChipRefs, remoteShortName, type FilterTab } from '../shared/refsList';
-import { compileFindRegex, formatFindCount, highlightFind, matchCommit } from '../shared/commitFind';
+import { compileFindRegex, formatFindCount, highlightFind } from '../shared/commitFind';
 import { formatRefChange, presentPreview } from '../shared/undo';
 import { branchMenuEntries, commitMenuEntries, menuHtml } from '../shared/commitMenu';
 import { UNCOMMITTED, type ColumnVisibility, type CommitDetails, type GraphCommit, type GraphRef } from '../shared/types';
@@ -48,7 +48,14 @@ type AnchoredPopoverOpts = { align?: AnchoredPopoverAlign; maxWidth?: number };
 const vscode = acquireVsCodeApi();
 const post = (m: ViewToHost) => vscode.postMessage(m);
 
-type WebviewState = { repo?: string; signatureOpen?: boolean };
+type WebviewState = {
+  repo?: string;
+  signatureOpen?: boolean;
+  columns?: Record<string, number>;
+  dateAuthor?: string[];
+  dateCommitter?: string[];
+  selected?: string;
+};
 
 function webviewState(): WebviewState {
   const raw = vscode.getState();
@@ -57,6 +64,10 @@ function webviewState(): WebviewState {
 }
 
 let signatureOpen = webviewState().signatureOpen === true;
+let columnWidths: Record<string, number> = { ...(webviewState().columns ?? {}) };
+let viewRestored = false;
+let restoring = false;
+let restoredScroll: string | null = null;
 
 let snap: GraphSnapshot | null = null;
 let selected: string | null = null;
@@ -72,11 +83,20 @@ let deleteBranchSeq = 0;
 let deleteBranchMerge: BranchMergeState = 'unknown';
 let confirmOk: (() => void) | null = null;
 let faces = new Map<string, string>();
-let findHits: number[] = [];
+let findHits: string[] = [];
+let findIndexes: number[] = [];
 let findI = 0;
-let findDiffHashes: string[] | null = null;
+let findTruncated = false;
+let findSeq = 0;
+let findRequest = '';
 let findDiffTimer: ReturnType<typeof setTimeout> | null = null;
 let findPendingDir = 0;
+let findPendingHash: string | null = null;
+let detailsStamp = 0;
+const rowByHash = new Map<string, HTMLDivElement>();
+let graphCommits: GraphCommit[] | null = null;
+let graphKey = '';
+let detailsKey = '';
 let filterDraft: { showAll: boolean; showRemotes: boolean; tab: FilterTab; picked: Set<string>; shown: number } | null = null;
 let stashI = 0;
 let ctxRef: GraphRef | null = null;
@@ -136,8 +156,10 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
     paint();
     fillDates();
     continueDateJump();
+    continueFindJump();
   } else if (m.type === 'info') {
     details = m.payload;
+    detailsStamp++;
     if (!details) {
       compare = undefined;
       paint();
@@ -160,13 +182,17 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
   } else if (m.type === 'facesReset') {
     faces.clear();
     paint();
-  } else if (m.type === 'findDiffs') {
-    findDiffHashes = m.hashes;
+  } else if (m.type === 'findHits') {
+    if (m.requestId !== findRequest) return;
+    findHits = m.hashes;
+    findIndexes = m.indexes;
+    findTruncated = m.truncated;
     const err = $('find-err');
     err.hidden = !m.error;
     err.textContent = m.error ?? '';
-    runFind(findPendingDir);
+    const dir = findPendingDir;
     findPendingDir = 0;
+    showFindPosition(dir);
   } else if (m.type === 'jump') {
     selected = m.selected;
     compare = m.compare;
@@ -197,9 +223,54 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
   }
 });
 
+function persistView(): void {
+  if (restoring) return;
+  vscode.setState({
+    repo: snap?.repoPath,
+    signatureOpen,
+    columns: { ...columnWidths },
+    dateAuthor: [...dateFilter.author],
+    dateCommitter: [...dateFilter.committer],
+    selected: selected ?? undefined,
+  });
+}
+
+function restoreView(): void {
+  if (!snap) return;
+  const state = webviewState();
+  if (state.repo !== snap.repoPath) return;
+  for (const [key, width] of Object.entries(state.columns ?? {})) {
+    if (typeof width === 'number' && Number.isFinite(width)) setColWidth(key, width);
+  }
+  if (state.dateAuthor || state.dateCommitter) {
+    dateFilter = { author: new Set(state.dateAuthor ?? []), committer: new Set(state.dateCommitter ?? []) };
+  }
+  if (state.selected && snap.commits.some((commit) => commit.hash === state.selected)) {
+    selected = state.selected;
+    restoredScroll = state.selected;
+  }
+}
+
+function syncBanners(): void {
+  if (!snap) return;
+  const op = snap.operation;
+  $('conflict').hidden = !op;
+  if (op) {
+    const files = op.files.length ? op.files.join(', ') : 'no unmerged files';
+    $('conflict-msg').textContent = `${op.kind} in progress — ${files}`;
+  }
+  $('path-filter').hidden = !snap.historyPath;
+  if (snap.historyPath) $('path-filter-msg').textContent = `History of ${snap.historyPath}`;
+}
+
 function applySnap(): void {
   if (!snap) return;
-  vscode.setState({ ...webviewState(), repo: snap.repoPath });
+  if (!viewRestored) {
+    restoring = true;
+    restoreView();
+    restoring = false;
+    viewRestored = true;
+  }
   document.body.dataset.theme = snap.config.theme;
   document.body.classList.toggle('hide-Author', !snap.config.columnVisibility.Author);
   document.body.classList.toggle('hide-AuthorDate', !snap.config.columnVisibility.AuthorDate);
@@ -237,8 +308,16 @@ function applySnap(): void {
     cb.checked = snap.config.columnVisibility[cb.dataset.col as keyof ColumnVisibility];
   }
   if (snap.config.fetchAvatars) post({ type: 'faces', emails: [...new Set(snap.commits.map((c) => c.authorEmail).filter(Boolean))] });
-  runFind(0);
+  syncBanners();
   fillHelp();
+  paint();
+  if ($('find-q').value) scheduleFind(0);
+  if (restoredScroll) {
+    const hash = restoredScroll;
+    restoredScroll = null;
+    scrollToHash(hash);
+  }
+  persistView();
 }
 
 function fillRepos(): void {
@@ -341,6 +420,7 @@ function applyDateFilter(): void {
   if (dateDraft) dateFilter = copyDateFilter(dateDraft);
   $('pop-dates').hidePopover?.();
   paint();
+  persistView();
 }
 
 function fillRemotes(): void {
@@ -484,15 +564,54 @@ function detailsGap(rows: number[]): { after: number; height: number } | null {
   return { after, height: currentDetailsHeight() };
 }
 
+function dateFilterKey(): string {
+  return `${[...dateFilter.author].sort().join(',')}|${[...dateFilter.committer].sort().join(',')}`;
+}
+
 function paint(): void {
   if (!snap) return;
   const rows = shownCommits();
   const gap = detailsGap(rows);
   const height = rows.length * ROW + (gap ? gap.height : 0);
   $('spacer').style.height = `${height}px`;
+  paintGraph(rows, gap, height);
+  paintRows(rows, gap, height);
+  renderDetails();
+  syncHeaderScroll();
+  syncGraphClip();
+}
+
+function paintViewport(): void {
+  if (!snap) return;
+  const rows = shownCommits();
+  const gap = detailsGap(rows);
+  const height = rows.length * ROW + (gap ? gap.height : 0);
+  paintRows(rows, gap, height);
+  syncHeaderScroll();
+}
+
+function paintGraph(rows: number[], gap: { after: number; height: number } | null, height: number): void {
+  if (!snap) return;
+  const key = [
+    rows.length,
+    rows[0] ?? '',
+    rows[rows.length - 1] ?? '',
+    dateFilterKey(),
+    gap?.after ?? '',
+    gap?.height ?? '',
+    snap.config.theme,
+    snap.config.graphStyle,
+    snap.config.graphColours.join(','),
+    snap.config.uncommittedChanges,
+    snap.head ?? '',
+    snap.currentBranch ?? '',
+    snap.hasMore ? '1' : '0',
+  ].join('|');
+  if (graphCommits === snap.commits && key === graphKey) return;
+  graphCommits = snap.commits;
+  graphKey = key;
   const svg = $('svg');
   const layout = fullLayout();
-  const ancestors = snap.config.muteNonAncestorsOfHead ? ancestorHashes(snap.commits, snap.head) : null;
   const displayOf = new Map(rows.map((commitIndex, index) => [commitIndex, index]));
   const nodeAt = new Set(rows.map((commitIndex, index) => `${index}:${layout.vertices[commitIndex]?.lane ?? ''}`));
   const pathD: string[] = [];
@@ -561,30 +680,41 @@ function paint(): void {
   if (userG != null) document.documentElement.style.setProperty('--g', `${userG}px`);
   else document.documentElement.style.removeProperty('--g');
   paintGraphSvg(svg, pathD.join(''), snap.config.theme === 'Ray Stream', height);
-  const scroll = $('scroll');
-  const viewTop = scroll.scrollTop - 8 * ROW;
-  const viewBot = scroll.scrollTop + scroll.clientHeight + 16 * ROW;
-  let start = 0;
-  while (start < rows.length && rowTop(start, gap) + ROW < viewTop) start++;
-  let end = start;
-  while (end < rows.length && rowTop(end, gap) < viewBot) end++;
-  const host = $('rows');
-  host.innerHTML = '';
-  for (let i = start; i < end; i++) {
-    const commitIndex = rows[i]!;
-    const c = snap.commits[commitIndex]!;
-    const muteMerge = snap.config.muteMergeCommits && c.parents.length > 1;
-    const muteRow = Boolean(ancestors && c.hash !== UNCOMMITTED && !ancestors.has(c.hash));
-    const el = document.createElement('div');
-    el.className = `row${muteMerge ? ' muted-merge' : ''}${muteRow ? ' muted' : ''}${c.hash === selected ? ' sel' : ''}${c.hash === compare ? ' cmp' : ''}${c.hash === snap.head ? ' head-commit' : ''}`;
-    el.style.position = 'absolute';
-    el.style.left = '0';
-    el.style.right = '0';
-    el.style.top = `${rowTop(i, gap)}px`;
-    el.dataset.hash = c.hash;
-    const avatar = faces.get(c.authorEmail);
-    const desc = `${chips(c)}<span class="subj">${subjectHtml(c.subject)}</span>`;
-    el.innerHTML = `<div class="cell graph"></div>
+}
+
+function rowClass(c: GraphCommit, ancestors: Set<string> | null): string {
+  if (!snap) return 'row';
+  const muteMerge = snap.config.muteMergeCommits && c.parents.length > 1;
+  const muteRow = Boolean(ancestors && c.hash !== UNCOMMITTED && !ancestors.has(c.hash));
+  return `row${muteMerge ? ' muted-merge' : ''}${muteRow ? ' muted' : ''}${c.hash === selected ? ' sel' : ''}${c.hash === compare ? ' cmp' : ''}${c.hash === snap.head ? ' head-commit' : ''}`;
+}
+
+function rowContentMark(c: GraphCommit): string {
+  if (!snap) return '';
+  const flags = findFlags();
+  const divergence = snap.divergence ? `${snap.divergence.ahead}:${snap.divergence.behind}` : '';
+  return [
+    $('find-q').value,
+    flags.ignoreCase ? '1' : '0',
+    flags.regex ? '1' : '0',
+    faces.has(c.authorEmail) ? '1' : '0',
+    snap.config.dateFormat,
+    divergence,
+    c.subject,
+    c.authorName,
+    c.committerName,
+    String(c.authorDate),
+    String(c.committerDate),
+    c.signatureKind ?? '',
+    c.refs.map((r) => `${r.kind}:${r.name}:${r.hash}`).join(','),
+  ].join('\u001f');
+}
+
+function rowInnerHtml(c: GraphCommit): string {
+  if (!snap) return '';
+  const avatar = faces.get(c.authorEmail);
+  const desc = `${chips(c)}<span class="subj">${subjectHtml(c.subject)}</span>`;
+  return `<div class="cell graph"></div>
       <div class="cell desc">${desc}</div>
       <div class="cell author">${avatar ? `<img src="${avatar}" width="14" height="14" alt="" /> ` : ''}${findMark(c.authorName)}</div>
       <div class="cell adate">${esc(formatDate(c.authorDate, snap.config.dateFormat))}</div>
@@ -592,13 +722,63 @@ function paint(): void {
       <div class="cell committer">${findMark(c.committerName)}</div>
       <div class="cell cdate">${esc(formatDate(c.committerDate, snap.config.dateFormat))}</div>
       ${signatureCellHtml(c)}`;
-    host.append(el);
+}
+
+function paintRows(rows: number[], gap: { after: number; height: number } | null, height: number): void {
+  if (!snap) return;
+  const scroll = $('scroll');
+  const { start, end } = visibleRowRange({
+    scrollTop: scroll.scrollTop,
+    viewHeight: scroll.clientHeight,
+    rowCount: rows.length,
+    gap,
+  });
+  const ancestors = snap.config.muteNonAncestorsOfHead ? ancestorHashes(snap.commits, snap.head) : null;
+  const host = $('rows');
+  const keep = new Set<string>();
+  for (let i = start; i < end; i++) {
+    const c = snap.commits[rows[i]!]!;
+    keep.add(c.hash);
+    let el = rowByHash.get(c.hash);
+    if (!el) {
+      el = document.createElement('div');
+      rowByHash.set(c.hash, el);
+      host.append(el);
+    }
+    el.style.position = 'absolute';
+    el.style.left = '0';
+    el.style.right = '0';
+    el.style.top = `${rowTop(i, gap)}px`;
+    const cls = rowClass(c, ancestors);
+    if (el.className !== cls) el.className = cls;
+    const mark = rowContentMark(c);
+    if (el.dataset.mark !== mark) {
+      el.dataset.hash = c.hash;
+      el.dataset.mark = mark;
+      el.innerHTML = rowInnerHtml(c);
+    }
   }
-  const more = snap.hasMore ? `<div class="row" id="more" style="position:absolute;top:${height}px">Load more</div>` : '';
-  if (more) host.insertAdjacentHTML('beforeend', more);
-  renderDetails();
-  syncHeaderScroll();
-  syncGraphClip();
+  for (const [hash, el] of rowByHash) {
+    if (!keep.has(hash)) {
+      el.remove();
+      rowByHash.delete(hash);
+    }
+  }
+  let more = document.getElementById('more');
+  if (snap.hasMore) {
+    if (!more) {
+      more = document.createElement('div');
+      more.id = 'more';
+      more.className = 'row';
+      more.textContent = 'Load more';
+      host.append(more);
+    }
+    more.style.position = 'absolute';
+    more.style.top = `${height}px`;
+    more.hidden = false;
+  } else if (more) {
+    more.remove();
+  }
 }
 
 function emojiMaps() {
@@ -614,7 +794,11 @@ function chips(c: GraphCommit): string {
     const current = r.kind === 'head' && Boolean(snap!.currentBranch) && r.name === snap!.currentBranch;
     const ico = chipIcon(r.kind);
     const label = short && r.kind === 'remote' ? remoteShortName(r) : refDisplayName(r);
-    return `<span class="chip ${r.kind}${detached ? ' detached' : ''}${current ? ' current' : ''}" data-kind="${r.kind}" data-name="${esc(r.name)}" data-hash="${esc(r.hash)}" data-remote="${esc(r.remote ?? '')}" data-wt="${esc(r.worktreePath ?? '')}">${ico}${findMark(label)}</span>`;
+    const divergence =
+      current && snap!.divergence
+        ? `<span class="divergence">${snap!.divergence.ahead} ahead · ${snap!.divergence.behind} behind</span>`
+        : '';
+    return `<span class="chip ${r.kind}${detached ? ' detached' : ''}${current ? ' current' : ''}" data-kind="${r.kind}" data-name="${esc(r.name)}" data-hash="${esc(r.hash)}" data-remote="${esc(r.remote ?? '')}" data-wt="${esc(r.worktreePath ?? '')}">${ico}${findMark(label)}${divergence}</span>`;
   };
   const html = (g: ReturnType<typeof groupChipRefs>[number]) =>
     g.kind === 'pair' ? `<span class="chip-pair">${mk(g.local)}${mk(g.remote, true)}</span>` : mk(g.ref);
@@ -626,43 +810,62 @@ function chips(c: GraphCommit): string {
   return `<span class="refs">${groups.map(html).join('')}</span>`;
 }
 
+function detailsContentKey(): string {
+  if (!snap || !details) return '';
+  return [
+    detailsStamp,
+    details.hash,
+    details.compare ?? '',
+    snap.config.detailsLocation,
+    snap.config.fileViewType,
+    signatureOpen ? '1' : '0',
+  ].join('|');
+}
+
 function renderDetails(): void {
   const dock = $('dock');
   const inline = $('inline-details');
   document.documentElement.classList.remove('details-open');
   if (!snap) return;
+  const key = detailsContentKey();
+  const rebuild = key !== detailsKey;
   if (snap.config.detailsLocation === 'Docked to Bottom') {
     inline.hidden = true;
-    inline.innerHTML = '';
+    if (rebuild) inline.innerHTML = '';
     dock.hidden = !details;
     if (!details) {
-      dock.innerHTML = '';
+      if (rebuild) dock.innerHTML = '';
+      detailsKey = key;
       return;
     }
     dock.style.height = `${currentDetailsHeight()}px`;
-    dock.innerHTML = `<div class="sash-y" id="sash-y" data-dir="up"></div><div class="details-body">${detailsHtml(details)}</div>`;
+    if (rebuild) dock.innerHTML = `<div class="sash-y" id="sash-y" data-dir="up"></div><div class="details-body">${detailsHtml(details)}</div>`;
     document.documentElement.classList.add('details-open');
+    detailsKey = key;
     return;
   }
   dock.hidden = true;
-  dock.innerHTML = '';
+  if (rebuild) dock.innerHTML = '';
   const anchor = detailsAnchor();
   if (!details || !anchor) {
     inline.hidden = true;
-    inline.innerHTML = '';
+    if (rebuild) inline.innerHTML = '';
+    detailsKey = key;
     return;
   }
   const idx = displayIndexForHash(anchor);
   if (idx < 0) {
     inline.hidden = true;
-    inline.innerHTML = '';
+    if (rebuild) inline.innerHTML = '';
+    detailsKey = key;
     return;
   }
   document.documentElement.classList.add('details-open');
   inline.hidden = false;
   inline.style.top = `${(idx + 1) * ROW}px`;
   inline.style.height = `${currentDetailsHeight()}px`;
-  inline.innerHTML = `<div class="details-body">${detailsHtml(details)}</div><div class="sash-y" id="sash-y"></div>`;
+  if (rebuild) inline.innerHTML = `<div class="details-body">${detailsHtml(details)}</div><div class="sash-y" id="sash-y"></div>`;
+  detailsKey = key;
 }
 
 function detailsHtml(d: CommitDetails): string {
@@ -722,7 +925,8 @@ function signatureCellHtml(c: GraphCommit): string {
 
 function toggleSignaturePane(): void {
   signatureOpen = !signatureOpen;
-  vscode.setState({ ...webviewState(), signatureOpen });
+  detailsKey = '';
+  persistView();
   const pane = document.querySelector('.sig-block');
   if (pane && details) pane.outerHTML = signaturePaneHtml(details);
   else paint();
@@ -781,6 +985,10 @@ const ICON_OPEN =
   '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M6.5 2.5H14v8h-1.5V4H6.5zm-4 3H10v8H2.5zM4 7v5h4.5V7z"/></svg>';
 const ICON_BLOB =
   '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M3 2.5h7l3 3V13.5H3zm1 1v9h8V6H9V3.5zm2 3h5v1H6zm0 2.5h5v1H6z"/></svg>';
+const ICON_HISTORY =
+  '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" d="M8 3.2a4.8 4.8 0 1 1-3.4 1.4"/><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" d="M4.2 2.4v2.4h2.4M8 5.6V8.4L9.8 9.4"/></svg>';
+const ICON_BLAME =
+  '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" d="M3 3.5h10M3 8h10M3 12.5h6"/></svg>';
 const ICON_COPY_REL =
   '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M4 2h7a1 1 0 0 1 1 1v1h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm3 11h6V5H7v8zM4 12h1V4h6V3H4v9z"/></svg>';
 const ICON_COPY_FULL =
@@ -791,6 +999,8 @@ function fileActionsHtml(): string {
     <button type="button" class="file-act" data-fa="diff" title="Diff">${ICON_DIFF}</button>
     <button type="button" class="file-act" data-fa="open" title="Open File">${ICON_OPEN}</button>
     <button type="button" class="file-act" data-fa="blob" title="View at revision">${ICON_BLOB}</button>
+    <button type="button" class="file-act" data-fa="history" title="File history">${ICON_HISTORY}</button>
+    <button type="button" class="file-act" data-fa="blame" title="Blame">${ICON_BLAME}</button>
     <button type="button" class="file-act" data-fa="copy-full" title="Copy Full Path" aria-label="Copy Full Path">${ICON_COPY_FULL}<span class="file-act-mark" aria-hidden="true">F</span></button>
     <button type="button" class="file-act" data-fa="copy-rel" title="Copy Relative Path" aria-label="Copy Relative Path">${ICON_COPY_REL}<span class="file-act-mark" aria-hidden="true">R</span></button>
   </span>`;
@@ -1012,6 +1222,7 @@ function setColWidth(key: string, px: number): void {
   document.documentElement.style.setProperty(key, `${w}px`);
   if (key === '--d') document.documentElement.style.setProperty('--d-min', `${w}px`);
   if (key === '--g') userG = w;
+  columnWidths[key] = w;
   syncHeaderScroll();
   syncGraphClip();
 }
@@ -1460,6 +1671,10 @@ function bindColResize(): void {
     const up = () => {
       handle.removeEventListener('pointermove', move);
       handle.removeEventListener('pointerup', up);
+      const raw = getComputedStyle(document.documentElement).getPropertyValue(key).trim();
+      const width = Number.parseFloat(raw);
+      if (Number.isFinite(width)) columnWidths[key] = width;
+      persistView();
       if (key === '--g') paint();
     };
     handle.addEventListener('pointermove', move);
@@ -1478,6 +1693,7 @@ function autosizeColumn(cls: string): void {
   if (!key) return;
   if (cls === 'graph') {
     setColWidth(key, $('svg').getBoundingClientRect().width + 8);
+    persistView();
     paint();
     return;
   }
@@ -1497,6 +1713,7 @@ function autosizeColumn(cls: string): void {
   }
   probe.remove();
   setColWidth(key, max + 8);
+  persistView();
 }
 
 function intrinsicRowWidth(row: HTMLElement): number {
@@ -1723,6 +1940,14 @@ function runFileAction(kind: string, file: HTMLElement): void {
     viewFileAtRevision(file);
     return;
   }
+  if (kind === 'history') {
+    post({ type: 'setHistoryPath', path });
+    return;
+  }
+  if (kind === 'blame') {
+    post({ type: 'blame', path });
+    return;
+  }
   if (kind === 'copy-rel') {
     post({ type: 'copy', text: path });
     return;
@@ -1775,6 +2000,7 @@ function onDetailsClick(ev: MouseEvent): boolean {
     ev.preventDefault();
     selected = parent.dataset.parent;
     compare = undefined;
+    persistView();
     post({ type: 'openRow', hash: selected });
     if (displayIndexForHash(selected) < 0) scrollToHash(selected);
     return true;
@@ -1783,6 +2009,16 @@ function onDetailsClick(ev: MouseEvent): boolean {
 }
 
 function bind(): void {
+  new ResizeObserver(() => paintViewport()).observe($('scroll'));
+  $('conflict-continue').addEventListener('click', () => {
+    if (!snap?.operation) return;
+    post({ type: 'git', action: { kind: 'continueOperation', operation: snap.operation.kind } });
+  });
+  $('conflict-abort').addEventListener('click', () => {
+    if (!snap?.operation) return;
+    post({ type: 'git', action: { kind: 'abortOperation', operation: snap.operation.kind } });
+  });
+  $('path-filter-clear').addEventListener('click', () => post({ type: 'setHistoryPath', path: null }));
   const trackPointer = (ev: PointerEvent) => {
     lastPointer = { x: ev.clientX, y: ev.clientY };
     if (document.documentElement.classList.contains('git-busy')) placeBusyHint();
@@ -1948,8 +2184,8 @@ function bind(): void {
   });
   $('scroll').addEventListener('scroll', () => {
     syncHeaderScroll();
-    paint();
-    if (pendingDateJump) return;
+    paintViewport();
+    if (pendingDateJump || findPendingHash) return;
     if (snap?.hasMore && snap.config.loadMoreAutomatically) {
       const s = $('scroll');
       if (s.scrollTop + s.clientHeight > s.scrollHeight - 80) post({ type: 'more' });
@@ -1994,6 +2230,7 @@ function bind(): void {
       compare = undefined;
       post({ type: 'openRow', hash: selected });
     }
+    persistView();
     paint();
   });
   $('dock').addEventListener('click', (ev) => {
@@ -2026,13 +2263,8 @@ function bind(): void {
     if (ev.key === 'Enter') {
       ev.preventDefault();
       const dir = ev.shiftKey ? -1 : 1;
-      if (findPressed('find-diff')) {
-        findPendingDir = dir;
-        if (findDiffTimer) clearTimeout(findDiffTimer);
-        requestFindDiffs();
-        return;
-      }
-      runFind(dir);
+      if (findDiffTimer) clearTimeout(findDiffTimer);
+      scheduleFind(dir);
     }
   });
   $('find-q').addEventListener('input', () => scheduleFind());
@@ -2152,7 +2384,7 @@ function bind(): void {
       ctxFolder = null;
       ctxFile = { path: file.dataset.path ?? '', oldPath: file.dataset.old || undefined };
       openCtx(
-        `${btn('f-diff', 'Diff')}${btn('f-open', 'Open file')}${btn('f-blob', 'View at revision')}${btn('f-copy', 'Copy path')}${btn('f-copy-full', 'Copy Full Path')}`,
+        `${btn('f-diff', 'Diff')}${btn('f-open', 'Open file')}${btn('f-blob', 'View at revision')}${btn('f-history', 'File history')}${btn('f-blame', 'Blame')}${btn('f-copy', 'Copy path')}${btn('f-copy-full', 'Copy Full Path')}`,
         ev.clientX,
         ev.clientY,
       );
@@ -2246,62 +2478,49 @@ function findPressed(id: string): boolean {
   return $(id).getAttribute('aria-pressed') === 'true';
 }
 
-function scheduleFind(): void {
+function scheduleFind(dir = 0): void {
+  findPendingDir = dir;
   if (findDiffTimer) clearTimeout(findDiffTimer);
-  if (findPressed('find-diff')) {
-    findDiffTimer = setTimeout(() => requestFindDiffs(), 280);
-    return;
-  }
-  findDiffHashes = null;
-  runFind(0);
-}
-
-function requestFindDiffs(): void {
   const q = $('find-q').value;
   const err = $('find-err');
   if (!q) {
-    findDiffHashes = [];
+    findHits = [];
+    findIndexes = [];
+    findTruncated = false;
+    findPendingHash = null;
     err.hidden = true;
-    runFind(0);
-    return;
-  }
-  if (findPressed('find-regex') && !compileFindRegex(q, !findPressed('find-case'))) {
-    findDiffHashes = [];
-    err.hidden = false;
-    err.textContent = 'Invalid regular expression';
-    runFind(0);
-    return;
-  }
-  err.hidden = true;
-  post({ type: 'findInDiffs', pattern: q, ignoreCase: !findPressed('find-case'), regex: findPressed('find-regex') });
-}
-
-function runFind(dir: number): void {
-  if (!snap) return;
-  const q = $('find-q').value;
-  const err = $('find-err');
-  const flags = { regex: findPressed('find-regex'), ignoreCase: !findPressed('find-case') };
-  if (flags.regex && q && !compileFindRegex(q, flags.ignoreCase)) {
-    err.hidden = false;
-    err.textContent = 'Invalid regular expression';
-    $('find-count').textContent = formatFindCount(0, 0);
-    findHits = [];
-    paint();
-    return;
-  }
-  if (!findPressed('find-diff')) err.hidden = true;
-  if (!q) {
-    findHits = [];
     $('find-count').textContent = formatFindCount(0, 0, false);
     paint();
     return;
   }
-  if (findPressed('find-diff')) {
-    const allow = new Set(findDiffHashes ?? []);
-    findHits = snap.commits.map((c, i) => ({ c, i })).filter(({ c }) => allow.has(c.hash)).map((x) => x.i);
-  } else {
-    findHits = snap.commits.map((c, i) => ({ c, i })).filter(({ c }) => matchCommit(c, q, flags)).map((x) => x.i);
+  if (findPressed('find-regex') && !compileFindRegex(q, !findPressed('find-case'))) {
+    findHits = [];
+    findIndexes = [];
+    err.hidden = false;
+    err.textContent = 'Invalid regular expression';
+    $('find-count').textContent = formatFindCount(0, 0);
+    paint();
+    return;
   }
+  err.hidden = true;
+  findDiffTimer = setTimeout(() => requestFind(), dir === 0 ? 280 : 0);
+}
+
+function requestFind(): void {
+  const q = $('find-q').value;
+  if (!q) return;
+  findRequest = String(++findSeq);
+  post({
+    type: 'findCommits',
+    requestId: findRequest,
+    pattern: q,
+    ignoreCase: !findPressed('find-case'),
+    regex: findPressed('find-regex'),
+    diff: findPressed('find-diff'),
+  });
+}
+
+function showFindPosition(dir: number): void {
   if (!findHits.length) {
     $('find-count').textContent = formatFindCount(0, 0);
     paint();
@@ -2309,12 +2528,59 @@ function runFind(dir: number): void {
   }
   if (dir === 0) findI = Math.min(findI, findHits.length - 1);
   else findI = (findI + dir + findHits.length) % findHits.length;
-  $('find-count').textContent = formatFindCount(findI + 1, findHits.length);
+  $('find-count').textContent = formatFindCount(findI + 1, findHits.length, true, findTruncated);
   paint();
   if (dir === 0) return;
-  const hash = snap.commits[findHits[findI]!]!.hash;
+  jumpToFindHash(findHits[findI]!, findIndexes[findI] ?? -1);
+}
+
+function jumpToFindHash(hash: string, index: number): void {
+  if (!snap) return;
+  if (snap.commits.some((commit) => commit.hash === hash)) {
+    findPendingHash = null;
+    selected = hash;
+    scrollToHash(hash);
+    persistView();
+    return;
+  }
+  findPendingHash = hash;
+  post({ type: 'loadUntil', hash, index });
+}
+
+function continueFindJump(): void {
+  if (!findPendingHash || !snap) return;
+  if (!snap.commits.some((commit) => commit.hash === findPendingHash)) {
+    if (!snap.hasMore) {
+      findPendingHash = null;
+      const err = $('find-err');
+      err.hidden = false;
+      err.textContent = 'That commit is outside the loaded history.';
+    }
+    return;
+  }
+  const hash = findPendingHash;
+  findPendingHash = null;
   selected = hash;
   scrollToHash(hash);
+  persistView();
+}
+
+function runFind(dir: number): void {
+  if (!snap) return;
+  const q = $('find-q').value;
+  if (!q) {
+    scheduleFind(0);
+    return;
+  }
+  if (findPressed('find-regex') && !compileFindRegex(q, !findPressed('find-case'))) {
+    scheduleFind(0);
+    return;
+  }
+  if (!findHits.length) {
+    scheduleFind(dir);
+    return;
+  }
+  showFindPosition(dir);
 }
 
 function onKey(ev: KeyboardEvent): void {
@@ -2346,6 +2612,7 @@ function onKey(ev: KeyboardEvent): void {
       selected = null;
       compare = undefined;
       post({ type: 'openRow', hash: null });
+      persistView();
       paint();
     }
     return;
@@ -2374,6 +2641,7 @@ function onKey(ev: KeyboardEvent): void {
     const next = snap.commits[nextIndex];
     if (!next) return;
     selected = next.hash;
+    persistView();
     compare = undefined;
     post({ type: 'openRow', hash: selected });
     paint();
@@ -2704,6 +2972,8 @@ function onMenu(ev: Event): void {
     if (id === 'f-diff') postDiff(ctxFile);
     if (id === 'f-open') post({ type: 'openWorkFile', path: ctxFile.path });
     if (id === 'f-blob') post({ type: 'showBlob', hash: details.hash === '*' ? 'HEAD' : details.hash, path: ctxFile.path });
+    if (id === 'f-history') post({ type: 'setHistoryPath', path: ctxFile.path });
+    if (id === 'f-blame') post({ type: 'blame', path: ctxFile.path });
     if (id === 'f-copy') {
       post({ type: 'copy', text: ctxFile.path });
       showCopiedToast((ev as MouseEvent).clientX, (ev as MouseEvent).clientY);

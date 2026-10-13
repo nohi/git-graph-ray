@@ -61,6 +61,9 @@ function snap(over: Partial<GraphSnapshot> = {}): GraphSnapshot {
     loading: false,
     menuVisibility: {},
     emoji: [],
+    historyPath: null,
+    operation: null,
+    divergence: null,
     ...over,
   };
 }

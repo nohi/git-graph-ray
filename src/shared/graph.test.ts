@@ -7,6 +7,7 @@ import {
   estimateDetailsHeight,
   rayStreamGradient,
   scrollNeededToRevealDetails,
+  visibleRowRange,
 } from './graph';
 import { layoutCommits } from './layout';
 import { RAY_COLOURS, type GraphCommit } from './types';
@@ -221,5 +222,21 @@ describe('edgeCurveAt with layout', () => {
     const commits = [commit('p', ['z']), commit('q', ['z']), commit('z', [])];
     const layout = layoutCommits(commits);
     expect(curveAt(commits, layout, 1, 1, 0)).toBe('end');
+  });
+});
+
+describe('visibleRowRange', () => {
+  it('returns the rows that intersect the viewport', () => {
+    expect(
+      visibleRowRange({ scrollTop: 56, viewHeight: 28, rowCount: 10, padBefore: 0, padAfter: 0 }),
+    ).toEqual({ start: 1, end: 3 });
+  });
+
+  it('shifts the start down when a details gap pushes later rows', () => {
+    const gap = { after: 0, height: 100 };
+    expect(visibleRowRange({ scrollTop: 0, viewHeight: 28, rowCount: 4, gap, padBefore: 0, padAfter: 0 })).toEqual({
+      start: 0,
+      end: 1,
+    });
   });
 });

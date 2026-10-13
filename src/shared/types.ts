@@ -46,6 +46,18 @@ export type RepoInfo = {
   workspaceIndex: number;
 };
 
+export type RepoOperationKind = 'merge' | 'rebase' | 'cherry-pick' | 'revert';
+
+export type RepoOperation = {
+  kind: RepoOperationKind;
+  files: string[];
+};
+
+export type UpstreamDivergence = {
+  ahead: number;
+  behind: number;
+};
+
 export type ColumnVisibility = {
   Author: boolean;
   AuthorDate: boolean;

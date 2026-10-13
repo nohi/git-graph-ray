@@ -19,5 +19,17 @@ export function snapshotFingerprint(payload: GraphSnapshot): string {
   const commits = payload.commits
     .map((c) => `${c.hash}:${c.parents.join(' ')}:${c.refs.map((r) => `${r.kind}:${r.name}:${r.hash}`).join(',')}`)
     .join(';');
-  return [payload.repoPath, payload.head ?? '', payload.currentBranch ?? '', payload.hasMore ? '1' : '0', payload.branches.join(','), commits].join('|');
+  const operation = payload.operation ? `${payload.operation.kind}:${payload.operation.files.join(',')}` : '';
+  const divergence = payload.divergence ? `${payload.divergence.ahead}:${payload.divergence.behind}` : '';
+  return [
+    payload.repoPath,
+    payload.head ?? '',
+    payload.currentBranch ?? '',
+    payload.hasMore ? '1' : '0',
+    payload.historyPath ?? '',
+    operation,
+    divergence,
+    payload.branches.join(','),
+    commits,
+  ].join('|');
 }

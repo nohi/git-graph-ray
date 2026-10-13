@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compileFindRegex, formatFindCount, highlightFind, matchCommit } from './commitFind';
+import { assembleFindHits, compileFindRegex, formatFindCount, highlightFind, indexFindHashes, matchCommit, parseFindScan } from './commitFind';
 import type { GraphCommit } from './types';
 
 const commit = (over: Partial<GraphCommit> = {}): GraphCommit => ({
@@ -63,5 +63,56 @@ describe('formatFindCount', () => {
 
   it('shows the current hit among the total', () => {
     expect(formatFindCount(2, 11)).toBe('2/11');
+  });
+
+  it('marks a truncated result', () => {
+    expect(formatFindCount(2, 5000, true, true)).toBe('2/5000+');
+  });
+});
+
+describe('assembleFindHits', () => {
+  const hash = (n: number) => `${n.toString(16).padStart(40, 'a')}`;
+
+  it('orders field matches and body-only hashes by the scan index', () => {
+    const scanned = [
+      { hash: hash(1), authorName: 'Ada', subject: 'Unrelated', index: 0 },
+      { hash: hash(2), authorName: 'Grace', subject: 'Fix widget', index: 1 },
+      { hash: hash(3), authorName: 'Ada', subject: 'Later', index: 2 },
+    ];
+    const found = assembleFindHits({
+      scanned,
+      query: 'widget',
+      flags: { regex: false, ignoreCase: true },
+      extraHashes: [hash(3), hash(2)],
+      scanCap: 10,
+    });
+    expect(found.hashes).toEqual([hash(2), hash(3)]);
+    expect(found.indexes).toEqual([1, 2]);
+    expect(found.truncated).toBe(false);
+  });
+
+  it('parses the scan format and reports a cut-off past the scan cap', () => {
+    const stdout = `\u001e${hash(4)}\u001fAda\u001fSubject\n`;
+    expect(parseFindScan(stdout)).toEqual([{ hash: hash(4), authorName: 'Ada', subject: 'Subject', index: 0 }]);
+    const found = assembleFindHits({
+      scanned: [{ hash: hash(4), authorName: 'Ada', subject: 'Subject', index: 0 }],
+      query: 'subject',
+      flags: { regex: false, ignoreCase: true },
+      extraHashes: [],
+      scanCap: 0,
+    });
+    expect(found.truncated).toBe(true);
+  });
+});
+
+describe('indexFindHashes', () => {
+  it('keeps diff order and uses -1 when the hash was not scanned', () => {
+    const known = 'a'.repeat(40);
+    const missing = 'b'.repeat(40);
+    expect(indexFindHashes([known], [missing, known], 10, 10)).toEqual({
+      hashes: [missing, known],
+      indexes: [-1, 0],
+      truncated: true,
+    });
   });
 });

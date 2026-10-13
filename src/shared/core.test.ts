@@ -4,7 +4,7 @@ import { parseGitVersion } from './graph';
 import { parseWorktreePorcelain } from './worktreePorcelain';
 import { startCheckoutFromRef } from './checkout';
 import { applyIssueLinks, formatCommitMessageHtml, highlightInlineCode, renderMarkdownLite } from './issueLinks';
-import { parseLog, withUncommitted, workingTreeDirty } from '../host/git/log';
+import { parseLog, parseUpstreamDivergence, withUncommitted, workingTreeDirty } from '../host/git/log';
 import { UNCOMMITTED } from './types';
 
 describe('workingTreeDirty', () => {
@@ -18,9 +18,20 @@ describe('workingTreeDirty', () => {
   it('treats modified files as dirty', () => {
     expect(workingTreeDirty(' M src/a.ts\n', true)).toBe(true);
   });
+  it('ignores the branch header', () => {
+    expect(workingTreeDirty('## main...origin/main [ahead 1]\n', true)).toBe(false);
+  });
   it('ignores untracked when asked', () => {
     expect(workingTreeDirty('?? scratch.txt\n', false)).toBe(false);
     expect(workingTreeDirty('?? scratch.txt\n', true)).toBe(true);
+  });
+});
+
+describe('parseUpstreamDivergence', () => {
+  it('reads ahead and behind from a branch header', () => {
+    expect(parseUpstreamDivergence('## main...origin/main [ahead 2, behind 1]\n')).toEqual({ ahead: 2, behind: 1 });
+    expect(parseUpstreamDivergence('## main...origin/main\n')).toEqual({ ahead: 0, behind: 0 });
+    expect(parseUpstreamDivergence('## main\n')).toBeNull();
   });
 });
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.2.4
+
+### Features
+
+- Search subject, author, hash, commit message, ref names, and diffs across the whole history. Jump to a hit that is not loaded yet. A `+` after the count means the search stopped at the cap.
+- Open the history of a file from its row or context menu. The graph follows that path until Show all commits.
+- Open `git blame` for a file in an editor.
+- Show an in-progress merge, rebase, cherry-pick, or revert, including conflicted files, with Continue and Abort.
+- Show how many commits the checked-out branch is ahead of and behind its upstream.
+
+### Changes
+
+- Rebuild the graph lines only when the commits, date filter, details gap, or theme change. Scrolling updates the visible rows and leaves the open commit details in place.
+- Keep column widths, the date filter, and the selected commit when the graph for that repository is opened again.
+
 ## v0.2.3
 
 ### Features

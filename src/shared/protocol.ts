@@ -1,4 +1,14 @@
-import type { ColumnVisibility, CommitDetails, GraphCommit, GraphRef, RepoInfo, ViewConfig } from './types';
+import type {
+  ColumnVisibility,
+  CommitDetails,
+  GraphCommit,
+  GraphRef,
+  RepoInfo,
+  RepoOperation,
+  RepoOperationKind,
+  UpstreamDivergence,
+  ViewConfig,
+} from './types';
 import type { RemoteInfo, RepoSettings } from './dialogs';
 
 export type HostToView =
@@ -13,7 +23,7 @@ export type HostToView =
   | { type: 'branchMerged'; requestId: string; merged: boolean | null }
   | { type: 'face'; email: string; dataUri: string }
   | { type: 'facesReset' }
-  | { type: 'findDiffs'; hashes: string[]; error?: string }
+  | { type: 'findHits'; requestId: string; hashes: string[]; indexes: number[]; truncated: boolean; error?: string }
   | { type: 'jump'; selected: string; compare?: string }
   | {
       type: 'undoState';
@@ -62,6 +72,10 @@ export type GraphSnapshot = {
   loading: boolean;
   menuVisibility: Record<string, Record<string, boolean>>;
   emoji: Array<{ shortcode: string; emoji: string }>;
+  /** Path limit for the graph log. Null shows the whole history. */
+  historyPath: string | null;
+  operation: RepoOperation | null;
+  divergence: UpstreamDivergence | null;
 };
 
 export type ViewToHost =
@@ -72,7 +86,10 @@ export type ViewToHost =
   | { type: 'pickRepo'; path: string }
   | { type: 'setBranches'; branches: string[] | 'all' }
   | { type: 'setFilter'; branches: string[] | 'all'; showRemotes: boolean }
-  | { type: 'findInDiffs'; pattern: string; ignoreCase: boolean; regex: boolean }
+  | { type: 'findCommits'; requestId: string; pattern: string; ignoreCase: boolean; regex: boolean; diff: boolean }
+  | { type: 'loadUntil'; hash: string; index: number }
+  | { type: 'setHistoryPath'; path: string | null }
+  | { type: 'blame'; path: string }
   | { type: 'setShowRemotes'; value: boolean }
   | { type: 'setShowTags'; value: boolean }
   | { type: 'setTheme'; value: ViewConfig['theme'] }
@@ -158,4 +175,6 @@ export type GitAction =
   | { kind: 'worktreeAdd'; hash: string; path: string; branch?: string }
   | { kind: 'worktreeOpen'; path: string; newWindow: boolean }
   | { kind: 'worktreeRemove'; path: string; force: boolean }
+  | { kind: 'continueOperation'; operation: RepoOperationKind }
+  | { kind: 'abortOperation'; operation: RepoOperationKind }
   | { kind: 'openScm' };

@@ -68,6 +68,8 @@ export function undoPolicy(action: GitAction): { record: boolean; warning: strin
     case 'pushTag':
     case 'deleteRemoteBranch':
     case 'cleanUntracked':
+    case 'continueOperation':
+    case 'abortOperation':
       return { record: false, warning: null };
     case 'rebase':
       return action.interactive ? { record: false, warning: null } : { record: true, warning: null };
@@ -150,6 +152,10 @@ export function undoLabel(action: GitAction): string {
       return 'Remove worktree';
     case 'openScm':
       return 'Open Source Control';
+    case 'continueOperation':
+      return `Continue ${action.operation}`;
+    case 'abortOperation':
+      return `Abort ${action.operation}`;
   }
 }
 

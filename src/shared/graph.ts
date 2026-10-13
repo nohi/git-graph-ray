@@ -169,6 +169,26 @@ export function rowTop(index: number, gap?: { after: number; height: number } | 
   return index * ROW + extra;
 }
 
+/** Inclusive start, exclusive end, with the same overscan the graph uses while scrolling. */
+export function visibleRowRange(opts: {
+  scrollTop: number;
+  viewHeight: number;
+  rowCount: number;
+  gap?: { after: number; height: number } | null;
+  padBefore?: number;
+  padAfter?: number;
+}): { start: number; end: number } {
+  const padBefore = opts.padBefore ?? 8 * ROW;
+  const padAfter = opts.padAfter ?? 16 * ROW;
+  const viewTop = opts.scrollTop - padBefore;
+  const viewBot = opts.scrollTop + opts.viewHeight + padAfter;
+  let start = 0;
+  while (start < opts.rowCount && rowTop(start, opts.gap) + ROW < viewTop) start++;
+  let end = start;
+  while (end < opts.rowCount && rowTop(end, opts.gap) < viewBot) end++;
+  return { start, end };
+}
+
 export function rowY(row: number, gap?: { after: number; height: number } | null): number {
   return rowTop(row, gap) + ROW / 2;
 }

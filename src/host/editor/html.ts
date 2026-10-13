@@ -96,6 +96,15 @@ const SHELL = `
   <p id="fail-msg"></p>
   <button type="button" id="fail-close" aria-label="Dismiss error">×</button>
 </div>
+<div id="conflict" class="notice-bar" hidden>
+  <p id="conflict-msg"></p>
+  <button type="button" id="conflict-continue">Continue</button>
+  <button type="button" id="conflict-abort">Abort</button>
+</div>
+<div id="path-filter" class="notice-bar" hidden>
+  <p id="path-filter-msg"></p>
+  <button type="button" id="path-filter-clear">Show all commits</button>
+</div>
 <div id="git-busy-overlay" hidden></div>
 <div id="git-busy-hint" hidden role="status" aria-live="polite"><span class="sr-only">Working</span></div>
 <div class="board" id="board">

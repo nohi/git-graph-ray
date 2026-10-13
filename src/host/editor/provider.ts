@@ -26,7 +26,9 @@ import { cfg, getCustomPrProviders, getEmojiMaps, getGlobPatterns, getMenuVisibi
 import { AvatarStore } from '../avatars';
 import { runGitAction } from '../git/actions';
 import { loadDetails, resolveRepoRelative } from '../git/details';
-import { loadCommits, withUncommitted, workingTreeDirty, findDiffHashes } from '../git/log';
+import { loadCommits, withUncommitted, workingTreeDirty, findDiffHashes, findCommitHashes, hashIndex, parseUpstreamDivergence } from '../git/log';
+import { readRepoOperation } from '../git/repoState';
+import { compileFindRegex, indexFindHashes } from '../../shared/commitFind';
 import { addRemote, deleteRemote, editRemote, listRemotes } from '../git/remotes';
 import { branchFullyMerged } from '../git/branchMerged';
 import { loadRefs } from '../git/refs';
@@ -354,6 +356,10 @@ class GraphSession {
   private reloadGen = 0;
   private lastFingerprint = '';
   private scrollHeadOnLoad = true;
+  private historyPath: string | null = null;
+  private loadGen = 0;
+  private loadChain: Promise<void> = Promise.resolve();
+  private findGen = 0;
   private opChain: Promise<void> = Promise.resolve();
   private undoStacks = new Map<string, UndoStack>();
   private lastCheckpoints = new Map<string, LocalCheckpoint>();
@@ -445,7 +451,17 @@ class GraphSession {
           await this.reload();
           return;
         case 'more':
-          await this.loadMore();
+          await this.enqueueLoad(() => this.loadMore());
+          return;
+        case 'loadUntil':
+          await this.enqueueLoad(() => this.loadUntil(msg.hash, msg.index));
+          return;
+        case 'setHistoryPath':
+          this.historyPath = msg.path;
+          await this.reload();
+          return;
+        case 'blame':
+          await this.openBlame(msg.path);
           return;
         case 'fetchAll':
           await this.enqueue(() =>
@@ -458,6 +474,7 @@ class GraphSession {
           return;
         case 'pickRepo':
           this.repoPath = msg.path;
+          this.historyPath = null;
           this.selected = this.initialBranches();
           this.scrollHeadOnLoad = true;
           this.lastFingerprint = '';
@@ -480,19 +497,9 @@ class GraphSession {
           await this.reload();
           return;
         }
-        case 'findInDiffs': {
-          try {
-            const hashes = await this.searchDiffs(msg.pattern, msg.ignoreCase, msg.regex);
-            this.post({ type: 'findDiffs', hashes });
-          } catch (e) {
-            this.post({
-              type: 'findDiffs',
-              hashes: [],
-              error: e instanceof Error ? e.message : String(e),
-            });
-          }
+        case 'findCommits':
+          await this.answerFind(msg);
           return;
-        }
         case 'setShowRemotes': {
           this.showRemotes = msg.value;
           const settings = loadRepoSettings(this.ctx, this.repoPath);
@@ -678,28 +685,14 @@ class GraphSession {
 
     this.skip = 0;
     const page = cfg('repository.commits.initialLoad', 300);
-    const loaded = await loadCommits({
-      git: this.git(),
-      cwd: this.repoPath,
-      maxCount: page,
-      skip: 0,
-      order: cfg('repository.commits.order', 'date'),
-      showRemote: this.showRemotes,
-      showStashes: config.showStashes,
-      showTags: config.showTags,
-      firstParent: config.onlyFollowFirstParent,
-      reflog: config.includeCommitsMentionedByReflogs,
-      mailmap: cfg('repository.useMailmap', false),
-      branches: this.selected === 'all' ? 'all' : this.selected,
-      includeTagOnly: config.showCommitsOnlyReferencedByTags,
-      includeHead: this.includeHead,
-      refs: visibleRefs,
-    }).catch(() => ({ commits: [], hasMore: false }));
+    const loaded = await loadCommits(this.commitLoad(page, 0)).catch(() => ({ commits: [], hasMore: false }));
     const untracked = config.showUntrackedFiles ? '-unormal' : '-uno';
     const porcelain = this.repoPath
-      ? await gitMaybe(this.git(), this.repoPath, ['status', '--porcelain=v1', untracked]).catch(() => '')
+      ? await gitMaybe(this.git(), this.repoPath, ['status', '--porcelain=v1', '-b', untracked]).catch(() => '')
       : '';
     const dirty = config.showUncommittedChanges && workingTreeDirty(porcelain, config.showUntrackedFiles);
+    const divergence = parseUpstreamDivergence(porcelain);
+    const operation = this.repoPath ? await readRepoOperation(this.git(), this.repoPath).catch(() => null) : null;
     this.commits = withUncommitted(loaded.commits, head, dirty);
     this.hasMore = loaded.hasMore;
 
@@ -724,6 +717,53 @@ class GraphSession {
       loading: false,
       menuVisibility: getMenuVisibility(),
       emoji: getEmojiMaps(),
+      historyPath: this.historyPath,
+      operation,
+      divergence,
+    };
+  }
+
+  private commitLoad(maxCount: number, skip: number) {
+    const config = getViewConfig(this.gitVer);
+    const settings = loadRepoSettings(this.ctx, this.repoPath);
+    if (settings.showStashes != null) config.showStashes = settings.showStashes;
+    if (settings.showTags != null) config.showTags = settings.showTags;
+    if (settings.firstParent != null) config.onlyFollowFirstParent = settings.firstParent;
+    if (settings.showReflogs != null) config.includeCommitsMentionedByReflogs = settings.showReflogs;
+    return {
+      git: this.git(),
+      cwd: this.repoPath,
+      maxCount,
+      skip,
+      order: cfg('repository.commits.order', 'date') as 'date' | 'author-date' | 'topo',
+      showRemote: this.showRemotes,
+      showStashes: config.showStashes,
+      showTags: config.showTags,
+      firstParent: config.onlyFollowFirstParent,
+      reflog: config.includeCommitsMentionedByReflogs,
+      mailmap: cfg('repository.useMailmap', false),
+      branches: this.selected === 'all' ? ('all' as const) : this.selected,
+      includeTagOnly: config.showCommitsOnlyReferencedByTags,
+      includeHead: this.includeHead,
+      refs: this.visibleRefs,
+      path: this.historyPath ?? undefined,
+      follow: Boolean(this.historyPath),
+    };
+  }
+
+  private revisionOptions() {
+    const load = this.commitLoad(1, 0);
+    return {
+      branches: load.branches,
+      showRemote: load.showRemote,
+      showStashes: load.showStashes,
+      showTags: load.showTags,
+      includeTagOnly: load.includeTagOnly,
+      reflog: load.reflog,
+      includeHead: load.includeHead,
+      path: load.path,
+      follow: load.follow,
+      order: load.order,
     };
   }
 
@@ -741,6 +781,7 @@ class GraphSession {
   private async reload(opts?: { fromWatch?: boolean; recordExternal?: boolean }): Promise<void> {
     if (this.disposed) return;
     const gen = ++this.reloadGen;
+    this.loadGen++;
     this.quietUntil = Date.now() + 1500;
     if (!opts?.fromWatch) this.post({ type: 'patch', payload: { loading: true } });
     try {
@@ -763,51 +804,88 @@ class GraphSession {
     }
   }
 
+  private enqueueLoad(task: () => Promise<void>): Promise<void> {
+    this.loadChain = this.loadChain.then(task, task);
+    return this.loadChain;
+  }
+
   private async loadMore(): Promise<void> {
+    const gen = this.loadGen;
     const n = cfg('repository.commits.loadMore', 100);
     this.skip += cfg('repository.commits.initialLoad', 300);
-    const extra = await loadCommits({
-      git: this.git(),
-      cwd: this.repoPath,
-      maxCount: n,
-      skip: this.commits.filter((c) => c.hash !== UNCOMMITTED).length,
-      order: cfg('repository.commits.order', 'date'),
-      showRemote: this.showRemotes,
-      showStashes: getViewConfig(this.gitVer).showStashes,
-      showTags: getViewConfig(this.gitVer).showTags,
-      firstParent: cfg('repository.onlyFollowFirstParent', false),
-      reflog: cfg('repository.includeCommitsMentionedByReflogs', false),
-      mailmap: cfg('repository.useMailmap', false),
-      branches: this.selected === 'all' ? 'all' : this.selected,
-      includeTagOnly: cfg('repository.showCommitsOnlyReferencedByTags', true),
-      includeHead: this.includeHead,
-      refs: this.visibleRefs,
-    });
+    const skip = this.commits.filter((c) => c.hash !== UNCOMMITTED).length;
+    const extra = await loadCommits(this.commitLoad(n, skip));
+    if (this.disposed || gen !== this.loadGen) return;
     this.commits = [...this.commits, ...extra.commits];
     this.hasMore = extra.hasMore;
     this.post({ type: 'more', commits: extra.commits, hasMore: extra.hasMore });
   }
 
-  private async searchDiffs(pattern: string, ignoreCase: boolean, regex: boolean): Promise<string[]> {
-    const config = getViewConfig(this.gitVer);
-    const settings = loadRepoSettings(this.ctx, this.repoPath);
-    if (settings.showStashes != null) config.showStashes = settings.showStashes;
-    if (settings.showTags != null) config.showTags = settings.showTags;
-    return findDiffHashes(
-      this.git(),
-      this.repoPath,
-      pattern,
-      { ignoreCase, regex, maxCount: 5000 },
-      {
-        branches: this.selected === 'all' ? 'all' : this.selected,
-        showRemote: this.showRemotes,
-        showStashes: config.showStashes,
-        showTags: config.showTags,
-        includeTagOnly: config.showCommitsOnlyReferencedByTags,
-        reflog: config.includeCommitsMentionedByReflogs,
-        includeHead: this.includeHead,
-      },
-    );
+  private async loadUntil(hash: string, index: number): Promise<void> {
+    if (this.commits.some((commit) => commit.hash === hash)) return;
+    const gen = this.loadGen;
+    const before = this.commits.length;
+    const loaded = () => this.commits.filter((commit) => commit.hash !== UNCOMMITTED).length;
+    const cap = 50_000;
+    if (index >= 0) {
+      const need = index + 1 - loaded();
+      if (need <= 0) return;
+      const extra = await loadCommits(this.commitLoad(need, loaded()));
+      if (this.disposed || gen !== this.loadGen) return;
+      this.commits = [...this.commits, ...extra.commits];
+      this.hasMore = extra.hasMore;
+    } else {
+      while (loaded() < cap && !this.commits.some((commit) => commit.hash === hash)) {
+        const extra = await loadCommits(this.commitLoad(500, loaded()));
+        if (this.disposed || gen !== this.loadGen) return;
+        if (!extra.commits.length) {
+          this.hasMore = false;
+          break;
+        }
+        this.commits = [...this.commits, ...extra.commits];
+        this.hasMore = extra.hasMore;
+        if (!extra.hasMore) break;
+      }
+    }
+    if (this.disposed || gen !== this.loadGen) return;
+    const added = this.commits.slice(before);
+    if (added.length) this.post({ type: 'more', commits: added, hasMore: this.hasMore });
+  }
+
+  private async answerFind(msg: Extract<ViewToHost, { type: 'findCommits' }>): Promise<void> {
+    const requestId = msg.requestId;
+    const gen = ++this.findGen;
+    try {
+      if (msg.regex && msg.pattern && !compileFindRegex(msg.pattern, msg.ignoreCase)) {
+        this.post({ type: 'findHits', requestId, hashes: [], indexes: [], truncated: false, error: 'Invalid regular expression' });
+        return;
+      }
+      const revisions = this.revisionOptions();
+      const found = msg.diff
+        ? indexFindHashes(
+            await hashIndex(this.git(), this.repoPath, revisions),
+            await findDiffHashes(this.git(), this.repoPath, msg.pattern, { ignoreCase: msg.ignoreCase, regex: msg.regex, maxCount: 5000 }, revisions),
+          )
+        : await findCommitHashes(this.git(), this.repoPath, msg.pattern, { ignoreCase: msg.ignoreCase, regex: msg.regex }, revisions, this.visibleRefs);
+      if (this.disposed || gen !== this.findGen) return;
+      this.post({ type: 'findHits', requestId, ...found });
+    } catch (e) {
+      if (this.disposed || gen !== this.findGen) return;
+      this.post({
+        type: 'findHits',
+        requestId,
+        hashes: [],
+        indexes: [],
+        truncated: false,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  private async openBlame(filePath: string): Promise<void> {
+    const text = await gitOk(this.git(), this.repoPath, ['blame', '-w', '--', filePath]);
+    const doc = await vscode.workspace.openTextDocument({ content: text, language: 'plaintext' });
+    await vscode.window.showTextDocument(doc, { preview: true, viewColumn: viewColumn() });
   }
 
   private async sendDetails(hash: string, compare?: string): Promise<void> {

@@ -144,6 +144,35 @@ export async function runGitAction(
     case 'worktreeOpen':
     case 'openScm':
       return;
+    case 'abortOperation':
+      await gitOk(git, cwd, [action.operation, '--abort']);
+      return;
+    case 'continueOperation':
+      await continueOperation(git, cwd, action.operation);
+      return;
+  }
+}
+
+async function continueOperation(git: string, cwd: string, operation: 'merge' | 'rebase' | 'cherry-pick' | 'revert'): Promise<void> {
+  const fs = await import('node:fs/promises');
+  const os = await import('node:os');
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ggr-continue-'));
+  try {
+    const ed = path.join(dir, 'ed.sh');
+    await fs.writeFile(ed, '#!/bin/sh\nexit 0\n', 'utf8');
+    let sh = 'sh';
+    if (process.platform === 'win32') {
+      try {
+        const execPath = (await gitOk(git, cwd, ['--exec-path'])).trim();
+        sh = gitShFromExecPath(execPath, true);
+      } catch {
+        sh = 'sh';
+      }
+    }
+    const editor = gitEditorCommand(sh, posixGitPath(ed));
+    await gitOk(git, cwd, [operation, '--continue'], { GIT_EDITOR: editor, GIT_SEQUENCE_EDITOR: editor });
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
   }
 }
 

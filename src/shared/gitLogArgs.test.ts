@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { escapeRegExp, logRevisionArgs, pickaxeArgs } from './gitLogArgs';
+import { escapeRegExp, logRevisionArgs, messageGrepArgs, pickaxeArgs } from './gitLogArgs';
 
 describe('logRevisionArgs', () => {
   it('uses --all when showing remotes', () => {
@@ -42,6 +42,44 @@ describe('logRevisionArgs', () => {
         includeHead: true,
       }),
     ).toEqual(['main', 'HEAD']);
+  });
+
+  it('appends a followed path after the revisions', () => {
+    expect(
+      logRevisionArgs({
+        branches: ['main'],
+        showRemote: false,
+        showStashes: false,
+        showTags: false,
+        includeTagOnly: false,
+        reflog: false,
+        includeHead: false,
+        path: 'src/app.ts',
+        follow: true,
+      }),
+    ).toEqual(['main', '--follow', '--', 'src/app.ts']);
+  });
+
+  it('puts the commit order before the revisions', () => {
+    expect(
+      logRevisionArgs({
+        branches: ['main'],
+        showRemote: false,
+        showStashes: false,
+        showTags: false,
+        includeTagOnly: false,
+        reflog: false,
+        includeHead: false,
+        order: 'topo',
+      }),
+    ).toEqual(['--topo-order', 'main']);
+  });
+});
+
+describe('messageGrepArgs', () => {
+  it('uses a fixed string unless the query is a regex', () => {
+    expect(messageGrepArgs('a.b', true, false)).toEqual(['--fixed-strings', '-i', '--grep=a.b']);
+    expect(messageGrepArgs('a.b', false, true)).toEqual(['--extended-regexp', '--grep=a.b']);
   });
 });
 
