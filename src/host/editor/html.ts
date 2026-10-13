@@ -61,6 +61,24 @@ const SHELL = `
         <button type="button" id="date-ok" class="btn-primary">OK</button>
       </div>
     </div>
+    <button type="button" id="btn-contributor" class="with-icon tone-filter" commandfor="pop-contributor" command="toggle-popover" aria-pressed="false" title="Filter commits by author or committer"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2.2 3h11.6L9.4 8.1V12.2L6.6 13.4V8.1L2.2 3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg>Contributor</button>
+    <div id="pop-contributor" popover class="pop">
+      <search>
+        <input type="search" id="person-q" placeholder="Find a name" />
+      </search>
+      <div class="ref-toggles">
+        <label><input type="checkbox" id="person-show-all" checked /> Show all</label>
+      </div>
+      <div class="ref-tabs" role="tablist">
+        <button type="button" role="tab" id="person-tab-author" aria-selected="true">Author</button>
+        <button type="button" role="tab" id="person-tab-committer" aria-selected="false">Committer</button>
+      </div>
+      <div id="person-list"></div>
+      <div class="dlg-actions">
+        <button type="button" id="person-activity" class="btn-quiet" title="View contributor activity">Activity</button>
+        <button type="button" id="person-ok" class="btn-primary">OK</button>
+      </div>
+    </div>
     <button type="button" id="btn-head" class="tone-jump" title="Jump to HEAD">HEAD</button>
     <button type="button" id="btn-date" class="tone-jump" title="Go back to Date" aria-pressed="false">Go back to Date</button>
     <div id="pop-date" popover="manual" class="pop date-jump">
@@ -156,6 +174,7 @@ const SHELL = `
       <li>Ctrl/Cmd+click a second commit to compare.</li>
       <li>In the file tree, Ctrl/Cmd+click a folder to expand or collapse it and every nested folder. Right-click a folder to expand, collapse, or collapse child folders.</li>
       <li>Dates filters the graph by author date or committer date. Uncheck a year or month to hide those commits. Show all restores the tab you are on. OK applies the filter.</li>
+      <li>Contributor filters the graph by author or committer name. Uncheck a name to hide those commits. Show all restores the tab you are on. OK applies the filter.</li>
     </ul>
     <div class="dlg-actions">
       <button type="button" id="help-settings">Open Settings</button>

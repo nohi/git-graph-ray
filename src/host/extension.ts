@@ -4,6 +4,7 @@ import { AvatarStore } from './avatars';
 import { registerCommands } from './commands';
 import { cfg, getGitPathSetting } from './config';
 import { DiffFiles } from './diff/provider';
+import { ContributorsPanel } from './editor/contributorsPanel';
 import { GraphEditorProvider } from './editor/provider';
 import { findGit, gitVersionString } from './git/executable';
 import { setGitCommandLogger } from './git/runner';
@@ -19,8 +20,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const version = await gitVersionString(git);
   await startAskpassServer(context);
   const avatars = new AvatarStore(context.globalStorageUri.fsPath);
+  const contributors = new ContributorsPanel(context, () => git);
   const provider = new GraphEditorProvider(context, avatars);
   provider.setGit(git, version);
+  provider.setContributorsOpener((repoPath) => contributors.open(repoPath));
 
   context.subscriptions.push(
     vscode.workspace.registerTextDocumentContentProvider(
@@ -31,9 +34,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       ),
     ),
     vscode.window.registerWebviewPanelSerializer(GraphEditorProvider.viewType, provider),
+    vscode.window.registerWebviewPanelSerializer(ContributorsPanel.viewType, contributors),
   );
 
-  registerCommands(context, () => git, provider, avatars);
+  registerCommands(context, () => git, provider, avatars, contributors);
   createStatusBar(context);
   context.subscriptions.push({ dispose: () => provider.dispose() });
   void provider.restorePins();

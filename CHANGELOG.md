@@ -4,6 +4,9 @@
 
 ### Features
 
+- Filter the graph by author or committer from the Contributor popover.
+- Open a Contributors tab that lists each person's commits and added and deleted lines. Open it from the Activity button in that popover, or with the View Contributors command.
+- Limit the Contributors list to the last 7, 30, or 90 days, the last 12 months, or a custom date range. The Author tab uses author date. The Committer tab uses committer date.
 - Search subject, author, hash, commit message, ref names, and diffs across the whole history. Jump to a hit that is not loaded yet. A `+` after the count means the search stopped at the cap.
 - Open the history of a file from its row or context menu. The graph follows that path until Show all commits.
 - Open `git blame` for a file in an editor.

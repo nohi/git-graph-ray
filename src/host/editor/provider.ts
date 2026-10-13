@@ -64,6 +64,7 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
   static readonly viewType = GRAPH_VIEW_TYPE;
   private gitBin = 'git';
   private gitVer = '';
+  private contributorsOpener: (repoPath: string) => Promise<void> = async () => {};
   private sessions = new Set<GraphSession>();
   /** The one open graph panel. Side-by-side comparison can allow more later. */
   private holder: GraphSession | undefined;
@@ -83,6 +84,11 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
   setGit(bin: string, version: string): void {
     this.gitBin = bin;
     this.gitVer = version;
+  }
+
+  setContributorsOpener(open: (repoPath: string) => Promise<void>): void {
+    this.contributorsOpener = open;
+    for (const session of this.sessions) session.setContributorsOpener(open);
   }
 
   git(): string {
@@ -157,6 +163,7 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
     panel.iconPath = vscode.Uri.joinPath(this.ctx.extensionUri, 'resources/icon.png');
     panel.title = graphDocumentLabel(root);
     const session = new GraphSession(this.ctx, root, panel, () => this.gitBin, this.gitVer, this.avatars, () => this.persistPins(), fetchOnOpen);
+    session.setContributorsOpener((repoPath) => this.contributorsOpener(repoPath));
     this.sessions.add(session);
     this.holder = session;
     this.taken = true;
@@ -363,6 +370,7 @@ class GraphSession {
   private opChain: Promise<void> = Promise.resolve();
   private undoStacks = new Map<string, UndoStack>();
   private lastCheckpoints = new Map<string, LocalCheckpoint>();
+  private openContributorsPage: (repoPath: string) => Promise<void> = async () => {};
 
   constructor(
     private readonly ctx: vscode.ExtensionContext,
@@ -375,6 +383,10 @@ class GraphSession {
     private readonly fetchOnOpen = false,
   ) {
     this.repoPath = repoPath || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+  }
+
+  setContributorsOpener(open: (repoPath: string) => Promise<void>): void {
+    this.openContributorsPage = open;
   }
 
   start(): void {
@@ -624,6 +636,9 @@ class GraphSession {
         }
         case 'faces':
           await this.sendFaces(msg.emails);
+          return;
+        case 'openContributors':
+          await this.openContributorsPage(this.repoPath);
           return;
       }
     } catch (e) {

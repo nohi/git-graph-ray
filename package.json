@@ -40,6 +40,11 @@
         "icon": "resources/icon.png"
       },
       {
+        "command": "git-graph-ray.contributors",
+        "title": "View Contributors",
+        "category": "Git Graph Ray"
+      },
+      {
         "command": "git-graph-ray.addGitRepository",
         "title": "Add Git Repository...",
         "category": "Git Graph Ray"

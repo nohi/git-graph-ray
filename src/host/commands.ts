@@ -3,15 +3,18 @@ import { cfg } from './config';
 import { GraphEditorProvider } from './editor/provider';
 import { discoverRepos } from './repos/discover';
 import { AvatarStore } from './avatars';
+import { ContributorsPanel } from './editor/contributorsPanel';
 
 export function registerCommands(
   ctx: vscode.ExtensionContext,
   git: () => string,
   provider: GraphEditorProvider,
   avatars: AvatarStore,
+  contributors: ContributorsPanel,
 ): void {
   ctx.subscriptions.push(
     vscode.commands.registerCommand('git-graph-ray.view', () => provider.openRepo()),
+    vscode.commands.registerCommand('git-graph-ray.contributors', () => contributors.open()),
     vscode.commands.registerCommand('git-graph-ray.fetch', () => provider.openRepo({ fetch: true })),
     vscode.commands.registerCommand('git-graph-ray.addGitRepository', async () => {
       const pick = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false });

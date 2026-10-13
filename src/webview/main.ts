@@ -18,6 +18,21 @@ import {
   type DateField,
   type DateFilter,
 } from '../shared/dateFilter';
+import {
+  copyPersonFilter,
+  emptyPersonFilter,
+  filterPeople,
+  hideAllPeople,
+  hidePerson,
+  personBuckets,
+  personHidden,
+  personKey,
+  personLabel,
+  revealCommitPeople,
+  showAllPeople,
+  type PersonField,
+  type PersonFilter,
+} from '../shared/personFilter';
 import { foldBridgeEdges, layoutCommits, type Layout } from '../shared/layout';
 import { buildFileTree, FOLDER_MENU, folderFoldPlan, wantsNestedFolderToggle, type FolderFoldPlan } from '../shared/fileTree';
 import { decideNamedRemoteCheckout, startCheckoutFromRef } from '../shared/checkout';
@@ -41,6 +56,7 @@ import { UNCOMMITTED, type ColumnVisibility, type CommitDetails, type GraphCommi
 import type { GitAction, GraphSnapshot, HostToView, ViewToHost } from '../shared/protocol';
 import { anchoredPopoverPlacement, cursorDialogPlacement, type AnchoredPopoverAlign } from '../shared/popover';
 import { syncRayCats } from './rayCat';
+import { startContributorsPage } from './contributors';
 import './styles.css';
 
 type AnchoredPopoverOpts = { align?: AnchoredPopoverAlign; maxWidth?: number };
@@ -54,6 +70,8 @@ type WebviewState = {
   columns?: Record<string, number>;
   dateAuthor?: string[];
   dateCommitter?: string[];
+  authorNames?: string[];
+  committerNames?: string[];
   selected?: string;
 };
 
@@ -106,6 +124,7 @@ let ctxFolder: HTMLDetailsElement | null = null;
 let summaryPointer: { folder: HTMLDetailsElement; open: boolean } | null = null;
 let pendingDateJump: { day: string; field: 'author' | 'committer' } | null = null;
 let dateFilter: DateFilter = emptyDateFilter();
+let personFilter: PersonFilter = emptyPersonFilter();
 let undoPending: 'undo' | 'redo' | null = null;
 let undoPreviewMsg: Extract<HostToView, { type: 'undoPreview' }> | null = null;
 let undoSideBySide = false;
@@ -122,6 +141,8 @@ let undoButtons = {
 };
 let dateDraft: DateFilter | null = null;
 let dateTab: DateField = 'author';
+let personDraft: PersonFilter | null = null;
+let personTab: PersonField = 'author';
 let lastPointer = { x: 24, y: 24 };
 
 type El = HTMLElement & HTMLInputElement & HTMLSelectElement & { showPopover?: () => void; hidePopover?: () => void };
@@ -136,12 +157,15 @@ function sendReady(): void {
 }
 
 window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
+  if (document.body.dataset.page === 'contributors') return;
   const m = ev.data;
   if (m.type === 'snapshot') {
     setGitBusy(false);
     if (snap && m.payload.repoPath !== snap.repoPath) {
       dateFilter = emptyDateFilter();
       dateDraft = null;
+      personFilter = emptyPersonFilter();
+      personDraft = null;
     }
     pendingDateJump = null;
     snap = m.payload;
@@ -155,6 +179,7 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
     snap.hasMore = m.hasMore;
     paint();
     fillDates();
+    fillPeople();
     continueDateJump();
     continueFindJump();
   } else if (m.type === 'info') {
@@ -231,6 +256,8 @@ function persistView(): void {
     columns: { ...columnWidths },
     dateAuthor: [...dateFilter.author],
     dateCommitter: [...dateFilter.committer],
+    authorNames: [...personFilter.author],
+    committerNames: [...personFilter.committer],
     selected: selected ?? undefined,
   });
 }
@@ -244,6 +271,9 @@ function restoreView(): void {
   }
   if (state.dateAuthor || state.dateCommitter) {
     dateFilter = { author: new Set(state.dateAuthor ?? []), committer: new Set(state.dateCommitter ?? []) };
+  }
+  if (state.authorNames || state.committerNames) {
+    personFilter = { author: new Set(state.authorNames ?? []), committer: new Set(state.committerNames ?? []) };
   }
   if (state.selected && snap.commits.some((commit) => commit.hash === state.selected)) {
     selected = state.selected;
@@ -287,6 +317,7 @@ function applySnap(): void {
   if (!$('pop-refs').matches(':popover-open')) filterDraft = null;
   fillRefs();
   fillDates();
+  fillPeople();
   $('btn-fetch').hidden = snap.remotes.length === 0;
   $('s-remotes').checked = snap.repoSettings.showRemotes ?? snap.config.showRemoteBranches;
   $('s-stashes').checked = snap.repoSettings.showStashes ?? snap.config.showStashes;
@@ -423,6 +454,32 @@ function applyDateFilter(): void {
   persistView();
 }
 
+function fillPeople(): void {
+  if (!snap) return;
+  const draft = personDraft ?? personFilter;
+  const hidden = draft[personTab];
+  const buckets = filterPeople(personBuckets(snap.commits, personTab), $('person-q').value);
+  $('person-show-all').checked = hidden.size === 0;
+  $('person-tab-author').setAttribute('aria-selected', String(personTab === 'author'));
+  $('person-tab-committer').setAttribute('aria-selected', String(personTab === 'committer'));
+  const list = $('person-list');
+  const top = list.scrollTop;
+  list.innerHTML = buckets
+    .map((person) => {
+      const checked = !hidden.has(person.key);
+      return `<label class="ref-item date-item"><input type="checkbox" data-name="${esc(person.name)}" data-email="${esc(person.email)}" ${checked ? 'checked' : ''}/><span class="ref-name">${esc(personLabel(person.name, person.email))}</span><span class="date-count">${person.count.toLocaleString('en-US')}</span></label>`;
+    })
+    .join('');
+  list.scrollTop = top;
+}
+
+function applyPersonFilter(): void {
+  if (personDraft) personFilter = copyPersonFilter(personDraft);
+  $('pop-contributor').hidePopover?.();
+  paint();
+  persistView();
+}
+
 function fillRemotes(): void {
   if (!snap) return;
   $('remote-list').innerHTML = snap.remotes
@@ -531,7 +588,8 @@ function ensureDetailsVisible(): void {
 
 function shownCommits(): number[] {
   if (!snap) return [];
-  return visibleCommitIndices(snap.commits, dateFilter);
+  const commits = snap.commits;
+  return visibleCommitIndices(commits, dateFilter).filter((index) => !personHidden(commits[index]!, personFilter));
 }
 
 let layoutCache: { commits: GraphCommit[]; layout: Layout } | null = null;
@@ -565,7 +623,8 @@ function detailsGap(rows: number[]): { after: number; height: number } | null {
 }
 
 function dateFilterKey(): string {
-  return `${[...dateFilter.author].sort().join(',')}|${[...dateFilter.committer].sort().join(',')}`;
+  const pack = (values: ReadonlySet<string>) => JSON.stringify([...values].sort());
+  return `${[...dateFilter.author].sort().join(',')}|${[...dateFilter.committer].sort().join(',')}|${pack(personFilter.author)}|${pack(personFilter.committer)}`;
 }
 
 function paint(): void {
@@ -1121,6 +1180,11 @@ function scrollToHash(hash: string): void {
     if (dateDraft) dateDraft = revealCommitMonths(dateDraft, commit);
     fillDates();
   }
+  if (personHidden(commit, personFilter)) {
+    personFilter = revealCommitPeople(personFilter, commit);
+    if (personDraft) personDraft = revealCommitPeople(personDraft, commit);
+    fillPeople();
+  }
   paint();
   const row = displayIndexForCommit(i);
   if (row >= 0) $('scroll').scrollTop = row * ROW - 80;
@@ -1520,6 +1584,7 @@ function bindPopoverAnchor(btnId: string, popId: string, opts: AnchoredPopoverOp
 const ANCHOR_POPS: Array<[string, string, AnchoredPopoverOpts?]> = [
   ['btn-refs', 'pop-refs'],
   ['btn-dates', 'pop-dates'],
+  ['btn-contributor', 'pop-contributor'],
   ['btn-settings', 'pop-settings'],
   ['btn-find', 'pop-find'],
   ['btn-date', 'pop-date'],
@@ -2185,6 +2250,50 @@ function bind(): void {
     ev.preventDefault();
     applyDateFilter();
   });
+  $('pop-contributor').addEventListener('toggle', (ev) => {
+    if ((ev as ToggleEvent).newState === 'open') {
+      personDraft = copyPersonFilter(personFilter);
+      $('person-q').value = '';
+      fillPeople();
+      $('person-q').focus();
+      return;
+    }
+    personDraft = null;
+  });
+  for (const field of ['author', 'committer'] as const) {
+    $(`person-tab-${field}`).addEventListener('click', () => {
+      personTab = field;
+      if (!personDraft) personDraft = copyPersonFilter(personFilter);
+      fillPeople();
+      $('person-list').scrollTop = 0;
+    });
+  }
+  $('person-q').addEventListener('input', () => fillPeople());
+  $('person-show-all').addEventListener('change', (e) => {
+    if (!snap) return;
+    if (!personDraft) personDraft = copyPersonFilter(personFilter);
+    const buckets = personBuckets(snap.commits, personTab);
+    personDraft = (e.target as HTMLInputElement).checked ? showAllPeople(personDraft, personTab) : hideAllPeople(personDraft, personTab, buckets);
+    fillPeople();
+  });
+  $('person-list').addEventListener('change', (e) => {
+    const box = e.target as HTMLInputElement;
+    if (box.dataset.name == null || !snap) return;
+    if (!personDraft) personDraft = copyPersonFilter(personFilter);
+    personDraft = hidePerson(personDraft, personTab, personKey(box.dataset.name, box.dataset.email ?? ''), !box.checked);
+    fillPeople();
+  });
+  $('person-ok').addEventListener('click', applyPersonFilter);
+  $('person-activity').addEventListener('click', () => {
+    $('pop-contributor').hidePopover?.();
+    post({ type: 'openContributors' });
+  });
+  $('pop-contributor').addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter' || (ev.target as HTMLElement).id === 'person-ok' || (ev.target as HTMLElement).id === 'person-activity') return;
+    if ((ev.target as HTMLElement).closest('.ref-tabs')) return;
+    ev.preventDefault();
+    applyPersonFilter();
+  });
   $('scroll').addEventListener('scroll', () => {
     syncHeaderScroll();
     paintViewport();
@@ -2404,6 +2513,7 @@ function bind(): void {
   });
   bindPopoverAnchor('btn-refs', 'pop-refs');
   bindPopoverAnchor('btn-dates', 'pop-dates');
+  bindPopoverAnchor('btn-contributor', 'pop-contributor');
   bindPopoverAnchor('btn-settings', 'pop-settings');
   bindPopoverAnchor('btn-find', 'pop-find');
   bindPopoverAnchor('btn-date', 'pop-date');
@@ -2609,6 +2719,7 @@ function onKey(ev: KeyboardEvent): void {
     $('pop-date').hidePopover?.();
     $('pop-refs').hidePopover?.();
     $('pop-dates').hidePopover?.();
+    $('pop-contributor').hidePopover?.();
     $('pop-repo-help').hidePopover?.();
     if (details) {
       details = null;
@@ -3014,14 +3125,18 @@ function openPr(branch: string): void {
   post({ type: 'openUrl', url: fillPrUrl(tpl, { repo, source: branch, dest: snap.currentBranch ?? 'main' }) });
 }
 
-void sub;
-try {
-  bind();
-  sendReady();
-} catch (err) {
-  const el = document.getElementById('fail');
-  if (el) {
-    el.hidden = false;
-    el.textContent = err instanceof Error ? err.message : String(err);
+if (document.body.dataset.page === 'contributors') {
+  startContributorsPage(vscode);
+} else {
+  void sub;
+  try {
+    bind();
+    sendReady();
+  } catch (err) {
+    const el = document.getElementById('fail');
+    if (el) {
+      el.hidden = false;
+      el.textContent = err instanceof Error ? err.message : String(err);
+    }
   }
 }

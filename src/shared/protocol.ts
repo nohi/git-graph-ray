@@ -117,7 +117,8 @@ export type ViewToHost =
   | { type: 'openUrl'; url: string }
   | { type: 'pickFolder'; requestId: string; defaultPath?: string }
   | { type: 'branchMerged'; requestId: string; name: string }
-  | { type: 'faces'; emails: string[] };
+  | { type: 'faces'; emails: string[] }
+  | { type: 'openContributors' };
 
 export type SquashMessageFormat = 'Default' | 'Git SQUASH_MSG';
 
