@@ -33,6 +33,7 @@ const SHELL = `
       <div class="ref-toggles">
         <label><input type="checkbox" id="show-all" /> Show all</label>
         <label><input type="checkbox" id="show-remotes" /> Remotes</label>
+        <label class="ref-toggle-line"><input type="checkbox" id="show-same-commit" checked /> Show other branches on the same commit</label>
       </div>
       <div class="ref-tabs" role="tablist">
         <button type="button" role="tab" id="ref-tab-branch" aria-selected="true">Branch</button>
@@ -177,6 +178,7 @@ const SHELL = `
       <li>Right-click a commit or branch and choose Compare with… to pick a branch, tag, or commit, or Compare with HEAD.</li>
       <li>In commit details, Ctrl/Cmd+click files to select them. On uncommitted changes, stash or patch just those files. On a commit, create a patch from them.</li>
       <li>In the file tree, Ctrl/Cmd+click a folder to expand or collapse it and every nested folder. Right-click a folder to expand, collapse, or collapse child folders.</li>
+      <li>Branches/Tags chooses which branches, tags, and worktree tips to load. Show other branches on the same commit keeps branch labels that point at a checked ref's commit even when those branches are not checked. Uncheck it to hide them. Tags and worktrees on that commit stay. Show all loads every ref, so the checkbox waits until a narrower filter is applied.</li>
       <li>Dates filters the graph by author date or committer date. Uncheck a year or month to hide those commits. Show all restores the tab you are on. OK applies the filter.</li>
       <li>Contributor filters the graph by author or committer name. Uncheck a name to hide those commits. Show all restores the tab you are on. OK applies the filter.</li>
     </ul>

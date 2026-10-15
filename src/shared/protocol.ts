@@ -88,7 +88,7 @@ export type ViewToHost =
   | { type: 'fetchAll' }
   | { type: 'pickRepo'; path: string }
   | { type: 'setBranches'; branches: string[] | 'all' }
-  | { type: 'setFilter'; branches: string[] | 'all'; showRemotes: boolean }
+  | { type: 'setFilter'; branches: string[] | 'all'; showRemotes: boolean; showSameCommitBranches: boolean }
   | { type: 'findCommits'; requestId: string; pattern: string; ignoreCase: boolean; regex: boolean; diff: boolean }
   | { type: 'loadUntil'; hash: string; index: number }
   | { type: 'setHistoryPath'; path: string | null }

@@ -149,6 +149,32 @@ export function windowRefs(refs: GraphRef[], shown: number): GraphRef[] {
   return refs.slice(0, Math.max(0, shown));
 }
 
+/**
+ * When a branch filter is active, drop local and remote branches that point at
+ * the same commit as a checked ref but were not checked themselves.
+ * Tags, stashes, worktrees, and detached HEAD stay on that commit.
+ * Showing every ref, or leaving the option on, keeps the full list.
+ */
+export function branchLabelsForFilter(
+  refs: GraphRef[],
+  selected: readonly string[] | 'all',
+  showUnselectedOnSameCommit: boolean,
+): GraphRef[] {
+  if (showUnselectedOnSameCommit || selected === 'all') return refs;
+  const picked = new Set(selected);
+  const selectedHashes = new Set<string>();
+  for (const ref of refs) {
+    if (picked.has(refLogArg(ref))) selectedHashes.add(ref.hash);
+  }
+  if (selectedHashes.size === 0) return refs;
+  return refs.filter((ref) => {
+    if (ref.kind !== 'head' && ref.kind !== 'remote') return true;
+    if (ref.kind === 'head' && ref.name === 'HEAD') return true;
+    if (picked.has(refLogArg(ref))) return true;
+    return !selectedHashes.has(ref.hash);
+  });
+}
+
 export function refsForFilterList(
   refs: GraphRef[],
   opts: { remotes: boolean; tags: boolean },

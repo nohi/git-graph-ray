@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  branchLabelsForFilter,
   cmpRefname,
   filterRefsForTab,
   groupChipRefs,
@@ -85,6 +86,49 @@ describe('filterRefsForTab', () => {
     expect(filterRefsForTab(refs, 'branch', { remotes: true, query: 'remotes/origin' }).map((x) => x.name)).toEqual([
       'origin/topic',
     ]);
+  });
+});
+
+describe('branchLabelsForFilter', () => {
+  const tip = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const older = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const refs = [
+    r('head', 'main', { hash: tip }),
+    r('head', 'release', { hash: tip }),
+    r('remote', 'origin/main', { hash: tip }),
+    r('head', 'old', { hash: older }),
+    r('tag', 'v1', { hash: tip }),
+    r('worktree', 'wt', { hash: tip }),
+    r('head', 'HEAD', { hash: tip }),
+  ];
+
+  it('keeps every label when the option is on or every ref is loaded', () => {
+    expect(branchLabelsForFilter(refs, ['main'], true).map((ref) => ref.name)).toEqual(refs.map((ref) => ref.name));
+    expect(branchLabelsForFilter(refs, 'all', false).map((ref) => ref.name)).toEqual(refs.map((ref) => ref.name));
+  });
+
+  it('hides unselected branches that share a checked ref commit', () => {
+    expect(branchLabelsForFilter(refs, ['main'], false).map((ref) => ref.name)).toEqual(['main', 'old', 'v1', 'wt', 'HEAD']);
+  });
+
+  it('hides branches sitting on a checked tag', () => {
+    expect(branchLabelsForFilter(refs, ['v1'], false).map((ref) => ref.name)).toEqual(['old', 'v1', 'wt', 'HEAD']);
+  });
+
+  it('keeps a branch that was checked on that commit', () => {
+    expect(branchLabelsForFilter(refs, ['main', 'origin/main'], false).map((ref) => ref.name)).toEqual([
+      'main',
+      'origin/main',
+      'old',
+      'v1',
+      'wt',
+      'HEAD',
+    ]);
+  });
+
+  it('leaves labels alone when nothing checked matches a loaded ref', () => {
+    expect(branchLabelsForFilter(refs, [], false)).toBe(refs);
+    expect(branchLabelsForFilter(refs, ['heads/feature/*'], false)).toBe(refs);
   });
 });
 

@@ -42,6 +42,7 @@ import { applyRestorePlan, captureCheckpoint, captureRemoteTips, loadCheckpointC
 import { diffUri } from '../diff/provider';
 import { diffEditorSides } from '../../shared/diffSides';
 import { detectPatchKind } from '../../shared/historyActions';
+import { branchLabelsForFilter } from '../../shared/refsList';
 import { primaryWorktreePath } from '../../shared/worktreeDialog';
 import { graphHtml, nonce } from './html';
 import { isNoisyGitWatchPath, snapshotFingerprint } from './gitWatch';
@@ -519,7 +520,11 @@ class GraphSession {
           this.selected = msg.branches;
           this.showRemotes = msg.showRemotes;
           const settings = loadRepoSettings(this.ctx, this.repoPath);
-          await saveRepoSettings(this.ctx, this.repoPath, { ...settings, showRemotes: msg.showRemotes });
+          await saveRepoSettings(this.ctx, this.repoPath, {
+            ...settings,
+            showRemotes: msg.showRemotes,
+            showSameCommitBranches: msg.showSameCommitBranches,
+          });
           await updateSetting('repository.showRemoteBranches', msg.showRemotes);
           await this.reload();
           return;
@@ -835,7 +840,7 @@ class GraphSession {
       branches: this.selected === 'all' ? ('all' as const) : this.selected,
       includeTagOnly: config.showCommitsOnlyReferencedByTags,
       includeHead: this.includeHead,
-      refs: this.visibleRefs,
+      refs: branchLabelsForFilter(this.visibleRefs, this.selected, settings.showSameCommitBranches !== false),
       path: this.historyPath ?? undefined,
       follow: Boolean(this.historyPath),
     };

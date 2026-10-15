@@ -20,6 +20,8 @@ export type RepoSettings = {
   showWorktrees?: boolean;
   showReflogs?: boolean;
   firstParent?: boolean;
+  /** When a branch filter is on, keep branch labels that share a checked ref's commit. Defaults to shown. */
+  showSameCommitBranches?: boolean;
 };
 
 export function defaultRepoSettings(): RepoSettings {

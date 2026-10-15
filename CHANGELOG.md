@@ -16,6 +16,7 @@
 ### Changes
 
 - Branch and tag labels use a larger font in the same chip height, so the letters fill the space above the text.
+- Show other branches on the same commit in Branches/Tags. Uncheck it to hide local and remote branch labels that point at a checked ref's commit but were not checked. Tags, worktrees, and detached HEAD stay. It is on by default.
 
 ## v0.4.0
 

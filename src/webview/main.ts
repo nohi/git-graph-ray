@@ -135,7 +135,14 @@ const rowByHash = new Map<string, HTMLDivElement>();
 let graphCommits: GraphCommit[] | null = null;
 let graphKey = '';
 let detailsKey = '';
-let filterDraft: { showAll: boolean; showRemotes: boolean; tab: FilterTab; picked: Set<string>; shown: number } | null = null;
+let filterDraft: {
+  showAll: boolean;
+  showRemotes: boolean;
+  showSameCommitBranches: boolean;
+  tab: FilterTab;
+  picked: Set<string>;
+  shown: number;
+} | null = null;
 let stashI = 0;
 let ctxRef: GraphRef | null = null;
 /** Local branch names chosen with Ctrl/Cmd+click, in click order. */
@@ -437,11 +444,16 @@ function filterCatalog(): GraphRef[] {
   return [...(snap.filterRefs ?? []), ...globs];
 }
 
+function sameCommitBranchesShown(): boolean {
+  return snap?.repoSettings.showSameCommitBranches !== false;
+}
+
 function startFilterDraft(): void {
   if (!snap) return;
   filterDraft = {
     showAll: snap.selectedBranches === 'all',
     showRemotes: snap.config.showRemoteBranches,
+    showSameCommitBranches: sameCommitBranchesShown(),
     tab: 'branch',
     picked: new Set(snap.selectedBranches === 'all' ? [] : snap.selectedBranches),
     shown: snap.config.refsListLimit,
@@ -451,7 +463,12 @@ function startFilterDraft(): void {
 function applyFilter(): void {
   if (!filterDraft) return;
   const branches = filterDraft.showAll ? 'all' : [...filterDraft.picked];
-  post({ type: 'setFilter', branches, showRemotes: filterDraft.showRemotes });
+  post({
+    type: 'setFilter',
+    branches,
+    showRemotes: filterDraft.showRemotes,
+    showSameCommitBranches: filterDraft.showSameCommitBranches,
+  });
 }
 
 function fillRefs(): void {
@@ -460,12 +477,14 @@ function fillRefs(): void {
   const draft = filterDraft ?? {
     showAll: snap.selectedBranches === 'all',
     showRemotes: snap.config.showRemoteBranches,
+    showSameCommitBranches: sameCommitBranchesShown(),
     tab: 'branch' as FilterTab,
     picked: new Set(snap.selectedBranches === 'all' ? [] : snap.selectedBranches),
     shown: snap.config.refsListLimit,
   };
   $('show-all').checked = draft.showAll;
   $('show-remotes').checked = draft.showRemotes;
+  $('show-same-commit').checked = draft.showSameCommitBranches;
   for (const tab of ['branch', 'tag', 'worktree'] as const) {
     $(`ref-tab-${tab}`).setAttribute('aria-selected', tab === draft.tab ? 'true' : 'false');
   }
@@ -2471,6 +2490,10 @@ function bind(): void {
   $('show-all').addEventListener('change', (e) => {
     if (!filterDraft) startFilterDraft();
     if (filterDraft) filterDraft.showAll = (e.target as HTMLInputElement).checked;
+  });
+  $('show-same-commit').addEventListener('change', (e) => {
+    if (!filterDraft) startFilterDraft();
+    if (filterDraft) filterDraft.showSameCommitBranches = (e.target as HTMLInputElement).checked;
   });
   $('ref-list').addEventListener('change', (e) => {
     const box = e.target as HTMLInputElement;
