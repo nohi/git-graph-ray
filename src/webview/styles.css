@@ -2065,6 +2065,64 @@ body {
   }
 }
 
+#dlg-compare {
+  width: min(28rem, calc(100vw - 2rem));
+}
+
+#cmp-q {
+  box-sizing: border-box;
+  width: 100%;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.3rem 0.45rem;
+}
+
+#cmp-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 22rem;
+  overflow: auto;
+  margin-top: 0.45rem;
+}
+
+.cmp-h {
+  font-size: 0.75rem;
+  color: var(--muted);
+  padding: 0.45rem 0.15rem 0.15rem;
+}
+
+#cmp-list button.ref-item {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+  font: inherit;
+  padding: 0.2rem 0.35rem;
+}
+
+#cmp-list button.ref-item[aria-selected='true'] {
+  background: var(--hl-bg);
+}
+
+#cmp-list .cmp-detail {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+
+#cmp-list .kind-commit .ref-mark {
+  border-radius: 50%;
+}
+
+#cmp-empty,
+#cmp-more {
+  color: var(--muted);
+}
+
 dialog {
   border: 1px solid var(--hl);
   background: var(--bar);

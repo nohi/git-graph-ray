@@ -6,6 +6,7 @@ describe('commitMenuEntries', () => {
     const entries = commitMenuEntries({
       canReword: true,
       isMerge: false,
+      withHead: true,
       visible: () => true,
     });
     expect(entries).toEqual([
@@ -25,6 +26,9 @@ describe('commitMenuEntries', () => {
       { id: 'c-rv', label: 'Revert' },
       { id: 'c-dr', label: 'Drop' },
       'sep',
+      { id: 'cmp', label: 'Compare with…' },
+      { id: 'cmp-head', label: 'Compare with HEAD' },
+      'sep',
       { id: 'copyh', label: 'Copy commit hash' },
       { id: 'copys', label: 'Copy subject' },
     ]);
@@ -36,18 +40,32 @@ describe('commitMenuEntries', () => {
     const labels = commitMenuEntries({
       canReword: false,
       isMerge: true,
+      withHead: true,
       visible: () => true,
     }).filter((e) => e !== 'sep').map((e) => (e as { id: string }).id);
     expect(labels).not.toContain('c-dr');
     expect(labels).not.toContain('c-rw');
   });
+
+  it('hides compare with HEAD when the target is already HEAD and when compare actions are hidden', () => {
+    const ids = (withHead: boolean, visible: (id: string) => boolean) =>
+      commitMenuEntries({ canReword: false, isMerge: false, withHead, visible })
+        .filter((e) => e !== 'sep')
+        .map((e) => (e as { id: string }).id);
+    expect(ids(false, () => true)).toContain('cmp');
+    expect(ids(false, () => true)).not.toContain('cmp-head');
+    expect(ids(true, (id) => id !== 'compare' && id !== 'compareHead')).not.toContain('cmp');
+    expect(ids(true, (id) => id !== 'compare' && id !== 'compareHead')).not.toContain('cmp-head');
+  });
 });
 
 describe('branchMenuEntries', () => {
   it('offers push and PR on the current branch without switch or history actions', () => {
-    expect(branchMenuEntries({ current: true, visible: () => true })).toEqual([
+    expect(branchMenuEntries({ current: true, withHead: false, visible: () => true })).toEqual([
       { id: 'br-rn', label: 'Rename branch' },
       { id: 'br-ps', label: 'Push branch' },
+      'sep',
+      { id: 'cmp', label: 'Compare with…' },
       'sep',
       { id: 'pr', label: 'Create PR' },
       { id: 'copy', label: 'Copy branch name' },
@@ -58,10 +76,13 @@ describe('branchMenuEntries', () => {
     expect(
       branchMenuEntries({
         current: true,
+        withHead: false,
         visible: (id) => id !== 'push' && id !== 'pr',
       }),
     ).toEqual([
       { id: 'br-rn', label: 'Rename branch' },
+      'sep',
+      { id: 'cmp', label: 'Compare with…' },
       'sep',
       { id: 'copy', label: 'Copy branch name' },
     ]);
@@ -71,6 +92,7 @@ describe('branchMenuEntries', () => {
     expect(
       branchMenuEntries({
         current: true,
+        withHead: false,
         visible: () => true,
         selectedRebase: { count: 2, disabledReason: 'Commit or stash changes first' },
       }),
@@ -86,18 +108,18 @@ describe('branchMenuEntries', () => {
   });
 
   it('hides the selection rebase when nothing else is selected or rebase is hidden', () => {
-    const shown = branchMenuEntries({ current: false, visible: () => true, selectedRebase: { count: 1 } });
+    const shown = branchMenuEntries({ current: false, withHead: true, visible: () => true, selectedRebase: { count: 1 } });
     expect(shown).toContainEqual({ id: 'br-rbs', label: 'Rebase selected branch on this branch' });
-    expect(branchMenuEntries({ current: false, visible: () => true }).some((entry) => entry !== 'sep' && entry.id === 'br-rbs')).toBe(false);
+    expect(branchMenuEntries({ current: false, withHead: false, visible: () => true }).some((entry) => entry !== 'sep' && entry.id === 'br-rbs')).toBe(false);
     expect(
-      branchMenuEntries({ current: false, visible: (id) => id !== 'rebase', selectedRebase: { count: 2 } }).some(
+      branchMenuEntries({ current: false, withHead: false, visible: (id) => id !== 'rebase', selectedRebase: { count: 2 } }).some(
         (entry) => entry !== 'sep' && entry.id === 'br-rbs',
       ),
     ).toBe(false);
   });
 
   it('lists switch and history actions for other local branches', () => {
-    const entries = branchMenuEntries({ current: false, visible: () => true });
+    const entries = branchMenuEntries({ current: false, withHead: true, visible: () => true });
     expect(entries).toEqual([
       { id: 'br-co', label: 'Checkout (Switch) branch' },
       { id: 'br-rn', label: 'Rename branch' },
@@ -105,6 +127,9 @@ describe('branchMenuEntries', () => {
       { id: 'br-mg', label: 'Merge into current branch' },
       { id: 'br-rb', label: 'Rebase current branch on this branch' },
       { id: 'br-ps', label: 'Push branch' },
+      'sep',
+      { id: 'cmp', label: 'Compare with…' },
+      { id: 'cmp-head', label: 'Compare with HEAD' },
       'sep',
       { id: 'pr', label: 'Create PR' },
       { id: 'copy', label: 'Copy branch name' },

@@ -10,6 +10,8 @@
 - Disable the action while tracked changes are uncommitted or another Git operation is in progress. Untracked files alone do not block it.
 - Record the whole batch as one undo.
 - Highlight the selected branches on the graph. Their history stays bright, including the lane segments that pass other commits, and the other lines fade.
+- Compare a commit, local branch, or remote branch with another revision. Right-click and choose Compare with… to search local branches, remote branches, tags, or a commit hash, or choose Compare with HEAD.
+- Show that diff in the same commit details view as Ctrl/Cmd+click. The details panel opens on the row of the commit or branch you right-clicked.
 
 ## v0.3.0
 

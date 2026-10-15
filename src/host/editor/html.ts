@@ -173,6 +173,7 @@ const SHELL = `
       <li>Double-click a branch or tag label to check it out.</li>
       <li>Ctrl/Cmd+click local branch labels to select them, then right-click a branch and choose Rebase selected branches on this branch.</li>
       <li>Ctrl/Cmd+click a second commit to compare.</li>
+      <li>Right-click a commit or branch and choose Compare with… to pick a branch, tag, or commit, or Compare with HEAD.</li>
       <li>In the file tree, Ctrl/Cmd+click a folder to expand or collapse it and every nested folder. Right-click a folder to expand, collapse, or collapse child folders.</li>
       <li>Dates filters the graph by author date or committer date. Uncheck a year or month to hide those commits. Show all restores the tab you are on. OK applies the filter.</li>
       <li>Contributor filters the graph by author or committer name. Uncheck a name to hide those commits. Show all restores the tab you are on. OK applies the filter.</li>
@@ -182,6 +183,16 @@ const SHELL = `
       <button value="ok">Close</button>
     </div>
   </form>
+</dialog>
+<dialog id="dlg-compare">
+  <h2>Compare with…</h2>
+  <input type="search" id="cmp-q" placeholder="Branch, tag, or commit hash" autocomplete="off" spellcheck="false" />
+  <div id="cmp-list" role="listbox"></div>
+  <p id="cmp-empty" hidden>No matching branch, tag, or commit.</p>
+  <p id="cmp-more" hidden>More matches are hidden. Keep typing to narrow the list.</p>
+  <div class="dlg-actions">
+    <button type="button" id="cmp-cancel">Cancel</button>
+  </div>
 </dialog>
 <dialog id="dlg-git">
   <form id="git-form" method="dialog">

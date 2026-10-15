@@ -51,7 +51,8 @@ import { signatureColumn, signatureInfoRows, signatureSummary, type SignatureInf
 import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg, groupChipRefs, remoteShortName, type FilterTab } from '../shared/refsList';
 import { compileFindRegex, formatFindCount, highlightFind } from '../shared/commitFind';
 import { formatRefChange, presentPreview } from '../shared/undo';
-import { branchMenuEntries, commitMenuEntries, menuHtml } from '../shared/commitMenu';
+import { branchMenuEntries, commitMenuEntries, compareMenuEntries, menuHtml } from '../shared/commitMenu';
+import { comparePick, type CompareCandidate } from '../shared/comparePick';
 import {
   parseRebaseCheckout,
   parseRebaseOnFailure,
@@ -96,6 +97,8 @@ let restoredScroll: string | null = null;
 let snap: GraphSnapshot | null = null;
 let selected: string | null = null;
 let compare: string | undefined;
+/** Commit row that should host the inline diff. Set when compare starts from a context menu. */
+let compareAnchor: string | undefined;
 let details: CommitDetails | null = null;
 let detailsH: number | null = null;
 let autoDetailsH = 180;
@@ -106,6 +109,9 @@ let deleteBranchReq = '';
 let deleteBranchSeq = 0;
 let deleteBranchMerge: BranchMergeState = 'unknown';
 let confirmOk: (() => void) | null = null;
+let compareBase: string | null = null;
+let compareActive = 0;
+let compareRows: CompareCandidate[] = [];
 let faces = new Map<string, string>();
 let findHits: string[] = [];
 let findIndexes: number[] = [];
@@ -194,7 +200,7 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
     details = m.payload;
     detailsStamp++;
     if (!details) {
-      compare = undefined;
+      clearCompare();
       paint();
       return;
     }
@@ -231,6 +237,7 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
   } else if (m.type === 'jump') {
     selected = m.selected;
     compare = m.compare;
+    compareAnchor = undefined;
     scrollToHash(m.selected);
   } else if (m.type === 'branchMerged') {
     if (m.requestId !== deleteBranchReq) return;
@@ -509,7 +516,12 @@ function fillPr(): void {
 }
 
 function detailsAnchor(): string | null {
-  return compare ?? selected;
+  return compareAnchor ?? compare ?? selected;
+}
+
+function clearCompare(): void {
+  compare = undefined;
+  compareAnchor = undefined;
 }
 
 function paintGraphSvg(svg: HTMLElement, markup: string, stream: boolean, height: number): void {
@@ -1983,6 +1995,101 @@ function bindDialogs(): void {
     ev.stopPropagation();
     form.requestSubmit($('git-ok') as unknown as HTMLButtonElement);
   });
+  const compareDlg = $('dlg-compare') as unknown as HTMLDialogElement;
+  ($('cmp-q') as HTMLInputElement).addEventListener('input', () => {
+    compareActive = 0;
+    fillCompareList();
+  });
+  $('cmp-list').addEventListener('click', (ev) => {
+    const button = (ev.target as HTMLElement).closest<HTMLElement>('[data-cmp]');
+    if (!button?.dataset.cmp) return;
+    chooseCompare(Number(button.dataset.cmp));
+  });
+  $('cmp-cancel').addEventListener('click', () => compareDlg.close());
+  compareDlg.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') {
+      ev.stopPropagation();
+      return;
+    }
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      if (!compareRows.length) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const dir = ev.key === 'ArrowDown' ? 1 : -1;
+      compareActive = (compareActive + dir + compareRows.length) % compareRows.length;
+      fillCompareList();
+      return;
+    }
+    if (ev.key !== 'Enter' || ev.isComposing) return;
+    if ((ev.target as HTMLElement).id === 'cmp-cancel') return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (compareRows.length) chooseCompare(compareActive);
+  });
+}
+
+function canCompareWithHead(hash: string): boolean {
+  return Boolean(hash && snap?.head && hash !== snap.head);
+}
+
+function startCompare(a: string, b: string): void {
+  if (!a || !b) return;
+  pickedBranches = [];
+  selected = a;
+  compare = b;
+  compareAnchor = a;
+  post({ type: 'compare', a, b });
+  persistView();
+  paint();
+}
+
+function fillCompareList(): void {
+  if (!snap) return;
+  const picked = comparePick({
+    refs: snap.filterRefs ?? [],
+    commits: snap.commits,
+    query: ($('cmp-q') as HTMLInputElement).value,
+    limit: snap.config.refsListLimit,
+    branchSort: snap.config.branchSort,
+    tagSort: snap.config.tagSort,
+  });
+  compareRows = picked.sections.flatMap((section) => section.items);
+  if (compareActive >= compareRows.length) compareActive = 0;
+  let index = 0;
+  $('cmp-list').innerHTML = picked.sections
+    .map((section) => {
+      const rows = section.items
+        .map((item) => {
+          const i = index++;
+          const on = i === compareActive ? ' aria-selected="true"' : '';
+          const detail = item.detail ? `<span class="cmp-detail">${esc(item.detail)}</span>` : '';
+          return `<button type="button" class="ref-item kind-${item.kind}" role="option" data-cmp="${i}"${on}><span class="ref-mark" aria-hidden="true"></span><span class="ref-name">${esc(item.label)}</span>${detail}</button>`;
+        })
+        .join('');
+      return `<div class="cmp-section"><div class="cmp-h">${esc(section.title)}</div>${rows}</div>`;
+    })
+    .join('');
+  $('cmp-empty').hidden = compareRows.length > 0;
+  $('cmp-more').hidden = !picked.truncated;
+  $('cmp-list').querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+}
+
+function openCompareDialog(base: string): void {
+  if (!base || !snap) return;
+  compareBase = base;
+  compareActive = 0;
+  ($('cmp-q') as HTMLInputElement).value = '';
+  fillCompareList();
+  ($('dlg-compare') as unknown as HTMLDialogElement).showModal();
+  $('cmp-q').focus();
+}
+
+function chooseCompare(index: number): void {
+  const row = compareRows[index];
+  const base = compareBase;
+  if (!row || !base) return;
+  ($('dlg-compare') as unknown as HTMLDialogElement).close();
+  startCompare(base, row.rev);
 }
 
 function sub(mode: string): string {
@@ -2105,7 +2212,7 @@ function onDetailsClick(ev: MouseEvent): boolean {
   if (parent?.dataset.parent) {
     ev.preventDefault();
     selected = parent.dataset.parent;
-    compare = undefined;
+    clearCompare();
     persistView();
     post({ type: 'openRow', hash: selected });
     if (displayIndexForHash(selected) < 0) scrollToHash(selected);
@@ -2371,6 +2478,7 @@ function bind(): void {
     if (ev.ctrlKey || ev.metaKey) {
       if (selected && hash !== selected) {
         compare = hash;
+        compareAnchor = undefined;
         post({ type: 'compare', a: selected, b: compare });
         paint();
       } else if (clearPicked) paint();
@@ -2378,12 +2486,12 @@ function bind(): void {
     }
     if (details && (hash === selected || hash === compare)) {
       selected = null;
-      compare = undefined;
+      clearCompare();
       details = null;
       post({ type: 'openRow', hash: null });
     } else {
       selected = hash!;
-      compare = undefined;
+      clearCompare();
       post({ type: 'openRow', hash: selected });
     }
     persistView();
@@ -2776,7 +2884,7 @@ function onKey(ev: KeyboardEvent): void {
     if (details) {
       details = null;
       selected = null;
-      compare = undefined;
+      clearCompare();
       post({ type: 'openRow', hash: null });
       persistView();
       paint();
@@ -2808,7 +2916,7 @@ function onKey(ev: KeyboardEvent): void {
     if (!next) return;
     selected = next.hash;
     persistView();
-    compare = undefined;
+    clearCompare();
     post({ type: 'openRow', hash: selected });
     paint();
     return;
@@ -2943,6 +3051,7 @@ function menuRef(chip: HTMLElement, x: number, y: number): void {
         menuHtml(
           branchMenuEntries({
             current: name === snap?.currentBranch,
+            withHead: canCompareWithHead(chip.dataset.hash ?? ''),
             visible: (id) => vis('branch', id),
             selectedRebase: selectedRebase.length ? { count: selectedRebase.length, disabledReason: rebaseSelectionBlock() } : undefined,
           }),
@@ -2957,8 +3066,20 @@ function menuRef(chip: HTMLElement, x: number, y: number): void {
     if (vis('remote', 'delete')) items.push(btn('rm-del', 'Delete'));
     if (vis('remote', 'fetchInto')) items.push(btn('rm-fi', 'Fetch into local'));
     if (vis('remote', 'pull')) items.push(btn('rm-pl', 'Pull'));
-    if (vis('remote', 'pr')) items.push(btn('pr', 'Create PR'));
-    items.push(btn('copy', 'Copy name'));
+    const compareHtml = menuHtml(
+      compareMenuEntries({
+        withHead: canCompareWithHead(chip.dataset.hash ?? ''),
+        visible: (id) => vis('remote', id),
+      }),
+    );
+    const tail: string[] = [];
+    if (vis('remote', 'pr')) tail.push(btn('pr', 'Create PR'));
+    tail.push(btn('copy', 'Copy name'));
+    if (compareHtml) {
+      if (items.length) items.push('<hr class="menu-sep" />');
+      items.push(compareHtml, '<hr class="menu-sep" />');
+    }
+    items.push(...tail);
   }
   ctxCommit = null;
   ctxFile = null;
@@ -2987,6 +3108,7 @@ function menuCommit(hash: string, x: number, y: number): void {
       commitMenuEntries({
         canReword: gitAtLeast(snap.config.gitMajorMinor, 2, 54),
         isMerge: c.parents.length > 1,
+        withHead: canCompareWithHead(hash),
         visible: (id) => vis('commit', id),
       }),
     )}`,
@@ -3021,6 +3143,12 @@ function onMenu(ev: Event): void {
     return;
   }
   if (!snap) return;
+  if (id === 'cmp' || id === 'cmp-head') {
+    const base = ctxCommit?.hash ?? ctxRef?.hash ?? '';
+    if (id === 'cmp') openCompareDialog(base);
+    else if (snap.head) startCompare(base, snap.head);
+    return;
+  }
   const d = snap.config.dialogs;
   const sp = d.spaceSubstitution;
   const act = (a: GitAction) => sendGit(a);
