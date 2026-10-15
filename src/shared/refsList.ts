@@ -27,6 +27,14 @@ export function refDisplayName(r: GraphRef): string {
   return r.name;
 }
 
+export type RemoteBranchPrefix = 'Icon' | 'Text';
+
+/** Graph text for a remote-tracking branch. Icon mode omits the `remotes/` word; the cloud is drawn before this text. */
+export function remoteChipText(name: string, prefix: RemoteBranchPrefix): string {
+  const rest = name.startsWith('remotes/') ? name.slice('remotes/'.length) : name;
+  return prefix === 'Icon' ? `/${rest}` : `remotes/${rest}`;
+}
+
 export function refLogArg(r: GraphRef): string {
   if (r.kind === 'worktree') return r.hash;
   if (r.name.startsWith('glob:')) return r.hash;

@@ -144,6 +144,8 @@ export type ViewConfig = {
   showCommitsOnlyReferencedByTags: boolean;
   combineLocalAndRemote: boolean;
   referenceLabelAlignment: string;
+  /** `referenceLabels.remoteBranchPrefix`. Icon draws a cloud instead of the `remotes/` word. */
+  remoteBranchPrefix: 'Icon' | 'Text';
   markdown: boolean;
   enhancedAccessibility: boolean;
   autoCenter: boolean;

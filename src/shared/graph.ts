@@ -50,6 +50,7 @@ export function defaultViewConfig(): ViewConfig {
     showCommitsOnlyReferencedByTags: true,
     combineLocalAndRemote: true,
     referenceLabelAlignment: 'Normal',
+    remoteBranchPrefix: 'Icon',
     markdown: true,
     enhancedAccessibility: false,
     autoCenter: false,

@@ -67,6 +67,7 @@ export function getViewConfig(gitVersion = ''): ViewConfig {
     showCommitsOnlyReferencedByTags: c.get('repository.showCommitsOnlyReferencedByTags') ?? true,
     combineLocalAndRemote: c.get('referenceLabels.combineLocalAndRemoteBranchLabels') ?? true,
     referenceLabelAlignment: c.get('referenceLabels.alignment') ?? defaults.referenceLabelAlignment,
+    remoteBranchPrefix: c.get('referenceLabels.remoteBranchPrefix') === 'Text' ? 'Text' : 'Icon',
     markdown: c.get('markdown') ?? true,
     enhancedAccessibility: c.get('enhancedAccessibility') ?? false,
     autoCenter: c.get('commitDetailsView.autoCenter') ?? false,

@@ -5,6 +5,7 @@ import {
   groupChipRefs,
   refDisplayName,
   refLogArg,
+  remoteChipText,
   remoteBranchName,
   remoteLabelsUseIcons,
   remoteShortName,
@@ -34,6 +35,18 @@ describe('refDisplayName', () => {
   it('prefixes remotes', () => {
     expect(refDisplayName(r('remote', 'origin/main'))).toBe('remotes/origin/main');
     expect(refDisplayName(r('head', 'main'))).toBe('main');
+  });
+});
+
+describe('remoteChipText', () => {
+  it('replaces remotes/ with a slash the cloud sits in front of', () => {
+    expect(remoteChipText('origin/main', 'Icon')).toBe('/origin/main');
+    expect(remoteChipText('remotes/origin/main', 'Icon')).toBe('/origin/main');
+  });
+
+  it('keeps the remotes/ word when the prefix is text', () => {
+    expect(remoteChipText('origin/main', 'Text')).toBe('remotes/origin/main');
+    expect(remoteChipText('remotes/origin/main', 'Text')).toBe('remotes/origin/main');
   });
 });
 

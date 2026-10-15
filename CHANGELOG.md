@@ -11,6 +11,11 @@
 - Create a patch from a commit, a commit range, selected files, or the working tree. Apply a patch to the working tree, or as commits when the file is a format-patch mailbox.
 - Auto fetch while the graph tab is open. It is off by default. The interval is `git-graph-ray.repository.autoFetchInterval` (default 180 seconds, minimum 15).
 - Attach every remote of the same branch to the local label on that commit. One or two remotes show the remote name with a cloud icon. Three or more show cloud icons until clicked, then the names. An arrow collapses them again.
+- Remote branch labels can show a wide cloud icon instead of the `remotes/` prefix (`/origin/main`). Set `git-graph-ray.referenceLabels.remoteBranchPrefix` to `Text` to show `remotes/origin/main` again.
+
+### Changes
+
+- Branch and tag labels use a larger font in the same chip height, so the letters fill the space above the text.
 
 ## v0.4.0
 

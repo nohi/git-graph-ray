@@ -622,6 +622,19 @@
           "type": "boolean",
           "default": true
         },
+        "git-graph-ray.referenceLabels.remoteBranchPrefix": {
+          "type": "string",
+          "enum": [
+            "Icon",
+            "Text"
+          ],
+          "enumDescriptions": [
+            "A cloud icon in place of the remotes/ prefix, as in /origin/main.",
+            "The text prefix, as in remotes/origin/main."
+          ],
+          "default": "Icon",
+          "description": "Prefix on remote-tracking branch labels in the graph. Icon shows a cloud instead of remotes/."
+        },
         "git-graph-ray.repository.commits.fetchAvatars": {
           "type": "boolean",
           "default": false

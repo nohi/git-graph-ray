@@ -49,7 +49,7 @@ import {
 import { detailsMetaRows, commitMessageText, type DetailsMetaRow, type MetaCopyIcon } from '../shared/detailsMeta';
 import { DETAILS_FILES_MIN, DETAILS_META_DEFAULT, draggedDetailsMeta, fittedDetailsMeta } from '../shared/detailsPane';
 import { signatureColumn, signatureInfoRows, signatureSummary, type SignatureInfoRow } from '../shared/signature';
-import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg, groupChipRefs, remoteLabelsUseIcons, remoteShortName, REMOTE_LABEL_FOLD, type FilterTab } from '../shared/refsList';
+import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg, groupChipRefs, remoteChipText, remoteLabelsUseIcons, remoteShortName, REMOTE_LABEL_FOLD, type FilterTab } from '../shared/refsList';
 import { compileFindRegex, formatFindCount, highlightFind } from '../shared/commitFind';
 import { formatRefChange, presentPreview } from '../shared/undo';
 import { branchMenuEntries, commitMenuEntries, compareMenuEntries, menuHtml } from '../shared/commitMenu';
@@ -961,18 +961,15 @@ function chips(c: GraphCommit): string {
     const detached = r.kind === 'head' && r.name === 'HEAD';
     const current = r.kind === 'head' && Boolean(snap!.currentBranch) && r.name === snap!.currentBranch;
     const picked = r.kind === 'head' && !detached && pickedBranches.includes(r.name);
-    const remoteShort = short && r.kind === 'remote';
-    const ico = remoteShort ? REMOTE_CHIP_ICON : chipIcon(r.kind);
-    const label = remoteShort ? remoteShortName(r) : refDisplayName(r);
+    const face = chipFace(r, short, iconOnly);
     const divergence =
       current && snap!.divergence
         ? `<span class="divergence">${snap!.divergence.ahead} ahead · ${snap!.divergence.behind} behind</span>`
         : '';
-    const title = iconOnly ? ` title="${esc(label)}" aria-label="${esc(`${label}, show remotes`)}"` : '';
     const tag = iconOnly ? 'button' : 'span';
     const type = iconOnly ? ' type="button"' : '';
-    const cls = `chip ${r.kind}${remoteShort ? ' short' : ''}${iconOnly ? ' icon-only' : ''}${detached ? ' detached' : ''}${current ? ' current' : ''}${picked ? ' picked' : ''}`;
-    return `<${tag}${type} class="${cls}"${title} data-kind="${r.kind}" data-name="${esc(r.name)}" data-hash="${esc(r.hash)}" data-remote="${esc(r.remote ?? '')}" data-wt="${esc(r.worktreePath ?? '')}">${ico}${iconOnly ? '' : findMark(label)}${divergence}</${tag}>`;
+    const cls = `chip ${r.kind}${face.extra}${detached ? ' detached' : ''}${current ? ' current' : ''}${picked ? ' picked' : ''}`;
+    return `<${tag}${type} class="${cls}"${face.title} data-kind="${r.kind}" data-name="${esc(r.name)}" data-hash="${esc(r.hash)}" data-remote="${esc(r.remote ?? '')}" data-wt="${esc(r.worktreePath ?? '')}">${face.icon}${iconOnly ? '' : findMark(face.label)}${divergence}</${tag}>`;
   };
   const html = (g: ReturnType<typeof groupChipRefs>[number]) => {
     if (g.kind !== 'bundle') return mk(g.ref);
@@ -1586,10 +1583,8 @@ function undoChips(refs: GraphRef[]): string {
   const mk = (ref: GraphRef, short = false) => {
     const detached = ref.kind === 'head' && ref.name === 'HEAD';
     const current = ref.kind === 'head' && Boolean(snap!.currentBranch) && ref.name === snap!.currentBranch;
-    const remoteShort = short && ref.kind === 'remote';
-    const ico = remoteShort ? REMOTE_CHIP_ICON : chipIcon(ref.kind);
-    const label = remoteShort ? remoteShortName(ref) : refDisplayName(ref);
-    return `<span class="chip ${ref.kind}${remoteShort ? ' short' : ''}${detached ? ' detached' : ''}${current ? ' current' : ''}${ref.ghost ? ' ghost' : ''}">${ico}${esc(label)}</span>`;
+    const face = chipFace(ref, short, false);
+    return `<span class="chip ${ref.kind}${face.extra}${detached ? ' detached' : ''}${current ? ' current' : ''}${ref.ghost ? ' ghost' : ''}"${face.title}>${face.icon}${esc(face.label)}</span>`;
   };
   const html = groups
     .map((group) =>
@@ -1757,6 +1752,20 @@ function syncWorktreeForm(): void {
 let gitDialogAt: { x: number; y: number } | null = null;
 
 const REMOTE_CHIP_ICON = '<span class="chip-ico" aria-hidden="true"></span>';
+
+function chipFace(r: GraphRef, short: boolean, iconOnly: boolean): { extra: string; icon: string; label: string; title: string } {
+  const remoteShort = short && r.kind === 'remote';
+  const remoteIcon = !remoteShort && r.kind === 'remote' && snap!.config.remoteBranchPrefix !== 'Text';
+  const icon = remoteShort || remoteIcon ? REMOTE_CHIP_ICON : chipIcon(r.kind);
+  const label = remoteShort ? remoteShortName(r) : remoteIcon ? remoteChipText(r.name, 'Icon') : refDisplayName(r);
+  const extra = `${remoteShort ? ' short' : ''}${remoteIcon ? ' prefix' : ''}${iconOnly ? ' icon-only' : ''}`;
+  const title = iconOnly
+    ? ` title="${esc(label)}" aria-label="${esc(`${label}, show remotes`)}"`
+    : remoteIcon
+      ? ` title="${esc(refDisplayName(r))}"`
+      : '';
+  return { extra, icon, label, title };
+}
 const REMOTE_FOLD_BUTTON =
   '<button type="button" class="chip-fold" aria-expanded="true" title="Collapse remotes" aria-label="Collapse remotes"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M10 4 6 8l4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
 

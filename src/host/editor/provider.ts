@@ -400,8 +400,10 @@ class GraphSession {
     this.panel.onDidDispose(() => this.dispose());
     this.configSub = vscode.workspace.onDidChangeConfiguration((event) => {
       if (this.disposed) return;
-      if (!event.affectsConfiguration('git-graph-ray.repository.autoFetch') && !event.affectsConfiguration('git-graph-ray.repository.autoFetchInterval')) return;
-      this.armAutoFetch();
+      const autoFetch = event.affectsConfiguration('git-graph-ray.repository.autoFetch') || event.affectsConfiguration('git-graph-ray.repository.autoFetchInterval');
+      const labels = event.affectsConfiguration('git-graph-ray.referenceLabels');
+      if (!autoFetch && !labels) return;
+      if (autoFetch) this.armAutoFetch();
       this.post({ type: 'patch', payload: { config: getViewConfig(this.gitVer) } });
     });
     this.armAutoFetch();
