@@ -66,31 +66,73 @@ export function sortFilterRefs(refs: GraphRef[], tab: FilterTab, branchSort: Ref
 }
 
 export type ChipGroup =
-  | { kind: 'pair'; local: GraphRef; remote: GraphRef }
+  | { kind: 'bundle'; local: GraphRef; remotes: GraphRef[] }
   | { kind: 'single'; ref: GraphRef };
+
+/** Combined remote labels of this many (or more) collapse to icons until expanded. */
+export const REMOTE_LABEL_FOLD = 3;
 
 export function remoteShortName(r: GraphRef): string {
   return r.remote ?? r.name.split('/')[0] ?? r.name;
 }
 
+/** Branch name of a remote-tracking ref, without the remote prefix. */
+export function remoteBranchName(r: GraphRef): string | null {
+  const remote = r.remote ?? r.name.split('/')[0] ?? '';
+  if (!remote) return null;
+  const prefix = `${remote}/`;
+  if (!r.name.startsWith(prefix)) return null;
+  const branch = r.name.slice(prefix.length);
+  return branch || null;
+}
+
+export function remoteLabelsUseIcons(count: number, expanded: boolean): boolean {
+  return count >= REMOTE_LABEL_FOLD && !expanded;
+}
+
+function refIdentity(r: GraphRef): string {
+  return `${r.kind}\0${r.name}`;
+}
+
+function matchingRemotes(refs: GraphRef[], branch: string): GraphRef[] {
+  const seen = new Set<string>();
+  const remotes: GraphRef[] = [];
+  for (const ref of refs) {
+    if (ref.kind !== 'remote' || remoteBranchName(ref) !== branch) continue;
+    const id = refIdentity(ref);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    remotes.push(ref);
+  }
+  remotes.sort((a, b) => remoteShortName(a).localeCompare(remoteShortName(b)) || a.name.localeCompare(b.name));
+  return remotes;
+}
+
 export function groupChipRefs(refs: GraphRef[], combine: boolean): ChipGroup[] {
   if (!combine) return refs.map((ref) => ({ kind: 'single' as const, ref }));
-  const used = new Set<string>();
+  const bundles = new Map<string, GraphRef[]>();
+  const consumed = new Set<string>();
+  for (const local of refs) {
+    if (local.kind !== 'head' || local.name === 'HEAD') continue;
+    const id = refIdentity(local);
+    if (bundles.has(id)) continue;
+    const remotes = matchingRemotes(refs, local.name);
+    if (!remotes.length) continue;
+    bundles.set(id, remotes);
+    for (const remote of remotes) consumed.add(refIdentity(remote));
+  }
   const out: ChipGroup[] = [];
-  for (const r of refs) {
-    const key = `${r.kind}\0${r.name}`;
-    if (used.has(key)) continue;
-    if (r.kind === 'head' && r.name !== 'HEAD') {
-      const rem = refs.find((x) => x.kind === 'remote' && x.name === `${x.remote ?? ''}/${r.name}`);
-      if (rem) {
-        used.add(key);
-        used.add(`${rem.kind}\0${rem.name}`);
-        out.push({ kind: 'pair', local: r, remote: rem });
-        continue;
-      }
+  const seen = new Set<string>();
+  for (const ref of refs) {
+    const id = refIdentity(ref);
+    if (seen.has(id) || consumed.has(id)) continue;
+    seen.add(id);
+    const remotes = bundles.get(id);
+    if (remotes) {
+      out.push({ kind: 'bundle', local: ref, remotes });
+      continue;
     }
-    used.add(key);
-    out.push({ kind: 'single', ref: r });
+    out.push({ kind: 'single', ref });
   }
   return out;
 }

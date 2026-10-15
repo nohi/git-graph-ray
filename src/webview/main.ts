@@ -49,7 +49,7 @@ import {
 import { detailsMetaRows, commitMessageText, type DetailsMetaRow, type MetaCopyIcon } from '../shared/detailsMeta';
 import { DETAILS_FILES_MIN, DETAILS_META_DEFAULT, draggedDetailsMeta, fittedDetailsMeta } from '../shared/detailsPane';
 import { signatureColumn, signatureInfoRows, signatureSummary, type SignatureInfoRow } from '../shared/signature';
-import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg, groupChipRefs, remoteShortName, type FilterTab } from '../shared/refsList';
+import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg, groupChipRefs, remoteLabelsUseIcons, remoteShortName, REMOTE_LABEL_FOLD, type FilterTab } from '../shared/refsList';
 import { compileFindRegex, formatFindCount, highlightFind } from '../shared/commitFind';
 import { formatRefChange, presentPreview } from '../shared/undo';
 import { branchMenuEntries, commitMenuEntries, compareMenuEntries, menuHtml } from '../shared/commitMenu';
@@ -140,6 +140,10 @@ let stashI = 0;
 let ctxRef: GraphRef | null = null;
 /** Local branch names chosen with Ctrl/Cmd+click, in click order. */
 let pickedBranches: string[] = [];
+/** Expanded remote bundles, keyed by commit hash and branch name. */
+const expandedRemoteLabels = new Set<string>();
+/** When a folded remote row was last expanded, so the opening double-click does not also check out. */
+let remoteLabelsExpandedAt = 0;
 /** Commit hashes chosen for cherry-pick: a Shift+click span, or Ctrl/Cmd+click toggles. */
 let commitRange: string[] = [];
 /** Commit the next Shift+click measures from. */
@@ -860,6 +864,7 @@ function rowContentMark(c: GraphCommit): string {
       .filter((r) => r.kind === 'head' && pickedBranches.includes(r.name))
       .map((r) => r.name)
       .join(','),
+    remoteFoldMark(c.hash),
   ].join('\u001f');
 }
 
@@ -939,30 +944,57 @@ function emojiMaps() {
   return snap?.emoji ?? [];
 }
 
+function remoteLabelKey(hash: string, branch: string): string {
+  return `${hash}\0${branch}`;
+}
+
+function remoteFoldMark(hash: string): string {
+  const prefix = `${hash}\0`;
+  return [...expandedRemoteLabels].filter((key) => key.startsWith(prefix)).sort().join(',');
+}
+
 function chips(c: GraphCommit): string {
   if (!snap) return '';
   const align = snap.config.referenceLabelAlignment;
   const groups = groupChipRefs(c.refs, snap.config.combineLocalAndRemote);
-  const mk = (r: GraphRef, short = false) => {
+  const mk = (r: GraphRef, short = false, iconOnly = false) => {
     const detached = r.kind === 'head' && r.name === 'HEAD';
     const current = r.kind === 'head' && Boolean(snap!.currentBranch) && r.name === snap!.currentBranch;
     const picked = r.kind === 'head' && !detached && pickedBranches.includes(r.name);
-    const ico = chipIcon(r.kind);
-    const label = short && r.kind === 'remote' ? remoteShortName(r) : refDisplayName(r);
+    const remoteShort = short && r.kind === 'remote';
+    const ico = remoteShort ? REMOTE_CHIP_ICON : chipIcon(r.kind);
+    const label = remoteShort ? remoteShortName(r) : refDisplayName(r);
     const divergence =
       current && snap!.divergence
         ? `<span class="divergence">${snap!.divergence.ahead} ahead · ${snap!.divergence.behind} behind</span>`
         : '';
-    return `<span class="chip ${r.kind}${detached ? ' detached' : ''}${current ? ' current' : ''}${picked ? ' picked' : ''}" data-kind="${r.kind}" data-name="${esc(r.name)}" data-hash="${esc(r.hash)}" data-remote="${esc(r.remote ?? '')}" data-wt="${esc(r.worktreePath ?? '')}">${ico}${findMark(label)}${divergence}</span>`;
+    const title = iconOnly ? ` title="${esc(label)}" aria-label="${esc(`${label}, show remotes`)}"` : '';
+    const tag = iconOnly ? 'button' : 'span';
+    const type = iconOnly ? ' type="button"' : '';
+    const cls = `chip ${r.kind}${remoteShort ? ' short' : ''}${iconOnly ? ' icon-only' : ''}${detached ? ' detached' : ''}${current ? ' current' : ''}${picked ? ' picked' : ''}`;
+    return `<${tag}${type} class="${cls}"${title} data-kind="${r.kind}" data-name="${esc(r.name)}" data-hash="${esc(r.hash)}" data-remote="${esc(r.remote ?? '')}" data-wt="${esc(r.worktreePath ?? '')}">${ico}${iconOnly ? '' : findMark(label)}${divergence}</${tag}>`;
   };
-  const html = (g: ReturnType<typeof groupChipRefs>[number]) =>
-    g.kind === 'pair' ? `<span class="chip-pair">${mk(g.local)}${mk(g.remote, true)}</span>` : mk(g.ref);
+  const html = (g: ReturnType<typeof groupChipRefs>[number]) => {
+    if (g.kind !== 'bundle') return mk(g.ref);
+    const expanded = expandedRemoteLabels.has(remoteLabelKey(c.hash, g.local.name));
+    const collapsed = remoteLabelsUseIcons(g.remotes.length, expanded);
+    const body = `${mk(g.local)}${g.remotes.map((remote) => mk(remote, true, collapsed)).join('')}`;
+    return chipPairHtml(g.local.name, g.remotes.length, body, collapsed, true);
+  };
   const left = groups.filter((g) => {
-    const k = g.kind === 'pair' ? g.local.kind : g.ref.kind;
+    const k = g.kind === 'bundle' ? g.local.kind : g.ref.kind;
     return k === 'head' || k === 'remote' || k === 'stash' || k === 'worktree';
   });
   if (align.includes('Tags (on the right)')) return `<span class="refs">${left.map(html).join('')}</span>`;
   return `<span class="refs">${groups.map(html).join('')}</span>`;
+}
+
+function chipPairHtml(branch: string, remoteCount: number, body: string, collapsed: boolean, interactive: boolean): string {
+  const fold = interactive && remoteCount >= REMOTE_LABEL_FOLD;
+  const cls = `chip-pair${fold ? ' foldable' : ''}${collapsed ? ' collapsed' : ''}`;
+  const expanded = fold ? ` aria-expanded="${collapsed ? 'false' : 'true'}"` : '';
+  const foldBtn = fold && !collapsed ? REMOTE_FOLD_BUTTON : '';
+  return `<span class="${cls}" data-fold="${esc(branch)}"${expanded}>${body}${foldBtn}</span>`;
 }
 
 function detailsContentKey(): string {
@@ -1554,12 +1586,17 @@ function undoChips(refs: GraphRef[]): string {
   const mk = (ref: GraphRef, short = false) => {
     const detached = ref.kind === 'head' && ref.name === 'HEAD';
     const current = ref.kind === 'head' && Boolean(snap!.currentBranch) && ref.name === snap!.currentBranch;
-    const ico = chipIcon(ref.kind);
-    const label = short && ref.kind === 'remote' ? remoteShortName(ref) : refDisplayName(ref);
-    return `<span class="chip ${ref.kind}${detached ? ' detached' : ''}${current ? ' current' : ''}${ref.ghost ? ' ghost' : ''}">${ico}${esc(label)}</span>`;
+    const remoteShort = short && ref.kind === 'remote';
+    const ico = remoteShort ? REMOTE_CHIP_ICON : chipIcon(ref.kind);
+    const label = remoteShort ? remoteShortName(ref) : refDisplayName(ref);
+    return `<span class="chip ${ref.kind}${remoteShort ? ' short' : ''}${detached ? ' detached' : ''}${current ? ' current' : ''}${ref.ghost ? ' ghost' : ''}">${ico}${esc(label)}</span>`;
   };
   const html = groups
-    .map((group) => (group.kind === 'pair' ? `<span class="chip-pair">${mk(group.local)}${mk(group.remote, true)}</span>` : mk(group.ref)))
+    .map((group) =>
+      group.kind === 'bundle'
+        ? chipPairHtml(group.local.name, group.remotes.length, `${mk(group.local)}${group.remotes.map((ref) => mk(ref, true)).join('')}`, false, false)
+        : mk(group.ref),
+    )
     .join('');
   return `<span class="undo-chips">${html}</span>`;
 }
@@ -1719,8 +1756,21 @@ function syncWorktreeForm(): void {
 
 let gitDialogAt: { x: number; y: number } | null = null;
 
+const REMOTE_CHIP_ICON = '<span class="chip-ico" aria-hidden="true"></span>';
+const REMOTE_FOLD_BUTTON =
+  '<button type="button" class="chip-fold" aria-expanded="true" title="Collapse remotes" aria-label="Collapse remotes"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M10 4 6 8l4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+
 function chipIcon(kind: string): string {
   return kind === 'head' || kind === 'tag' || kind === 'worktree' ? '<span class="chip-ico" aria-hidden="true"></span>' : '';
+}
+
+function setRemoteLabelsExpanded(hash: string, branch: string, expanded: boolean): void {
+  const key = remoteLabelKey(hash, branch);
+  if (expanded) {
+    expandedRemoteLabels.add(key);
+    remoteLabelsExpandedAt = performance.now();
+  } else expandedRemoteLabels.delete(key);
+  paint();
 }
 
 function clearCursorDialog(dlg: HTMLElement): void {
@@ -2570,13 +2620,31 @@ function bind(): void {
       return;
     }
     if (onDetailsClick(ev)) return;
+    const foldBtn = t.closest<HTMLElement>('.chip-fold');
+    if (foldBtn) {
+      const pair = foldBtn.closest<HTMLElement>('.chip-pair');
+      const branch = pair?.dataset.fold;
+      const hash = foldBtn.closest<HTMLElement>('.row')?.dataset.hash;
+      if (branch && hash) setRemoteLabelsExpanded(hash, branch, false);
+      return;
+    }
     const chip = t.closest<HTMLElement>('.chip');
     if (chip) {
+      const pair = chip.closest<HTMLElement>('.chip-pair.collapsed');
+      if (pair && chip.classList.contains('remote') && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey) {
+        const branch = pair.dataset.fold;
+        const hash = chip.closest<HTMLElement>('.row')?.dataset.hash;
+        if (branch && hash) setRemoteLabelsExpanded(hash, branch, true);
+        return;
+      }
       if (wantsNestedFolderToggle(ev, macPlatform())) {
         if (togglePickedBranch(chip)) paint();
         return;
       }
-      if (ev.detail === 2) checkoutChip(chip);
+      if (ev.detail === 2) {
+        if (chip.classList.contains('remote') && performance.now() - remoteLabelsExpandedAt < 400) return;
+        checkoutChip(chip);
+      }
       return;
     }
     const row = t.closest<HTMLElement>('.row');

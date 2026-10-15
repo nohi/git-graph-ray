@@ -5,6 +5,8 @@ import {
   groupChipRefs,
   refDisplayName,
   refLogArg,
+  remoteBranchName,
+  remoteLabelsUseIcons,
   remoteShortName,
   sortFilterRefs,
   uniqueRefs,
@@ -90,8 +92,20 @@ describe('groupChipRefs', () => {
   it('pairs a local branch with its upstream remote without dropping either', () => {
     const local = r('head', 'main');
     const remote = r('remote', 'origin/main', { remote: 'origin' });
-    expect(groupChipRefs([local, remote], true)).toEqual([{ kind: 'pair', local, remote }]);
+    expect(groupChipRefs([local, remote], true)).toEqual([{ kind: 'bundle', local, remotes: [remote] }]);
     expect(remoteShortName(remote)).toBe('origin');
+    expect(remoteBranchName(remote)).toBe('main');
+  });
+
+  it('sticks every remote of the same branch onto the local label', () => {
+    const local = r('head', 'main');
+    const origin = r('remote', 'origin/main', { remote: 'origin' });
+    const hoge = r('remote', 'hoge/main', { remote: 'hoge' });
+    const tag = r('tag', 'v1');
+    expect(groupChipRefs([origin, local, tag, hoge], true)).toEqual([
+      { kind: 'bundle', local, remotes: [hoge, origin] },
+      { kind: 'single', ref: tag },
+    ]);
   });
 
   it('keeps both labels separate when combining is off', () => {
@@ -110,5 +124,21 @@ describe('groupChipRefs', () => {
       { kind: 'single', ref: local },
       { kind: 'single', ref: remote },
     ]);
+    expect(remoteBranchName(remote)).toBe('feature/main');
+  });
+
+  it('leaves same-named remotes separate when the local branch is absent', () => {
+    const origin = r('remote', 'origin/main', { remote: 'origin' });
+    const hoge = r('remote', 'hoge/main', { remote: 'hoge' });
+    expect(groupChipRefs([origin, hoge], true)).toEqual([
+      { kind: 'single', ref: origin },
+      { kind: 'single', ref: hoge },
+    ]);
+  });
+
+  it('collapses three or more combined remotes to icons until expanded', () => {
+    expect(remoteLabelsUseIcons(2, false)).toBe(false);
+    expect(remoteLabelsUseIcons(3, false)).toBe(true);
+    expect(remoteLabelsUseIcons(4, true)).toBe(false);
   });
 });
