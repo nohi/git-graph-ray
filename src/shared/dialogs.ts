@@ -51,6 +51,7 @@ export function defaultDialogs() {
     mergeSquashMessageFormat: 'Default' as const,
     popStashReinstateIndex: false,
     pullNoFastForward: false,
+    pullRebase: false,
     pullSquash: false,
     pullSquashMessageFormat: 'Default' as const,
     rebaseIgnoreDate: true,

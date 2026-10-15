@@ -53,6 +53,7 @@ import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg
 import { compileFindRegex, formatFindCount, highlightFind } from '../shared/commitFind';
 import { formatRefChange, presentPreview } from '../shared/undo';
 import { branchMenuEntries, commitMenuEntries, compareMenuEntries, menuHtml } from '../shared/commitMenu';
+import { cherryPickPlan, displayedRange, patchFileName, toggleCommitSelection } from '../shared/historyActions';
 import { comparePick, type CompareCandidate } from '../shared/comparePick';
 import {
   parseRebaseCheckout,
@@ -139,6 +140,15 @@ let stashI = 0;
 let ctxRef: GraphRef | null = null;
 /** Local branch names chosen with Ctrl/Cmd+click, in click order. */
 let pickedBranches: string[] = [];
+/** Commit hashes chosen for cherry-pick: a Shift+click span, or Ctrl/Cmd+click toggles. */
+let commitRange: string[] = [];
+/** Commit the next Shift+click measures from. */
+let rangeAnchor: string | null = null;
+/** File paths chosen with Ctrl/Cmd+click in the open commit details. */
+let pickedFiles: string[] = [];
+let ctxFiles: { path: string; untracked: boolean }[] = [];
+let pickSeq = 0;
+const pickWaiters = new Map<string, (result: { path: string | null; patchKind?: 'am' | 'apply' }) => void>();
 let ctxCommit: GraphCommit | null = null;
 let ctxFile: { path: string; oldPath?: string } | null = null;
 let ctxFolder: HTMLDetailsElement | null = null;
@@ -187,6 +197,9 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
       dateDraft = null;
       personFilter = emptyPersonFilter();
       personDraft = null;
+      commitRange = [];
+      rangeAnchor = null;
+      pickedFiles = [];
     }
     pendingDateJump = null;
     snap = m.payload;
@@ -204,6 +217,8 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
     continueDateJump();
     continueFindJump();
   } else if (m.type === 'info') {
+    if (!acceptDetails(m.payload)) return;
+    if (m.payload?.hash !== details?.hash) pickedFiles = [];
     details = m.payload;
     detailsStamp++;
     if (!details) {
@@ -219,6 +234,11 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
     $('fail-msg').textContent = m.message;
     $('fail').hidden = !m.message;
   } else if (m.type === 'busy') {
+    if (m.quiet) {
+      if (m.on) $('btn-fetch').classList.add('spinning');
+      else if (!document.documentElement.classList.contains('git-busy')) $('btn-fetch').classList.remove('spinning');
+      return;
+    }
     setGitBusy(m.on, m.fetch);
   } else if (m.type === 'notice') {
     /* action kinds used to show here; Fetch already has its own button */
@@ -257,6 +277,12 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
     paintTagRemoteMarks();
     paintRemoteTagError(m.errors);
   } else if (m.type === 'picked') {
+    const waiter = pickWaiters.get(m.requestId);
+    if (waiter) {
+      pickWaiters.delete(m.requestId);
+      waiter({ path: m.path, patchKind: m.patchKind });
+      return;
+    }
     const input = document.querySelector<HTMLInputElement>(`[data-pick="${m.requestId}"]`);
     if (input) {
       input.value = m.path ?? '';
@@ -316,8 +342,11 @@ function syncBanners(): void {
   const op = snap.operation;
   $('conflict').hidden = !op;
   if (op) {
-    const files = op.files.length ? op.files.join(', ') : 'no unmerged files';
-    $('conflict-msg').textContent = `${op.kind} in progress — ${files}`;
+    const label = op.kind === 'am' ? 'patch apply' : op.kind;
+    $('conflict-msg').textContent = op.files.length ? `${label} in progress` : `${label} in progress — no unmerged files`;
+    $('conflict-files').innerHTML = op.files
+      .map((file) => `<button type="button" class="conflict-file" data-conflict="${esc(file)}">${esc(file)}</button>`)
+      .join('');
   }
   $('path-filter').hidden = !snap.historyPath;
   if (snap.historyPath) $('path-filter-msg').textContent = `History of ${snap.historyPath}`;
@@ -325,6 +354,9 @@ function syncBanners(): void {
 
 function applySnap(): void {
   if (!snap) return;
+  const commitLive = new Set(snap.commits.map((commit) => commit.hash));
+  if (commitRange.some((hash) => !commitLive.has(hash))) commitRange = commitRange.filter((hash) => commitLive.has(hash));
+  if (rangeAnchor && !commitLive.has(rangeAnchor)) rangeAnchor = null;
   const live = new Set(snap.branches);
   if (pickedBranches.some((name) => !live.has(name))) pickedBranches = pickedBranches.filter((name) => live.has(name));
   if (!viewRestored) {
@@ -359,6 +391,9 @@ function applySnap(): void {
   $('s-first').checked = snap.repoSettings.firstParent ?? snap.config.onlyFollowFirstParent;
   $('s-prune').checked = snap.config.fetchAndPrune;
   $('s-prune-tags').checked = snap.config.fetchAndPruneTags;
+  $('s-auto-fetch').checked = snap.config.autoFetch;
+  $('s-auto-fetch-interval').value = String(snap.config.autoFetchInterval);
+  $('s-auto-fetch-interval').disabled = !snap.config.autoFetch;
   $('s-undo-preview').checked = snap.config.undoPreview;
   fillRemotes();
   fillPr();
@@ -800,7 +835,7 @@ function rowClass(c: GraphCommit, ancestors: Set<string> | null, history: Set<st
   const muteMerge = snap.config.muteMergeCommits && c.parents.length > 1;
   const muteRow = Boolean(ancestors && c.hash !== UNCOMMITTED && !ancestors.has(c.hash));
   const onHistory = Boolean(history?.has(c.hash));
-  return `row${muteMerge ? ' muted-merge' : ''}${muteRow ? ' muted' : ''}${onHistory ? ' branch-hist' : ''}${c.hash === selected ? ' sel' : ''}${c.hash === compare ? ' cmp' : ''}${c.hash === snap.head ? ' head-commit' : ''}`;
+  return `row${muteMerge ? ' muted-merge' : ''}${muteRow ? ' muted' : ''}${onHistory ? ' branch-hist' : ''}${commitRange.includes(c.hash) ? ' range' : ''}${c.hash === selected ? ' sel' : ''}${c.hash === compare ? ' cmp' : ''}${c.hash === snap.head ? ' head-commit' : ''}`;
 }
 
 function rowContentMark(c: GraphCommit): string {
@@ -1143,7 +1178,8 @@ function fileEnd(dir: string, additions?: number, deletions?: number): string {
 
 function fileRow(path: string, name: string, status: string, oldPath = '', dir = '', additions?: number, deletions?: number): string {
   const added = status === 'A' || status === 'U';
-  return `<div class="file scm-file" data-path="${esc(path)}" data-old="${esc(oldPath)}" data-st="${status}">
+  const picked = pickedFiles.includes(path) ? ' picked' : '';
+  return `<div class="file scm-file${picked}" data-path="${esc(path)}" data-old="${esc(oldPath)}" data-st="${status}">
     <span class="badge st-${status}" title="${statusTitle(status)}">${status}</span>
     <span class="file-name" data-open="${added ? 'blob' : 'diff'}">${esc(name)}</span>
     ${fileActionsHtml()}
@@ -2245,6 +2281,12 @@ function onDetailsClick(ev: MouseEvent): boolean {
     refreshFileView();
     return true;
   }
+  const fileHit = t.closest<HTMLElement>('.file');
+  if (fileHit && details && (ev.ctrlKey || ev.metaKey || ev.shiftKey) && !t.closest('.file-act')) {
+    ev.preventDefault();
+    togglePickedFile(fileHit.dataset.path ?? '', ev.shiftKey);
+    return true;
+  }
   const act = t.closest<HTMLElement>('[data-fa]');
   if (act && details) {
     const file = t.closest<HTMLElement>('.file');
@@ -2292,6 +2334,11 @@ function bind(): void {
   $('conflict-abort').addEventListener('click', () => {
     if (!snap?.operation) return;
     post({ type: 'git', action: { kind: 'abortOperation', operation: snap.operation.kind } });
+  });
+  $('conflict-files').addEventListener('click', (ev) => {
+    const button = (ev.target as HTMLElement).closest<HTMLElement>('[data-conflict]');
+    if (!button?.dataset.conflict) return;
+    post({ type: 'openMerge', path: button.dataset.conflict });
   });
   $('path-filter-clear').addEventListener('click', () => post({ type: 'setHistoryPath', path: null }));
   const trackPointer = (ev: PointerEvent) => {
@@ -2535,24 +2582,52 @@ function bind(): void {
     const row = t.closest<HTMLElement>('.row');
     if (!row?.dataset.hash) return;
     const hash = row.dataset.hash;
+    if (!snap) return;
     const clearPicked = pickedBranches.length > 0;
     if (clearPicked) pickedBranches = [];
+    if (ev.shiftKey && !ev.ctrlKey && !ev.metaKey) {
+      ev.preventDefault();
+      const anchor = rangeAnchor && snap.commits.some((commit) => commit.hash === rangeAnchor) ? rangeAnchor : selected;
+      commitRange = anchor && anchor !== hash ? displayedRange(snap.commits, anchor, hash) : [hash];
+      if (!rangeAnchor) rangeAnchor = hash;
+      selected = hash;
+      clearCompare();
+      if (!details || details.hash !== hash || details.compare) post({ type: 'openRow', hash });
+      persistView();
+      paint();
+      return;
+    }
     if (ev.ctrlKey || ev.metaKey) {
-      if (selected && hash !== selected) {
-        compare = hash;
-        compareAnchor = undefined;
-        post({ type: 'compare', a: selected, b: compare });
-        paint();
-      } else if (clearPicked) paint();
+      ev.preventDefault();
+      if (hash === UNCOMMITTED) {
+        const base = commitRange.length === 1 ? commitRange[0] : commitRange.length === 0 ? selected : null;
+        if (base && base !== UNCOMMITTED) {
+          commitRange = [];
+          selected = base;
+          compare = hash;
+          compareAnchor = undefined;
+          post({ type: 'compare', a: base, b: compare });
+          persistView();
+          paint();
+        }
+        return;
+      }
+      const next = toggleCommitSelection(commitRange, hash, commitRange.length === 0 ? selected : null);
+      rangeAnchor = hash;
+      showCtrlSelection(next);
       return;
     }
     if (details && (hash === selected || hash === compare)) {
       selected = null;
+      rangeAnchor = null;
+      commitRange = [];
       clearCompare();
       details = null;
       post({ type: 'openRow', hash: null });
     } else {
       selected = hash!;
+      rangeAnchor = hash!;
+      commitRange = [];
       clearCompare();
       post({ type: 'openRow', hash: selected });
     }
@@ -2572,6 +2647,13 @@ function bind(): void {
       return;
     }
     if (row?.dataset.hash) menuCommit(row.dataset.hash, ev.clientX, ev.clientY);
+    else if (vis('commit', 'applyPatch')) {
+      ctxCommit = null;
+      ctxRef = null;
+      ctxFile = null;
+      ctxFolder = null;
+      openCtx(btn('apply-patch', 'Apply patch'), ev.clientX, ev.clientY);
+    }
   });
   $('head').addEventListener('contextmenu', (ev) => {
     ev.preventDefault();
@@ -2622,6 +2704,15 @@ function bind(): void {
     post({ type: 'setFetchPrune', prune: $('s-prune').checked, pruneTags: $('s-prune-tags').checked });
   $('s-prune').addEventListener('change', postFetchPrune);
   $('s-prune-tags').addEventListener('change', postFetchPrune);
+  const postAutoFetch = () => {
+    const enabled = $('s-auto-fetch').checked;
+    $('s-auto-fetch-interval').disabled = !enabled;
+    const interval = Math.max(15, Math.round(Number($('s-auto-fetch-interval').value) || 180));
+    $('s-auto-fetch-interval').value = String(interval);
+    post({ type: 'setAutoFetch', enabled, interval });
+  };
+  $('s-auto-fetch').addEventListener('change', postAutoFetch);
+  $('s-auto-fetch-interval').addEventListener('change', postAutoFetch);
   $('s-undo-preview').addEventListener('change', () => {
     post({ type: 'setUndoPreview', value: $('s-undo-preview').checked });
   });
@@ -2709,11 +2800,7 @@ function bind(): void {
       ev.preventDefault();
       ctxFolder = null;
       ctxFile = { path: file.dataset.path ?? '', oldPath: file.dataset.old || undefined };
-      openCtx(
-        `${btn('f-diff', 'Diff')}${btn('f-open', 'Open file')}${btn('f-blob', 'View at revision')}${btn('f-history', 'File history')}${btn('f-blame', 'Blame')}${btn('f-copy', 'Copy path')}${btn('f-copy-full', 'Copy Full Path')}`,
-        ev.clientX,
-        ev.clientY,
-      );
+      openCtx(fileMenu(ctxFile.path), ev.clientX, ev.clientY);
       return;
     }
     const folder = treeFolder(ev.target);
@@ -2938,8 +3025,10 @@ function onKey(ev: KeyboardEvent): void {
     $('pop-dates').hidePopover?.();
     $('pop-contributor').hidePopover?.();
     $('pop-repo-help').hidePopover?.();
-    if (!popoverOpen && pickedBranches.length) {
+    if (!popoverOpen && (pickedBranches.length || commitRange.length)) {
       pickedBranches = [];
+      commitRange = [];
+      rangeAnchor = null;
       paint();
       return;
     }
@@ -2977,6 +3066,8 @@ function onKey(ev: KeyboardEvent): void {
     const next = snap.commits[nextIndex];
     if (!next) return;
     selected = next.hash;
+    rangeAnchor = next.hash;
+    commitRange = [];
     persistView();
     clearCompare();
     post({ type: 'openRow', hash: selected });
@@ -3056,8 +3147,9 @@ function runPlan(plan: ReturnType<typeof startCheckoutFromRef>, at?: { x: number
             ? {
                 remote: plan.remote,
                 branch: plan.branch,
-                noFastForward: snap!.config.dialogs.pullNoFastForward,
-                squash: snap!.config.dialogs.pullSquash,
+                noFastForward: snap!.config.dialogs.pullRebase ? false : snap!.config.dialogs.pullNoFastForward,
+                rebase: snap!.config.dialogs.pullRebase,
+                squash: snap!.config.dialogs.pullRebase ? false : snap!.config.dialogs.pullSquash,
                 squashMessageFormat: snap!.config.dialogs.pullSquashMessageFormat,
               }
             : undefined,
@@ -3159,6 +3251,8 @@ function menuCommit(hash: string, x: number, y: number): void {
     if (hash === UNCOMMITTED) {
     const items: string[] = [];
     if (vis('uncommitted', 'stash')) items.push(btn('u-st', 'Stash'));
+    if (vis('uncommitted', 'patch')) items.push(btn('u-patch', 'Create patch'));
+    if (vis('uncommitted', 'applyPatch')) items.push(btn('apply-patch', 'Apply patch'));
     if (vis('uncommitted', 'reset')) items.push(btn('u-rs', 'Reset'));
     if (vis('uncommitted', 'clean')) items.push(btn('u-cl', 'Clean'));
     if (vis('uncommitted', 'scm')) items.push(btn('u-scm', 'Open SCM'));
@@ -3172,6 +3266,8 @@ function menuCommit(hash: string, x: number, y: number): void {
         isMerge: c.parents.length > 1,
         withHead: canCompareWithHead(hash),
         visible: (id) => vis('commit', id),
+        cherryPick: rangeCherryItem(hash),
+        createPatch: rangePatchItem(hash),
       }),
     )}`,
     x,
@@ -3201,7 +3297,11 @@ function onMenu(ev: Event): void {
     } else if (folderItem.command === 'copy-full-path') {
       post({ type: 'copy', text: joinRepoPath(rel) });
       showCopiedToast((ev as MouseEvent).clientX, (ev as MouseEvent).clientY);
-    } else post({ type: 'openFolder', path: rel });
+    }     else post({ type: 'openFolder', path: rel });
+    return;
+  }
+  if (id === 'apply-patch' || id === 'c-apply') {
+    void startApplyPatch();
     return;
   }
   if (!snap) return;
@@ -3304,7 +3404,28 @@ function onMenu(ev: Event): void {
       showConfirmTip(`Delete remote branch ${r.name}?`, () => act({ kind: 'deleteRemoteBranch', remote: r.remote ?? r.name.split('/')[0]!, name: r.name }), p.x, p.y);
     }
     if (id === 'rm-fi') act({ kind: 'fetchIntoLocal', local: r.name.slice(r.name.indexOf('/') + 1), remoteRef: r.name, force: d.fetchIntoLocalForce });
-    if (id === 'rm-pl') act({ kind: 'pullBranch', remote: r.remote ?? 'origin', branch: r.name.slice(r.name.indexOf('/') + 1), noFastForward: d.pullNoFastForward, squash: d.pullSquash, squashMessageFormat: d.pullSquashMessageFormat });
+    if (id === 'rm-pl') {
+      const remote = r.remote ?? 'origin';
+      const branch = r.name.slice(r.name.indexOf('/') + 1);
+      gitDialog(
+        'Pull',
+        `<p>Pull <code>${esc(remote)}/${esc(branch)}</code></p>${pullDialogHtml(d)}`,
+        () => {
+          const rebase = val('rb');
+          act({
+            kind: 'pullBranch',
+            remote,
+            branch,
+            rebase,
+            noFastForward: rebase ? false : val('nff'),
+            squash: rebase ? false : val('sq'),
+            squashMessageFormat: d.pullSquashMessageFormat,
+          });
+        },
+        clickPoint(ev),
+      );
+      bindPullMode();
+    }
     if (id === 'pr') openPr(r.name);
   }
   if (ctxCommit) {
@@ -3318,6 +3439,7 @@ function onMenu(ev: Event): void {
       showCopiedToast((ev as MouseEvent).clientX, (ev as MouseEvent).clientY);
     }
     if (id === 'u-st') act({ kind: 'stash', includeUntracked: d.stashIncludeUntracked });
+    if (id === 'u-patch') void saveWorktreePatch();
     if (id === 'u-rs') act({ kind: 'reset', hash: 'HEAD', mode: d.resetUncommittedMode.toLowerCase() as 'mixed' | 'hard' });
     if (id === 'u-cl') {
       const p = clickPoint(ev);
@@ -3350,7 +3472,8 @@ function onMenu(ev: Event): void {
       gitDialog('Create branch', `<input id="bn" /><label><input type="checkbox" id="co" ${d.createBranchCheckOut ? 'checked' : ''}/> checkout</label>`, () => act({ kind: 'createBranch', hash: c.hash, name: applySpaceSubstitution((document.getElementById('bn') as HTMLInputElement).value, sp), checkout: (document.getElementById('co') as HTMLInputElement).checked }), p);
     }
     if (id === 'c-co') act({ kind: 'checkoutCommit', hash: c.hash });
-    if (id === 'c-cp') gitDialog('Cherry-pick', `<label><input type="checkbox" id="nc" ${d.cherryPickNoCommit ? 'checked' : ''}/> no commit</label>`, () => act({ kind: 'cherryPick', hash: c.hash, noCommit: (document.getElementById('nc') as HTMLInputElement).checked, recordOrigin: d.cherryPickRecordOrigin }), clickPoint(ev));
+    if (id === 'c-cp') openCherryDialog(c, clickPoint(ev));
+    if (id === 'c-patch') void saveCommitPatch(c);
     if (id === 'c-rv') gitDialog('Revert', 'Revert this commit?', () => act({ kind: 'revert', hash: c.hash }), clickPoint(ev));
     if (id === 'c-dr') {
       const p = clickPoint(ev);
@@ -3407,7 +3530,254 @@ function onMenu(ev: Event): void {
       post({ type: 'copy', text: joinRepoPath(ctxFile.path) });
       showCopiedToast((ev as MouseEvent).clientX, (ev as MouseEvent).clientY);
     }
+    if (id === 'f-stash') stashSelected(ctxFiles, clickPoint(ev));
+    if (id === 'f-patch') void saveFilePatch(ctxFiles);
   }
+}
+
+function showCtrlSelection(hashes: string[]): void {
+  commitRange = hashes;
+  if (hashes.length >= 3) {
+    selected = null;
+    clearCompare();
+    details = null;
+    post({ type: 'openRow', hash: null });
+  } else if (hashes.length === 2) {
+    selected = hashes[0]!;
+    compare = hashes[1]!;
+    compareAnchor = undefined;
+    post({ type: 'compare', a: hashes[0]!, b: hashes[1]! });
+  } else if (hashes.length === 1) {
+    selected = hashes[0]!;
+    clearCompare();
+    post({ type: 'openRow', hash: selected });
+  } else {
+    selected = null;
+    clearCompare();
+    details = null;
+    post({ type: 'openRow', hash: null });
+  }
+  persistView();
+  paint();
+}
+
+/** Drop a details reply that belongs to an earlier selection. */
+function acceptDetails(payload: CommitDetails | null): boolean {
+  if (commitRange.length >= 3) return !payload;
+  if (commitRange.length === 2) {
+    if (!payload?.compare) return false;
+    const pair = new Set(commitRange);
+    return pair.has(payload.hash) && pair.has(payload.compare);
+  }
+  if (commitRange.length === 1) return !payload || (payload.hash === commitRange[0] && !payload.compare);
+  return true;
+}
+
+function rangePlan(hash: string): ReturnType<typeof cherryPickPlan> | null {
+  if (!snap || commitRange.length < 2 || !commitRange.includes(hash)) return null;
+  return cherryPickPlan(snap.commits, commitRange);
+}
+
+function rangeCherryItem(hash: string): { id: string; label: string; disabled?: boolean; title?: string } | undefined {
+  const plan = rangePlan(hash);
+  if (!plan) return undefined;
+  if (!plan.commits.length) return { id: 'c-cp', label: 'Cherry-pick', disabled: true, title: 'Merge commits cannot be cherry-picked as a range' };
+  const count = plan.commits.length;
+  return { id: 'c-cp', label: count === 1 ? 'Cherry-pick 1 commit' : `Cherry-pick ${count} commits` };
+}
+
+function rangePatchItem(hash: string): { id: string; label: string; disabled?: boolean; title?: string } | undefined {
+  const plan = rangePlan(hash);
+  if (!plan) return undefined;
+  if (!plan.commits.length) return { id: 'c-patch', label: 'Create patch', disabled: true, title: 'Merge commits in the range are skipped' };
+  const count = plan.commits.length;
+  return count === 1 ? { id: 'c-patch', label: 'Create patch' } : { id: 'c-patch', label: `Create patch for ${count} commits` };
+}
+
+function pullDialogHtml(d: GraphSnapshot['config']['dialogs']): string {
+  return `<label><input type="checkbox" id="rb" ${d.pullRebase ? 'checked' : ''}/> rebase</label>
+    <label><input type="checkbox" id="nff" ${d.pullNoFastForward && !d.pullRebase ? 'checked' : ''}/> no ff</label>
+    <label><input type="checkbox" id="sq" ${d.pullSquash && !d.pullRebase ? 'checked' : ''}/> squash</label>`;
+}
+
+function bindPullMode(): void {
+  const rebase = document.getElementById('rb') as HTMLInputElement | null;
+  const noFf = document.getElementById('nff') as HTMLInputElement | null;
+  const squash = document.getElementById('sq') as HTMLInputElement | null;
+  if (!rebase || !noFf || !squash) return;
+  const sync = () => {
+    if (rebase.checked) {
+      noFf.checked = false;
+      squash.checked = false;
+    }
+    noFf.disabled = rebase.checked;
+    squash.disabled = rebase.checked;
+  };
+  rebase.addEventListener('change', sync);
+  for (const box of [noFf, squash]) {
+    box.addEventListener('change', () => {
+      if (box.checked) rebase.checked = false;
+      sync();
+    });
+  }
+  sync();
+}
+
+function fileMenu(clicked: string): string {
+  const items = [
+    btn('f-diff', 'Diff'),
+    btn('f-open', 'Open file'),
+    btn('f-blob', 'View at revision'),
+    btn('f-history', 'File history'),
+    btn('f-blame', 'Blame'),
+    btn('f-copy', 'Copy path'),
+    btn('f-copy-full', 'Copy Full Path'),
+  ];
+  if (!details || details.compare) return items.join('');
+  const files = chosenFiles(clicked);
+  ctxFiles = files;
+  const count = files.length;
+  items.push('<hr class="menu-sep" />');
+  if (details.hash === UNCOMMITTED) {
+    items.push(btn('f-stash', count > 1 ? `Stash ${count} files` : 'Stash this file'));
+  }
+  items.push(btn('f-patch', count > 1 ? `Create patch for ${count} files` : 'Create patch'));
+  return items.join('');
+}
+
+function chosenFiles(clicked: string): { path: string; untracked: boolean }[] {
+  const paths = pickedFiles.includes(clicked) ? pickedFiles : [clicked];
+  const status = new Map((details?.files ?? []).map((file) => [file.path, file.status]));
+  return paths.filter(Boolean).map((path) => ({ path, untracked: status.get(path) === 'U' }));
+}
+
+function togglePickedFile(path: string, shift: boolean): void {
+  if (!path) return;
+  if (shift && pickedFiles.length) {
+    const paths = [...document.querySelectorAll<HTMLElement>('.file')].map((file) => file.dataset.path ?? '').filter(Boolean);
+    const anchor = pickedFiles[pickedFiles.length - 1]!;
+    const start = paths.indexOf(anchor);
+    const end = paths.indexOf(path);
+    if (start >= 0 && end >= 0) {
+      const [from, to] = start <= end ? [start, end] : [end, start];
+      pickedFiles = [...new Set([...pickedFiles, ...paths.slice(from, to + 1)])];
+    } else if (!pickedFiles.includes(path)) pickedFiles.push(path);
+  } else {
+    const index = pickedFiles.indexOf(path);
+    if (index >= 0) pickedFiles.splice(index, 1);
+    else pickedFiles.push(path);
+  }
+  for (const file of document.querySelectorAll<HTMLElement>('.file')) {
+    file.classList.toggle('picked', pickedFiles.includes(file.dataset.path ?? ''));
+  }
+}
+
+function requestPick(kind: 'save' | 'open', opts: { title: string; defaultName?: string }): Promise<{ path: string | null; patchKind?: 'am' | 'apply' }> {
+  const requestId = `pick${++pickSeq}`;
+  return new Promise((resolve) => {
+    pickWaiters.set(requestId, resolve);
+    if (kind === 'save') post({ type: 'pickSaveFile', requestId, title: opts.title, defaultName: opts.defaultName ?? 'changes.patch' });
+    else post({ type: 'pickOpenFile', requestId, title: opts.title });
+  });
+}
+
+function patchBaseName(filePath: string): string {
+  const index = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+  return index >= 0 ? filePath.slice(index + 1) : filePath;
+}
+
+function commitsForPatch(commit: GraphCommit): { hash: string; parents: string[] }[] {
+  const plan = rangePlan(commit.hash);
+  if (plan?.commits.length) return plan.commits;
+  return [{ hash: commit.hash, parents: commit.parents }];
+}
+
+function openCherryDialog(commit: GraphCommit, at: { x: number; y: number }): void {
+  if (!snap) return;
+  const plan = rangePlan(commit.hash);
+  const picked = plan?.commits.length ? plan.commits : [{ hash: commit.hash, parents: commit.parents }];
+  if (!picked.length) return;
+  const subjects = new Map(snap.commits.map((row) => [row.hash, row.subject]));
+  const rows = picked.map((row) => ({ hash: row.hash, subject: subjects.get(row.hash) ?? '' }));
+  const skipped = plan?.skippedMerges ?? 0;
+  const d = snap.config.dialogs;
+  const list = rows.map((row) => `<li><code>${esc(row.hash.slice(0, 7))}</code> ${esc(row.subject)}</li>`).join('');
+  const note = skipped ? `<p>${skipped} merge ${skipped === 1 ? 'commit is' : 'commits are'} skipped.</p>` : '';
+  const heading = rows.length === 1 ? 'Cherry-pick this commit?' : `Cherry-pick ${rows.length} commits, oldest first?`;
+  gitDialog(
+    'Cherry-pick',
+    `<p>${heading}</p>${note}<ul class="dlg-files">${list}</ul><label><input type="checkbox" id="nc" ${d.cherryPickNoCommit ? 'checked' : ''}/> no commit</label>`,
+    () => {
+      commitRange = [];
+      sendGit({
+        kind: 'cherryPick',
+        hashes: rows.map((row) => row.hash),
+        noCommit: (document.getElementById('nc') as HTMLInputElement).checked,
+        recordOrigin: d.cherryPickRecordOrigin,
+      });
+    },
+    at,
+  );
+}
+
+async function saveCommitPatch(commit: GraphCommit): Promise<void> {
+  const commits = commitsForPatch(commit);
+  const name = commits.length === 1 ? patchFileName(commit.subject) : patchFileName(`${commits.length} commits`);
+  const picked = await requestPick('save', { title: 'Create patch', defaultName: name });
+  if (!picked.path) return;
+  commitRange = [];
+  sendGit({ kind: 'createCommitPatch', destination: picked.path, commits });
+}
+
+async function saveFilePatch(files: { path: string; untracked: boolean }[]): Promise<void> {
+  if (!details || !files.length) return;
+  const name = files.length === 1 ? patchFileName(patchBaseName(files[0]!.path).replace(/\.patch$/, '')) : patchFileName(`${files.length} files`);
+  const picked = await requestPick('save', { title: 'Create patch', defaultName: name });
+  if (!picked.path) return;
+  if (details.hash === UNCOMMITTED) {
+    sendGit({ kind: 'createWorktreePatch', destination: picked.path, files });
+    return;
+  }
+  sendGit({
+    kind: 'createFilePatch',
+    destination: picked.path,
+    hash: details.hash,
+    parent: details.parents[0],
+    paths: files.map((file) => file.path),
+  });
+}
+
+async function saveWorktreePatch(): Promise<void> {
+  const picked = await requestPick('save', { title: 'Create patch', defaultName: 'changes.patch' });
+  if (!picked.path) return;
+  sendGit({ kind: 'createWorktreePatch', destination: picked.path });
+}
+
+async function startApplyPatch(): Promise<void> {
+  const picked = await requestPick('open', { title: 'Apply patch' });
+  if (!picked.path) return;
+  const file = picked.path;
+  const commits = picked.patchKind === 'am';
+  gitDialog(
+    'Apply patch',
+    `<p>Apply <code>${esc(patchBaseName(file))}</code></p><label><input type="checkbox" id="am" ${commits ? 'checked' : ''}/> Create commits</label>`,
+    () => sendGit({ kind: 'applyPatch', file, commits: (document.getElementById('am') as HTMLInputElement).checked }),
+  );
+}
+
+function stashSelected(files: { path: string }[], at: { x: number; y: number }): void {
+  if (!files.length) return;
+  const list = files.map((file) => `<li><code>${esc(file.path)}</code></li>`).join('');
+  const heading = files.length === 1 ? 'Stash this file?' : `Stash ${files.length} files?`;
+  gitDialog(
+    'Stash',
+    `<p>${heading}</p><ul class="dlg-files">${list}</ul><label class="dlg-field">Message <input id="sm" /></label>`,
+    () => {
+      const message = (document.getElementById('sm') as HTMLInputElement).value.trim();
+      sendGit({ kind: 'stash', includeUntracked: true, paths: files.map((file) => file.path), ...(message ? { message } : {}) });
+    },
+    at,
+  );
 }
 
 function checks(d: GraphSnapshot['config']['dialogs']): string {

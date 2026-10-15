@@ -22,7 +22,7 @@ import {
   type UndoStack,
 } from '../../shared/undo';
 import { fillPrUrl } from '../../shared/issueLinks';
-import { cfg, getCustomPrProviders, getEmojiMaps, getGlobPatterns, getMenuVisibility, getViewConfig, updateSetting, viewColumn } from '../config';
+import { cfg, autoFetchIntervalSeconds, getCustomPrProviders, getEmojiMaps, getGlobPatterns, getMenuVisibility, getViewConfig, updateSetting, viewColumn } from '../config';
 import { AvatarStore } from '../avatars';
 import { runGitAction } from '../git/actions';
 import { PartialRemotePushError, TagPushError } from '../git/tagPush';
@@ -41,6 +41,7 @@ import { gitOk, gitMaybe } from '../git/runner';
 import { applyRestorePlan, captureCheckpoint, captureRemoteTips, loadCheckpointCommits, workingTreeHasTrackedChanges } from '../git/undo';
 import { diffUri } from '../diff/provider';
 import { diffEditorSides } from '../../shared/diffSides';
+import { detectPatchKind } from '../../shared/historyActions';
 import { primaryWorktreePath } from '../../shared/worktreeDialog';
 import { graphHtml, nonce } from './html';
 import { isNoisyGitWatchPath, snapshotFingerprint } from './gitWatch';
@@ -370,6 +371,9 @@ class GraphSession {
   private loadChain: Promise<void> = Promise.resolve();
   private findGen = 0;
   private opChain: Promise<void> = Promise.resolve();
+  private acting = 0;
+  private autoFetchTimer: ReturnType<typeof setInterval> | undefined;
+  private configSub: vscode.Disposable | undefined;
   private undoStacks = new Map<string, UndoStack>();
   private lastCheckpoints = new Map<string, LocalCheckpoint>();
   private openContributorsPage: (repoPath: string) => Promise<void> = async () => {};
@@ -394,6 +398,13 @@ class GraphSession {
   start(): void {
     this.panel.webview.onDidReceiveMessage((m: ViewToHost) => void this.onMessage(m));
     this.panel.onDidDispose(() => this.dispose());
+    this.configSub = vscode.workspace.onDidChangeConfiguration((event) => {
+      if (this.disposed) return;
+      if (!event.affectsConfiguration('git-graph-ray.repository.autoFetch') && !event.affectsConfiguration('git-graph-ray.repository.autoFetchInterval')) return;
+      this.armAutoFetch();
+      this.post({ type: 'patch', payload: { config: getViewConfig(this.gitVer) } });
+    });
+    this.armAutoFetch();
     this.watch();
   }
 
@@ -644,6 +655,58 @@ class GraphSession {
           this.post({ type: 'picked', requestId: msg.requestId, path: pick?.[0]?.fsPath ?? null });
           return;
         }
+        case 'pickSaveFile': {
+          const pick = await vscode.window.showSaveDialog({
+            title: msg.title,
+            defaultUri: vscode.Uri.file(path.join(this.repoPath, msg.defaultName)),
+            filters: { Patch: ['patch', 'diff'] },
+          });
+          this.post({ type: 'picked', requestId: msg.requestId, path: pick?.fsPath ?? null });
+          return;
+        }
+        case 'pickOpenFile': {
+          const pick = await vscode.window.showOpenDialog({
+            title: msg.title,
+            canSelectFiles: true,
+            canSelectFolders: false,
+            canSelectMany: false,
+            openLabel: 'Select patch',
+            filters: { Patch: ['patch', 'diff'] },
+          });
+          const file = pick?.[0]?.fsPath ?? null;
+          let patchKind: 'am' | 'apply' | undefined;
+          if (file) {
+            const handle = await fs.promises.open(file, 'r');
+            try {
+              const buf = Buffer.alloc(4096);
+              const { bytesRead } = await handle.read(buf, 0, buf.length, 0);
+              patchKind = detectPatchKind(buf.subarray(0, bytesRead).toString('utf8'));
+            } finally {
+              await handle.close();
+            }
+          }
+          this.post({ type: 'picked', requestId: msg.requestId, path: file, patchKind });
+          return;
+        }
+        case 'openMerge': {
+          const full = resolveRepoRelative(this.repoPath, msg.path);
+          if (!full) throw new Error(`File not found: ${msg.path}`);
+          const uri = vscode.Uri.file(full);
+          try {
+            await vscode.commands.executeCommand('git.openMergeEditor', uri);
+          } catch {
+            try {
+              await vscode.commands.executeCommand('vscode.openWith', uri, 'merge-editor');
+            } catch {
+              await vscode.window.showTextDocument(uri, { viewColumn: viewColumn() });
+            }
+          }
+          return;
+        }
+        case 'setAutoFetch':
+          await updateSetting('repository.autoFetch', msg.enabled);
+          await updateSetting('repository.autoFetchInterval', autoFetchIntervalSeconds(msg.interval));
+          return;
         case 'faces':
           await this.sendFaces(msg.emails);
           return;
@@ -948,10 +1011,12 @@ class GraphSession {
     invalidateRemoteTagCache(this.repoPath, remotes);
   }
 
-  private async run(action: GitAction): Promise<void> {
+  private async run(action: GitAction, opts?: { quiet?: boolean }): Promise<void> {
+    this.acting++;
+    const quiet = opts?.quiet === true;
     const policy = undoPolicy(action);
-    this.quietUntil = Date.now() + 60_000;
-    this.post({ type: 'busy', on: true, fetch: action.kind === 'fetchRemote' });
+    this.quietUntil = Date.now() + (quiet ? 1_500 : 60_000);
+    this.post(quiet ? { type: 'busy', on: true, fetch: true, quiet: true } : { type: 'busy', on: true, fetch: action.kind === 'fetchRemote' });
     let report: string | undefined;
     let before: LocalCheckpoint | null = null;
     try {
@@ -998,10 +1063,22 @@ class GraphSession {
         }
       } else if (error instanceof PartialRemotePushError) {
         this.forgetRemoteTags(action, error.pushedRemotes);
+        try {
+          await this.reload({ recordExternal: false });
+        } catch {
+          /* still surface the push error */
+        }
+      } else {
+        try {
+          await this.reload({ recordExternal: false });
+        } catch {
+          /* keep the original git error */
+        }
       }
       throw error;
     } finally {
-      this.post({ type: 'busy', on: false });
+      this.acting = Math.max(0, this.acting - 1);
+      this.post(quiet ? { type: 'busy', on: false, quiet: true } : { type: 'busy', on: false });
       this.postUndoState();
       if (report) this.post({ type: 'rebaseReport', html: report });
     }
@@ -1257,8 +1334,32 @@ class GraphSession {
     this.disposed = true;
     clearTimeout(this.debounce);
     this.debounce = undefined;
+    clearInterval(this.autoFetchTimer);
+    this.autoFetchTimer = undefined;
+    this.configSub?.dispose();
+    this.configSub = undefined;
     this.watcher?.dispose();
     this.watcher = undefined;
+  }
+
+  private armAutoFetch(): void {
+    clearInterval(this.autoFetchTimer);
+    this.autoFetchTimer = undefined;
+    if (this.disposed || !cfg('repository.autoFetch', false)) return;
+    const seconds = autoFetchIntervalSeconds();
+    this.autoFetchTimer = setInterval(() => {
+      if (this.disposed || this.acting) return;
+      void this.enqueue(() =>
+        this.run(
+          {
+            kind: 'fetchRemote',
+            prune: cfg('repository.fetchAndPrune', false),
+            pruneTags: cfg('repository.fetchAndPruneTags', false),
+          },
+          { quiet: true },
+        ),
+      );
+    }, seconds * 1000);
   }
 }
 

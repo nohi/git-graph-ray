@@ -1,7 +1,7 @@
 {
   "name": "git-graph-ray",
   "displayName": "Git Graph Ray",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "nohi",
   "description": "View a Git graph of your repository and run Git actions from it.",
   "license": "MIT",
@@ -315,6 +315,11 @@
         "git-graph-ray.dialog.pullBranch.noFastForward": {
           "type": "boolean",
           "default": false
+        },
+        "git-graph-ray.dialog.pullBranch.rebase": {
+          "type": "boolean",
+          "default": false,
+          "description": "Pre-select rebase in the Pull dialog. Rebase ignores no fast-forward and squash."
         },
         "git-graph-ray.dialog.pullBranch.squashCommits": {
           "type": "boolean",
@@ -659,6 +664,17 @@
           "type": "boolean",
           "default": false,
           "description": "When fetching from the Graph toolbar, also prune stale remote tags."
+        },
+        "git-graph-ray.repository.autoFetch": {
+          "type": "boolean",
+          "default": false,
+          "description": "Fetch remotes on a timer while the Git Graph Ray tab is open. Off by default."
+        },
+        "git-graph-ray.repository.autoFetchInterval": {
+          "type": "number",
+          "default": 180,
+          "minimum": 15,
+          "description": "Seconds between automatic fetches. Used only when Auto Fetch is enabled."
         },
         "git-graph-ray.repository.includeCommitsMentionedByReflogs": {
           "type": "boolean",

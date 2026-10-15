@@ -18,10 +18,10 @@ export type HostToView =
   | { type: 'more'; commits: GraphCommit[]; hasMore: boolean }
   | { type: 'info'; payload: CommitDetails | null }
   | { type: 'fail'; message: string }
-  | { type: 'busy'; on: boolean; fetch?: boolean }
+  | { type: 'busy'; on: boolean; fetch?: boolean; quiet?: boolean }
   | { type: 'notice'; message: string }
   | { type: 'rebaseReport'; html: string }
-  | { type: 'picked'; requestId: string; path: string | null }
+  | { type: 'picked'; requestId: string; path: string | null; patchKind?: 'am' | 'apply' }
   | { type: 'branchMerged'; requestId: string; merged: boolean | null }
   | { type: 'remoteTags'; requestId: string; tags: RemoteTagTip[]; errors: RemoteTagError[] }
   | { type: 'face'; email: string; dataUri: string }
@@ -119,6 +119,10 @@ export type ViewToHost =
   | { type: 'deleteRemote'; name: string }
   | { type: 'openUrl'; url: string }
   | { type: 'pickFolder'; requestId: string; defaultPath?: string }
+  | { type: 'pickSaveFile'; requestId: string; title: string; defaultName: string }
+  | { type: 'pickOpenFile'; requestId: string; title: string }
+  | { type: 'openMerge'; path: string }
+  | { type: 'setAutoFetch'; enabled: boolean; interval: number }
   | { type: 'branchMerged'; requestId: string; name: string }
   | { type: 'remoteTags'; requestId: string; remotes: string[] }
   | { type: 'faces'; emails: string[] }
@@ -131,10 +135,15 @@ export type PushMode = 'normal' | 'force-with-lease' | 'force';
 export type PullAfterwards = {
   remote: string;
   branch: string;
+  rebase: boolean;
   noFastForward: boolean;
   squash: boolean;
   squashMessageFormat: SquashMessageFormat;
 };
+
+export type PatchCommit = { hash: string; parents: string[] };
+
+export type PatchFile = { path: string; untracked: boolean };
 
 export type GitAction =
   | { kind: 'checkoutCommit'; hash: string }
@@ -163,7 +172,7 @@ export type GitAction =
       /** Applies to conflicts and to every other per-branch failure. */
       onFailure: 'skip' | 'stop';
     }
-  | { kind: 'cherryPick'; hash: string; noCommit: boolean; recordOrigin: boolean; parent?: number }
+  | { kind: 'cherryPick'; hashes: string[]; noCommit: boolean; recordOrigin: boolean; parent?: number }
   | { kind: 'revert'; hash: string; noCommit?: boolean; parent?: number }
   | { kind: 'reset'; hash: string; mode: 'soft' | 'mixed' | 'hard' }
   | { kind: 'dropCommit'; hash: string }
@@ -171,7 +180,11 @@ export type GitAction =
   | { kind: 'addTag'; hash: string; name: string; annotated: boolean; message?: string; pushTo?: string[] }
   | { kind: 'deleteTag'; name: string; deleteOnRemote?: string }
   | { kind: 'pushTag'; name: string; remotes: string[] }
-  | { kind: 'stash'; includeUntracked: boolean; message?: string }
+  | { kind: 'stash'; includeUntracked: boolean; message?: string; paths?: string[] }
+  | { kind: 'createCommitPatch'; destination: string; commits: PatchCommit[] }
+  | { kind: 'createFilePatch'; destination: string; hash: string; parent?: string; paths: string[] }
+  | { kind: 'createWorktreePatch'; destination: string; files?: PatchFile[] }
+  | { kind: 'applyPatch'; file: string; commits: boolean }
   | { kind: 'stashApply'; name: string; pop: boolean; reinstateIndex: boolean }
   | { kind: 'stashDrop'; name: string }
   | { kind: 'stashCreateBranch'; name: string; stash: string }
@@ -181,6 +194,7 @@ export type GitAction =
       kind: 'pullBranch';
       remote: string;
       branch: string;
+      rebase: boolean;
       noFastForward: boolean;
       squash: boolean;
       squashMessageFormat: SquashMessageFormat;

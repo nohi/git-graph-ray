@@ -46,7 +46,7 @@ export type RepoInfo = {
   workspaceIndex: number;
 };
 
-export type RepoOperationKind = 'merge' | 'rebase' | 'cherry-pick' | 'revert';
+export type RepoOperationKind = 'merge' | 'rebase' | 'cherry-pick' | 'revert' | 'am';
 
 export type RepoOperation = {
   kind: RepoOperationKind;
@@ -113,6 +113,7 @@ export type DialogDefaults = {
   mergeSquashMessageFormat: 'Default' | 'Git SQUASH_MSG';
   popStashReinstateIndex: boolean;
   pullNoFastForward: boolean;
+  pullRebase: boolean;
   pullSquash: boolean;
   pullSquashMessageFormat: 'Default' | 'Git SQUASH_MSG';
   rebaseIgnoreDate: boolean;
@@ -170,6 +171,10 @@ export type ViewConfig = {
   rayCatCount: number;
   fetchAndPrune: boolean;
   fetchAndPruneTags: boolean;
+  /** Fetch remotes on a timer while the graph is open. Off unless the user enables it. */
+  autoFetch: boolean;
+  /** Seconds between automatic fetches. Ignored while auto fetch is off. */
+  autoFetchInterval: number;
   /** Show the before/after graph before Undo or Redo. */
   undoPreview: boolean;
 };

@@ -1,8 +1,9 @@
 import type { GitAction } from '../../shared/protocol';
-import { cherryPickArgs, mergeArgs, pushBranchArgs, rebaseArgs, rebaseBranchArgs, revertArgs, stashApplyArgs } from '../../shared/gitArgs';
+import { applyPatchArgs, cherryPickArgs, mergeArgs, pullArgs, pushBranchArgs, rebaseArgs, rebaseBranchArgs, revertArgs, stashApplyArgs, stashPushArgs } from '../../shared/gitArgs';
+import { safeRepoPaths } from '../../shared/historyActions';
 import { gitEditorCommand, gitShFromExecPath, posixGitPath, rewordEditorScript, rewordSeqScript } from '../../shared/gitPath';
 import { rebaseBranchesReportHtml, rebaseBranchesSequence, rebaseTargetBranches, restoreCheckoutArgs, type HeadCheckout } from '../../shared/rebaseBranches';
-import { gitMaybe, gitOk } from './runner';
+import { gitExec, gitMaybe, gitOk } from './runner';
 import { readRepoOperation } from './repoState';
 import { workingTreeHasTrackedChanges } from './undo';
 import { runInteractiveRebase } from './terminal';
@@ -65,6 +66,7 @@ export async function runGitAction(
     case 'rebaseBranches':
       return rebaseSelectedBranches(git, cwd, action);
     case 'cherryPick':
+      if (!action.hashes.length) throw new Error('Choose a commit to cherry-pick.');
       await gitOk(git, cwd, cherryPickArgs(action));
       return;
     case 'revert':
@@ -109,12 +111,22 @@ export async function runGitAction(
       return;
     }
     case 'stash': {
-      const args = ['stash', 'push'];
-      if (action.includeUntracked) args.push('-u');
-      if (action.message) args.push('-m', action.message);
-      await gitOk(git, cwd, args);
+      const paths = action.paths?.length ? safeRepoPaths(action.paths) : undefined;
+      await gitOk(git, cwd, stashPushArgs(paths ? { ...action, paths } : action));
       return;
     }
+    case 'createCommitPatch':
+      await writeCommitPatch(git, cwd, action.destination, action.commits);
+      return;
+    case 'createFilePatch':
+      await writeFilePatch(git, cwd, action);
+      return;
+    case 'createWorktreePatch':
+      await writeWorktreePatch(git, cwd, action);
+      return;
+    case 'applyPatch':
+      await gitOk(git, cwd, applyPatchArgs(action.commits, action.file));
+      return;
     case 'stashApply':
       await gitOk(git, cwd, stashApplyArgs(action));
       return;
@@ -221,7 +233,7 @@ async function readHeadCheckout(git: string, cwd: string): Promise<HeadCheckout>
   return { branch, hash };
 }
 
-async function continueOperation(git: string, cwd: string, operation: 'merge' | 'rebase' | 'cherry-pick' | 'revert'): Promise<void> {
+async function continueOperation(git: string, cwd: string, operation: 'merge' | 'rebase' | 'cherry-pick' | 'revert' | 'am'): Promise<void> {
   const fs = await import('node:fs/promises');
   const os = await import('node:os');
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ggr-continue-'));
@@ -247,15 +259,11 @@ async function continueOperation(git: string, cwd: string, operation: 'merge' | 
 async function pull(
   git: string,
   cwd: string,
-  action: { remote: string; branch: string; noFastForward: boolean; squash: boolean; squashMessageFormat: 'Default' | 'Git SQUASH_MSG' },
+  action: { remote: string; branch: string; rebase: boolean; noFastForward: boolean; squash: boolean; squashMessageFormat: 'Default' | 'Git SQUASH_MSG' },
   sign: boolean,
 ): Promise<void> {
-  const args = ['pull'];
-  if (action.noFastForward) args.push('--no-ff');
-  if (action.squash) args.push('--squash', '--no-commit');
-  args.push(action.remote, action.branch);
-  await gitOk(git, cwd, args);
-  if (action.squash) {
+  await gitOk(git, cwd, pullArgs(action));
+  if (!action.rebase && action.squash) {
     const msg = await squashMessage(git, cwd, action.squashMessageFormat);
     await gitOk(git, cwd, commitArgs(msg, sign));
   }
@@ -318,4 +326,68 @@ async function rewordCommit(git: string, cwd: string, hash: string, message: str
   } finally {
     await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
   }
+}
+
+async function gitDiffText(git: string, cwd: string, args: string[]): Promise<string> {
+  const result = await gitExec(git, cwd, args);
+  if (result.code !== 0 && result.code !== 1) throw new Error(result.stderr.trim() || `git ${args[0] ?? 'diff'} failed`);
+  return result.stdout.toString('utf8');
+}
+
+async function writePatchFile(destination: string, chunks: string[]): Promise<void> {
+  const body = chunks
+    .filter((chunk) => chunk.trim())
+    .map((chunk) => (chunk.endsWith('\n') ? chunk : `${chunk}\n`))
+    .join('');
+  if (!body.trim()) throw new Error('Nothing to put in the patch.');
+  const fs = await import('node:fs/promises');
+  await fs.writeFile(destination, body);
+}
+
+async function writeCommitPatch(
+  git: string,
+  cwd: string,
+  destination: string,
+  commits: { hash: string; parents: string[] }[],
+): Promise<void> {
+  if (!commits.length) throw new Error('Choose a commit to patch.');
+  const only = commits.length === 1 ? commits[0] : undefined;
+  if (only && only.parents.length > 1) {
+    const parent = only.parents[0];
+    if (!parent) throw new Error('Nothing to put in the patch.');
+    await writePatchFile(destination, [await gitDiffText(git, cwd, ['diff', '--binary', parent, only.hash])]);
+    return;
+  }
+  const chunks: string[] = [];
+  for (const commit of commits) {
+    if (commit.parents.length > 1) continue;
+    chunks.push(await gitOk(git, cwd, ['format-patch', '-1', '--stdout', '--binary', commit.hash]));
+  }
+  await writePatchFile(destination, chunks);
+}
+
+async function writeFilePatch(git: string, cwd: string, action: Extract<GitAction, { kind: 'createFilePatch' }>): Promise<void> {
+  const paths = safeRepoPaths(action.paths);
+  const args = action.parent
+    ? ['diff', '--binary', action.parent, action.hash, '--', ...paths]
+    : ['show', '--binary', '--format=', action.hash, '--', ...paths];
+  await writePatchFile(action.destination, [await gitDiffText(git, cwd, args)]);
+}
+
+async function writeWorktreePatch(git: string, cwd: string, action: Extract<GitAction, { kind: 'createWorktreePatch' }>): Promise<void> {
+  const chunks: string[] = [];
+  if (!action.files) {
+    chunks.push(await gitDiffText(git, cwd, ['diff', '--binary', 'HEAD']));
+    const listed = await gitOk(git, cwd, ['ls-files', '-z', '--others', '--exclude-standard']);
+    for (const file of listed.split('\0').filter(Boolean)) {
+      const safe = safeRepoPaths([file]);
+      chunks.push(await gitDiffText(git, cwd, ['diff', '--no-index', '--binary', '--', '/dev/null', safe[0]!]));
+    }
+  } else {
+    const tracked = safeRepoPaths(action.files.filter((file) => !file.untracked).map((file) => file.path));
+    const untracked = safeRepoPaths(action.files.filter((file) => file.untracked).map((file) => file.path));
+    if (tracked.length) chunks.push(await gitDiffText(git, cwd, ['diff', '--binary', 'HEAD', '--', ...tracked]));
+    for (const file of untracked) chunks.push(await gitDiffText(git, cwd, ['diff', '--no-index', '--binary', '--', '/dev/null', file]));
+  }
+  await writePatchFile(action.destination, chunks);
 }

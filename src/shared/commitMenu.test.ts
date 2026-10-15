@@ -29,6 +29,9 @@ describe('commitMenuEntries', () => {
       { id: 'cmp', label: 'Compare with…' },
       { id: 'cmp-head', label: 'Compare with HEAD' },
       'sep',
+      { id: 'c-patch', label: 'Create patch' },
+      { id: 'c-apply', label: 'Apply patch' },
+      'sep',
       { id: 'copyh', label: 'Copy commit hash' },
       { id: 'copys', label: 'Copy subject' },
     ]);

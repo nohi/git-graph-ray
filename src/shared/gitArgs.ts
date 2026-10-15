@@ -28,8 +28,8 @@ export function cherryPickArgs(action: Extract<GitAction, { kind: 'cherryPick' }
   const args = ['cherry-pick'];
   if (action.noCommit) args.push('--no-commit');
   if (action.recordOrigin) args.push('-x');
-  if (action.parent != null) args.push('-m', String(action.parent));
-  args.push(action.hash);
+  if (action.parent != null && action.hashes.length === 1) args.push('-m', String(action.parent));
+  args.push(...action.hashes);
   return args;
 }
 
@@ -39,6 +39,40 @@ export function revertArgs(action: Extract<GitAction, { kind: 'revert' }>): stri
   if (action.parent != null) args.push('-m', String(action.parent));
   args.push(action.hash);
   return args;
+}
+
+export function stashPushArgs(action: Extract<GitAction, { kind: 'stash' }>): string[] {
+  const args = ['stash', 'push'];
+  if (action.paths?.length) {
+    args.push('--include-untracked');
+    if (action.message) args.push('-m', action.message);
+    args.push('--', ...action.paths);
+    return args;
+  }
+  if (action.includeUntracked) args.push('-u');
+  if (action.message) args.push('-m', action.message);
+  return args;
+}
+
+export function pullArgs(action: {
+  remote: string;
+  branch: string;
+  rebase: boolean;
+  noFastForward: boolean;
+  squash: boolean;
+}): string[] {
+  const args = ['pull'];
+  if (action.rebase) args.push('--rebase');
+  else {
+    if (action.noFastForward) args.push('--no-ff');
+    if (action.squash) args.push('--squash', '--no-commit');
+  }
+  args.push(action.remote, action.branch);
+  return args;
+}
+
+export function applyPatchArgs(commits: boolean, file: string): string[] {
+  return commits ? ['am', '--3way', '--', file] : ['apply', '--3way', '--', file];
 }
 
 export function stashApplyArgs(action: Extract<GitAction, { kind: 'stashApply' }>): string[] {

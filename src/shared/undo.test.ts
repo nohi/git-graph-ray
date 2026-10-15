@@ -77,13 +77,13 @@ describe('undoPolicy', () => {
   it('records local history and warns when a remote was also touched', () => {
     expect(undoPolicy({ kind: 'reset', hash: A, mode: 'hard' })).toEqual({ record: true, warning: null });
     expect(undoPolicy({ kind: 'rebase', ref: 'main', ignoreDate: false, interactive: false }).record).toBe(true);
-    expect(undoPolicy({ kind: 'pullBranch', remote: 'origin', branch: 'main', noFastForward: false, squash: false, squashMessageFormat: 'Default' }).warning).toMatch(/remote-tracking/);
+    expect(undoPolicy({ kind: 'pullBranch', remote: 'origin', branch: 'main', rebase: false, noFastForward: false, squash: false, squashMessageFormat: 'Default' }).warning).toMatch(/remote-tracking/);
     expect(undoPolicy({ kind: 'fetchIntoLocal', local: 'main', remoteRef: 'origin/main', force: false }).warning).toMatch(/local branch/);
     expect(
       undoPolicy({
         kind: 'checkoutBranch',
         name: 'main',
-        pullAfterwards: { remote: 'origin', branch: 'main', noFastForward: false, squash: false, squashMessageFormat: 'Default' },
+        pullAfterwards: { remote: 'origin', branch: 'main', rebase: false, noFastForward: false, squash: false, squashMessageFormat: 'Default' },
       }).warning,
     ).toMatch(/pulled/);
     expect(undoPolicy({ kind: 'deleteBranch', name: 'feature', force: false, deleteOnRemote: 'origin' }).warning).toMatch(/remote branch/);

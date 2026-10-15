@@ -82,7 +82,13 @@ describe('gitArgs', () => {
     expect(rebaseBranchArgs('main', 'feature', false)).toEqual(['rebase', 'main', 'feature']);
   });
   it('adds cherry-pick -x', () => {
-    expect(cherryPickArgs({ kind: 'cherryPick', hash: 'abc', noCommit: false, recordOrigin: true })).toContain('-x');
+    expect(cherryPickArgs({ kind: 'cherryPick', hashes: ['abc'], noCommit: false, recordOrigin: true })).toContain('-x');
+    expect(cherryPickArgs({ kind: 'cherryPick', hashes: ['old', 'new'], noCommit: true, recordOrigin: false })).toEqual([
+      'cherry-pick',
+      '--no-commit',
+      'old',
+      'new',
+    ]);
   });
 });
 

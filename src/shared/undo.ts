@@ -68,6 +68,9 @@ export function undoPolicy(action: GitAction): { record: boolean; warning: strin
     case 'pushTag':
     case 'deleteRemoteBranch':
     case 'cleanUntracked':
+    case 'createCommitPatch':
+    case 'createFilePatch':
+    case 'createWorktreePatch':
     case 'continueOperation':
     case 'abortOperation':
       return { record: false, warning: null };
@@ -117,7 +120,7 @@ export function undoLabel(action: GitAction): string {
       return `Rebase ${count} ${count === 1 ? 'branch' : 'branches'} onto ${action.onto}`;
     }
     case 'cherryPick':
-      return `Cherry-pick ${shortHash(action.hash)}`;
+      return action.hashes.length > 1 ? `Cherry-pick ${action.hashes.length} commits` : `Cherry-pick ${shortHash(action.hashes[0] ?? '')}`;
     case 'revert':
       return `Revert ${shortHash(action.hash)}`;
     case 'reset':
@@ -133,7 +136,7 @@ export function undoLabel(action: GitAction): string {
     case 'pushTag':
       return `Push tag ${action.name}`;
     case 'stash':
-      return 'Stash';
+      return action.paths?.length ? `Stash ${action.paths.length === 1 ? '1 file' : `${action.paths.length} files`}` : 'Stash';
     case 'stashApply':
       return action.pop ? 'Pop stash' : 'Apply stash';
     case 'stashDrop':
@@ -146,6 +149,12 @@ export function undoLabel(action: GitAction): string {
       return `Push ${action.name}`;
     case 'pullBranch':
       return `Pull ${action.remote}/${action.branch}`;
+    case 'createCommitPatch':
+    case 'createFilePatch':
+    case 'createWorktreePatch':
+      return 'Create patch';
+    case 'applyPatch':
+      return action.commits ? 'Apply patch as commits' : 'Apply patch';
     case 'fetchRemote':
       return 'Fetch';
     case 'fetchIntoLocal':

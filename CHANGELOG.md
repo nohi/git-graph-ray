@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.5.0
+
+### Features
+
+- Pull can rebase. The Pull dialog chooses rebase, no fast-forward, or squash. Rebase turns the other two off.
+- Shift+click selects the commits between two rows. Ctrl/Cmd+click adds or removes individual commits, so the selection does not have to be contiguous. Two selected commits show the diff between them. Three or more close the details. Cherry-pick applies the selection oldest first and skips merge commits.
+- Stash the files selected in uncommitted changes, with an optional message. Untracked files in the selection are included.
+- Open a conflicted file in the VS Code merge editor from its name on the in-progress banner.
+- Create a patch from a commit, a commit range, selected files, or the working tree. Apply a patch to the working tree, or as commits when the file is a format-patch mailbox.
+- Auto fetch while the graph tab is open. It is off by default. The interval is `git-graph-ray.repository.autoFetchInterval` (default 180 seconds, minimum 15).
+
 ## v0.4.0
 
 ### Features

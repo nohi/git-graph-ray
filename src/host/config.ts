@@ -98,6 +98,7 @@ export function getViewConfig(gitVersion = ''): ViewConfig {
       mergeSquashMessageFormat: c.get('dialog.merge.squashMessageFormat') ?? d.mergeSquashMessageFormat,
       popStashReinstateIndex: c.get('dialog.popStash.reinstateIndex') ?? d.popStashReinstateIndex,
       pullNoFastForward: c.get('dialog.pullBranch.noFastForward') ?? d.pullNoFastForward,
+      pullRebase: c.get('dialog.pullBranch.rebase') ?? d.pullRebase,
       pullSquash: c.get('dialog.pullBranch.squashCommits') ?? d.pullSquash,
       pullSquashMessageFormat: c.get('dialog.pullBranch.squashMessageFormat') ?? d.pullSquashMessageFormat,
       rebaseIgnoreDate: c.get('dialog.rebase.ignoreDate') ?? d.rebaseIgnoreDate,
@@ -118,6 +119,8 @@ export function getViewConfig(gitVersion = ''): ViewConfig {
     rayCatCount: Math.max(1, Math.min(10, Math.round(c.get<number>('rayCat.count') ?? 1))),
     fetchAndPrune: c.get('repository.fetchAndPrune') ?? false,
     fetchAndPruneTags: c.get('repository.fetchAndPruneTags') ?? false,
+    autoFetch: c.get('repository.autoFetch') ?? false,
+    autoFetchInterval: autoFetchIntervalSeconds(c.get('repository.autoFetchInterval')),
     undoPreview: c.get('undo.preview') ?? true,
   };
 }
@@ -138,4 +141,11 @@ export function viewColumn(): vscode.ViewColumn {
     Nine: vscode.ViewColumn.Nine,
   };
   return map[v] ?? vscode.ViewColumn.Active;
+}
+
+/** Seconds between automatic fetches. Values below 15 seconds are raised so a zero does not hammer the remote. */
+export function autoFetchIntervalSeconds(value: unknown = cfg<number>('repository.autoFetchInterval', 180)): number {
+  const seconds = typeof value === 'number' ? value : 180;
+  if (!Number.isFinite(seconds)) return 180;
+  return Math.max(15, Math.round(seconds));
 }

@@ -376,6 +376,25 @@ html {
     margin: 0;
   }
 
+  #conflict-msg {
+    flex: 0 0 auto;
+  }
+
+  .conflict-files {
+    flex: 1 1 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.65rem;
+    min-width: 0;
+  }
+
+  button.conflict-file {
+    border: 0;
+    padding: 0;
+    text-decoration: underline;
+    text-align: left;
+  }
+
   button {
     background: transparent;
     color: inherit;
@@ -884,6 +903,13 @@ dialog button:disabled {
   gap: 0.25rem;
 }
 
+.dlg-files {
+  margin: 0.35rem 0 0.6rem;
+  padding-left: 1.1rem;
+  max-height: 10rem;
+  overflow: auto;
+}
+
 .wt-path {
   display: flex;
   gap: 0.35rem;
@@ -1060,6 +1086,11 @@ dialog button:disabled {
   &.sel {
     background: var(--hl-bg);
     box-shadow: inset 3px 0 0 var(--hl);
+  }
+
+  &.range:not(.sel):not(.cmp) {
+    background: color-mix(in srgb, var(--hl) 18%, transparent);
+    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--hl) 55%, transparent);
   }
 
   &.cmp {
@@ -1431,6 +1462,11 @@ dialog button:hover:not(:disabled):not(.btn-primary),
     .file-actions {
       opacity: 1;
     }
+  }
+
+  &.picked {
+    background: var(--hl-bg);
+    box-shadow: inset 3px 0 0 var(--hl);
   }
 }
 

@@ -16,6 +16,8 @@ export function commitMenuEntries(opts: {
   isMerge: boolean;
   withHead: boolean;
   visible: (id: string) => boolean;
+  cherryPick?: MenuItem;
+  createPatch?: MenuItem;
 }): MenuEntry[] {
   const v = opts.visible;
   const groups: MenuItem[][] = [
@@ -33,11 +35,15 @@ export function commitMenuEntries(opts: {
     ]),
     keep([
       v('reword') && opts.canReword && { id: 'c-rw', label: 'History reword' },
-      v('cherry') && { id: 'c-cp', label: 'Cherry Pick' },
+      v('cherry') && (opts.cherryPick ?? { id: 'c-cp', label: 'Cherry Pick' }),
       v('revert') && { id: 'c-rv', label: 'Revert' },
       v('drop') && !opts.isMerge && { id: 'c-dr', label: 'Drop' },
     ]),
     compareMenuEntries({ withHead: opts.withHead, visible: v }),
+    keep([
+      v('patch') && (opts.createPatch ?? { id: 'c-patch', label: 'Create patch' }),
+      v('applyPatch') && { id: 'c-apply', label: 'Apply patch' },
+    ]),
     keep([
       { id: 'copyh', label: 'Copy commit hash' },
       { id: 'copys', label: 'Copy subject' },

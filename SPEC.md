@@ -89,12 +89,16 @@
 ダイアログ既定は `dialog.*`。ref 入力のスペース置換あり。
 
 - Worktree: 開く（同/新窓）、削除（メイン以外）、追加
-- Stash: apply/pop/branch/drop、未コミットから stash
+- Stash: apply/pop/branch/drop、未コミット全体、または詳細で Ctrl/Cmd+クリックしたファイルだけ
 - Tag: add/delete/push
 - Branch: create/checkout/rename/delete/merge/rebase/push/PR
-- Remote: checkout/delete/fetch-into/pull/PR
-- Uncommitted: stash/reset/clean/SCM
-- Commit: tag/branch/checkout/cherry-pick/revert/drop（親1）/merge/rebase/reset/worktree/copy/reword
+- Remote: checkout/delete/fetch-into/pull（rebase / no-ff / squash）/PR
+- Uncommitted: stash/reset/clean/SCM、パッチ作成、パッチ適用
+- Commit: tag/branch/checkout/cherry-pick/revert/drop（親1）/merge/rebase/reset/worktree/copy/reword、パッチ作成、パッチ適用
+- ファイル: 未コミットの選択ファイルは stash またはパッチ。コミット上の選択ファイルはパッチ
+- Shift+クリックでグラフ上の範囲を選ぶ。Ctrl/Cmd+クリックで個別に追加・解除でき、連続していなくてもよい。2件のときはその差分を開き、3件以上では詳細を閉じる。右クリックで cherry-pick。マージは除き、古い順
+- 進行中の merge / rebase / cherry-pick / revert / `git am` は衝突ファイル名から VS Code のマージエディタを開く
+- 自動 fetch は `repository.autoFetch`（既定オフ）。間隔は `repository.autoFetchInterval`（既定 180 秒、最小 15）
 - Reword: Git >= 2.54 のみ。未満はメニュー非表示。履歴書き換え時は確認
 - 対話 rebase は統合ターミナル。askpass は InputBox
 - `integratedTerminalShell` はフェーズ8
