@@ -869,6 +869,12 @@ dialog button:disabled {
   }
 }
 
+#dlg-git:has(#ru) {
+  box-sizing: border-box;
+  width: clamp(400px, calc(100vw - 16px), 800px);
+  max-width: calc(100vw - 16px);
+}
+
 #git-body .rebase-list {
   margin: 0;
   padding-left: 1.1rem;
