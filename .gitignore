@@ -14,7 +14,7 @@ node_modules/
 dist/
 
 # agent
-.agent/temp/
+.agents/temp/
 .claude/settings.local.json
 
 # IDE
