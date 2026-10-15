@@ -908,6 +908,11 @@ dialog button:disabled {
   color: light-dark(#9a6700, #fbbf24);
 }
 
+#tag-remote-err {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .dlg-stack {
   display: flex;
   flex-direction: column;
@@ -933,6 +938,44 @@ dialog button:disabled {
   height: 14px;
   color: #fbbf24;
   flex: 0 0 auto;
+}
+
+.dlg-ok-ic {
+  width: 14px;
+  height: 14px;
+  color: light-dark(#1a7f37, #3fb950);
+  flex: 0 0 auto;
+}
+
+.dlg-tag-spin {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+  flex: 0 0 auto;
+  animation: spin 0.7s linear infinite;
+}
+
+.dlg-tag-mark {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.15rem;
+  vertical-align: -2px;
+}
+
+.dlg-tag-mark:empty {
+  display: none;
+}
+
+.dlg-remote-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+#git-body .dlg-remote-row select {
+  width: auto;
+  flex: 1;
+  min-width: 0;
 }
 
 .board {

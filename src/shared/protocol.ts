@@ -10,6 +10,7 @@ import type {
   ViewConfig,
 } from './types';
 import type { RemoteInfo, RepoSettings } from './dialogs';
+import type { RemoteTagError, RemoteTagTip } from './remoteTags';
 
 export type HostToView =
   | { type: 'snapshot'; payload: GraphSnapshot }
@@ -22,6 +23,7 @@ export type HostToView =
   | { type: 'rebaseReport'; html: string }
   | { type: 'picked'; requestId: string; path: string | null }
   | { type: 'branchMerged'; requestId: string; merged: boolean | null }
+  | { type: 'remoteTags'; requestId: string; tags: RemoteTagTip[]; errors: RemoteTagError[] }
   | { type: 'face'; email: string; dataUri: string }
   | { type: 'facesReset' }
   | { type: 'findHits'; requestId: string; hashes: string[]; indexes: number[]; truncated: boolean; error?: string }
@@ -118,6 +120,7 @@ export type ViewToHost =
   | { type: 'openUrl'; url: string }
   | { type: 'pickFolder'; requestId: string; defaultPath?: string }
   | { type: 'branchMerged'; requestId: string; name: string }
+  | { type: 'remoteTags'; requestId: string; remotes: string[] }
   | { type: 'faces'; emails: string[] }
   | { type: 'openContributors' };
 
@@ -165,9 +168,9 @@ export type GitAction =
   | { kind: 'reset'; hash: string; mode: 'soft' | 'mixed' | 'hard' }
   | { kind: 'dropCommit'; hash: string }
   | { kind: 'reword'; hash: string; message: string }
-  | { kind: 'addTag'; hash: string; name: string; annotated: boolean; message?: string; pushTo?: string }
+  | { kind: 'addTag'; hash: string; name: string; annotated: boolean; message?: string; pushTo?: string[] }
   | { kind: 'deleteTag'; name: string; deleteOnRemote?: string }
-  | { kind: 'pushTag'; name: string; remote: string }
+  | { kind: 'pushTag'; name: string; remotes: string[] }
   | { kind: 'stash'; includeUntracked: boolean; message?: string }
   | { kind: 'stashApply'; name: string; pop: boolean; reinstateIndex: boolean }
   | { kind: 'stashDrop'; name: string }

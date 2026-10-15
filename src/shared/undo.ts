@@ -82,7 +82,7 @@ export function undoPolicy(action: GitAction): { record: boolean; warning: strin
     case 'deleteTag':
       return { record: true, warning: action.deleteOnRemote ? DELETE_REMOTE_TAG_WARNING : null };
     case 'addTag':
-      return { record: true, warning: action.pushTo ? PUSH_TAG_WARNING : null };
+      return { record: true, warning: action.pushTo?.length ? PUSH_TAG_WARNING : null };
     case 'pullBranch':
       return { record: true, warning: PULL_WARNING };
     case 'fetchIntoLocal':

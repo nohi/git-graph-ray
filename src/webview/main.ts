@@ -38,7 +38,8 @@ import { buildFileTree, FOLDER_MENU, folderFoldPlan, wantsNestedFolderToggle, ty
 import { decideNamedRemoteCheckout, startCheckoutFromRef } from '../shared/checkout';
 import { applySpaceSubstitution, defaultRepoSettings, type RepoSettings } from '../shared/dialogs';
 import { deleteBranchConfirm, deleteBranchDialogHtml, type BranchMergeState } from '../shared/deleteBranch';
-import { parsePushMode, pushBranchDialogHtml } from '../shared/pushDialog';
+import { addTagDialogHtml, parsePushMode, pushBranchDialogHtml, pushTagDialogHtml, tagOnRemoteIcon, tagRemoteLoadingIcon } from '../shared/pushDialog';
+import { remoteTagErrorText, tagOnRemote, type RemoteTagError, type RemoteTagTip } from '../shared/remoteTags';
 import {
   defaultWorktreeLocation,
   suggestedWorktreeFolder,
@@ -108,6 +109,12 @@ let dialogOk: (() => void) | null = null;
 let deleteBranchReq = '';
 let deleteBranchSeq = 0;
 let deleteBranchMerge: BranchMergeState = 'unknown';
+let remoteTagReq = '';
+let remoteTagSeq = 0;
+let remoteTagLoading = false;
+let remoteTagCommits = new Map<string, string>();
+/** `name` is null while Add tag reads the name field. */
+let tagMark: { commit: string; name: string | null } | null = null;
 let confirmOk: (() => void) | null = null;
 let compareBase: string | null = null;
 let compareActive = 0;
@@ -243,6 +250,12 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
     if (m.requestId !== deleteBranchReq) return;
     deleteBranchMerge = m.merged === true ? 'merged' : m.merged === false ? 'unmerged' : 'unknown';
     syncDeleteBranchForm();
+  } else if (m.type === 'remoteTags') {
+    if (m.requestId !== remoteTagReq || !tagMark) return;
+    remoteTagLoading = false;
+    remoteTagCommits = indexRemoteTags(m.tags);
+    paintTagRemoteMarks();
+    paintRemoteTagError(m.errors);
   } else if (m.type === 'picked') {
     const input = document.querySelector<HTMLInputElement>(`[data-pick="${m.requestId}"]`);
     if (input) {
@@ -1732,10 +1745,56 @@ function syncDeleteBranchForm(): void {
 }
 
 function syncGitOkFromRemotes(): void {
+  if ($('git-body').querySelector('[data-push-optional]')) return;
   const boxes = $('git-body').querySelectorAll<HTMLInputElement>('input[name="rm"]');
   const sel = $('git-body').querySelector<HTMLSelectElement>('select#rm');
   if (!boxes.length && !sel) return;
   $('git-ok').disabled = selectedPushRemotes().length === 0;
+}
+
+function indexRemoteTags(tags: RemoteTagTip[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const tag of tags) map.set(`${tag.remote}\0${tag.name}`, tag.commit);
+  return map;
+}
+
+function tagMarkName(): string {
+  if (!tagMark) return '';
+  if (tagMark.name != null) return tagMark.name;
+  const raw = (document.getElementById('tn') as HTMLInputElement | null)?.value ?? '';
+  return applySpaceSubstitution(raw, snap?.config.dialogs.spaceSubstitution ?? 'None');
+}
+
+function paintRemoteTagError(errors: readonly RemoteTagError[]): void {
+  const el = document.getElementById('tag-remote-err');
+  if (!el) return;
+  const text = remoteTagErrorText(errors);
+  el.textContent = text;
+  el.hidden = !text;
+}
+
+function paintTagRemoteMarks(): void {
+  if (!tagMark) return;
+  const name = tagMarkName();
+  const iconFor = (remote: string) =>
+    remoteTagLoading
+      ? tagRemoteLoadingIcon()
+      : tagOnRemoteIcon(tagOnRemote(tagMark!.commit, remote ? remoteTagCommits.get(`${remote}\0${name}`) : undefined));
+  for (const el of $('git-body').querySelectorAll<HTMLElement>('[data-tag-mark]')) el.innerHTML = iconFor(el.dataset.tagMark ?? '');
+  const sel = $('git-body').querySelector<HTMLSelectElement>('select#rm');
+  const selMark = document.getElementById('rm-mark');
+  if (sel && selMark) selMark.innerHTML = iconFor(sel.value);
+}
+
+function watchRemoteTags(commit: string, name: string | null): void {
+  tagMark = { commit, name };
+  remoteTagCommits = new Map();
+  remoteTagLoading = (snap?.remotes.length ?? 0) > 0;
+  paintTagRemoteMarks();
+  if (!remoteTagLoading || !snap) return;
+  const requestId = String(++remoteTagSeq);
+  remoteTagReq = requestId;
+  post({ type: 'remoteTags', requestId, remotes: snap.remotes.map((remote) => remote.name) });
 }
 
 function clickPoint(ev: Event): { x: number; y: number } {
@@ -1963,9 +2022,11 @@ function bindDialogs(): void {
   $('git-body').addEventListener('change', () => {
     syncGitOkFromRemotes();
     syncDeleteBranchForm();
+    if (tagMark) paintTagRemoteMarks();
   });
   $('git-body').addEventListener('input', () => {
     if (document.getElementById('wt-name')) syncWorktreeForm();
+    if (tagMark && document.getElementById('tn')) paintTagRemoteMarks();
   });
   $('git-cancel').addEventListener('click', () => {
     dialogOk = null;
@@ -1975,6 +2036,9 @@ function bindDialogs(): void {
     dialogOk = null;
   });
   dlg.addEventListener('close', () => {
+    tagMark = null;
+    remoteTagReq = '';
+    remoteTagLoading = false;
     gitDialogAt = null;
     clearCursorDialog(dlg);
   });
@@ -3173,7 +3237,14 @@ function onMenu(ev: Event): void {
       const p = clickPoint(ev);
       showConfirmTip(`Delete tag ${r.name}?`, () => act({ kind: 'deleteTag', name: r.name }), p.x, p.y);
     }
-    if (id === 'tag-push') gitDialog('Push tag', `<input id="rm" value="${esc(snap.remotes[0]?.name ?? 'origin')}" />`, () => act({ kind: 'pushTag', name: r.name, remote: (document.getElementById('rm') as HTMLInputElement).value }));
+    if (id === 'tag-push') {
+      gitDialog('Push tag', pushTagDialogHtml(snap.remotes.map((x) => x.name)), () => {
+        const remotes = selectedPushRemotes();
+        if (!remotes.length) return;
+        act({ kind: 'pushTag', name: r.name, remotes });
+      });
+      watchRemoteTags(r.hash, r.name);
+    }
     if (id === 'br-co') runPlan({ kind: 'local', name: r.name });
     if (id === 'br-rn') gitDialog('Rename', `<input id="nn" value="${esc(r.name)}" />`, () => act({ kind: 'renameBranch', oldName: r.name, newName: applySpaceSubstitution((document.getElementById('nn') as HTMLInputElement).value, sp) }), clickPoint(ev));
     if (id === 'br-del') {
@@ -3253,7 +3324,27 @@ function onMenu(ev: Event): void {
       showConfirmTip('Delete untracked files?', () => act({ kind: 'cleanUntracked', directories: true }), p.x, p.y);
     }
     if (id === 'u-scm') act({ kind: 'openScm' });
-    if (id === 'c-tag') gitDialog('Add tag', `<input id="tn" /><label><input type="checkbox" id="an" ${d.addTagType === 'Annotated' ? 'checked' : ''}/> annotated</label>`, () => act({ kind: 'addTag', hash: c.hash, name: applySpaceSubstitution((document.getElementById('tn') as HTMLInputElement).value, sp), annotated: (document.getElementById('an') as HTMLInputElement).checked, pushTo: d.addTagPushToRemote ? snap!.remotes[0]?.name : undefined }), clickPoint(ev));
+    if (id === 'c-tag') {
+      gitDialog(
+        'Add tag',
+        addTagDialogHtml(snap.remotes.map((x) => x.name), {
+          annotated: d.addTagType === 'Annotated',
+          pushToRemote: d.addTagPushToRemote,
+        }),
+        () => {
+          const remotes = selectedPushRemotes();
+          act({
+            kind: 'addTag',
+            hash: c.hash,
+            name: applySpaceSubstitution((document.getElementById('tn') as HTMLInputElement).value, sp),
+            annotated: (document.getElementById('an') as HTMLInputElement).checked,
+            ...(remotes.length ? { pushTo: remotes } : {}),
+          });
+        },
+        clickPoint(ev),
+      );
+      watchRemoteTags(c.hash, null);
+    }
     if (id === 'c-br') {
       const p = clickPoint(ev);
       gitDialog('Create branch', `<input id="bn" /><label><input type="checkbox" id="co" ${d.createBranchCheckOut ? 'checked' : ''}/> checkout</label>`, () => act({ kind: 'createBranch', hash: c.hash, name: applySpaceSubstitution((document.getElementById('bn') as HTMLInputElement).value, sp), checkout: (document.getElementById('co') as HTMLInputElement).checked }), p);

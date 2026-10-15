@@ -12,6 +12,15 @@
 - Highlight the selected branches on the graph. Their history stays bright, including the lane segments that pass other commits, and the other lines fade.
 - Compare a commit, local branch, or remote branch with another revision. Right-click and choose Compare with… to search local branches, remote branches, tags, or a commit hash, or choose Compare with HEAD.
 - Show that diff in the same commit details view as Ctrl/Cmd+click. The details panel opens on the row of the commit or branch you right-clicked.
+- Choose one or more remotes when adding a tag. Nothing is selected by default. Selected remotes are pushed after the local tag is created. A failed push stops there and leaves the local tag.
+- Choose one or more remotes when pushing a tag.
+- Show a check beside a remote that already has the tag on the same commit, and a warning when that remote tag points at a different commit. A spinner shows while the lookup is in progress.
+- Show the Git error in the Add Tag and Push Tag dialogs when `git ls-remote --tags` fails. Creating or deleting the local tag still works.
+- Reuse `git ls-remote --tags` results for `git-graph-ray.repository.remoteTags.cacheSeconds` (default 300 seconds). Set it to 0 to query every time. Pushing or deleting a remote tag from this extension drops that remote's cache.
+
+### Changes
+
+- `git-graph-ray.dialog.addTag.pushToRemote` pre-selects the preferred remote (origin, or the first remote) in the Add Tag dialog.
 
 ### Fixes
 

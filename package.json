@@ -236,7 +236,8 @@
         },
         "git-graph-ray.dialog.addTag.pushToRemote": {
           "type": "boolean",
-          "default": false
+          "default": false,
+          "description": "Pre-select the preferred remote (origin, or the first remote) in the Add Tag dialog. When disabled, no push destination is selected."
         },
         "git-graph-ray.dialog.addTag.type": {
           "type": "string",
@@ -681,6 +682,12 @@
         "git-graph-ray.repository.onlyFollowFirstParent": {
           "type": "boolean",
           "default": false
+        },
+        "git-graph-ray.repository.remoteTags.cacheSeconds": {
+          "type": "number",
+          "default": 300,
+          "minimum": 0,
+          "description": "How long to reuse git ls-remote --tags results for Add Tag and Push Tag, in seconds. Successful lookups and failures are both reused. Set to 0 to query the remote every time."
         },
         "git-graph-ray.repository.showCommitsOnlyReferencedByTags": {
           "type": "boolean",

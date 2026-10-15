@@ -25,12 +25,14 @@ import { fillPrUrl } from '../../shared/issueLinks';
 import { cfg, getCustomPrProviders, getEmojiMaps, getGlobPatterns, getMenuVisibility, getViewConfig, updateSetting, viewColumn } from '../config';
 import { AvatarStore } from '../avatars';
 import { runGitAction } from '../git/actions';
+import { PartialRemotePushError, TagPushError } from '../git/tagPush';
 import { loadDetails, resolveRepoRelative } from '../git/details';
 import { loadCommits, withUncommitted, workingTreeDirty, findDiffHashes, findCommitHashes, hashIndex, parseUpstreamDivergence } from '../git/log';
 import { readRepoOperation } from '../git/repoState';
 import { compileFindRegex, indexFindHashes } from '../../shared/commitFind';
 import { addRemote, deleteRemote, editRemote, listRemotes } from '../git/remotes';
 import { branchFullyMerged } from '../git/branchMerged';
+import { invalidateRemoteTagCache, loadRemoteTagTips } from '../git/remoteTags';
 import { loadRefs } from '../git/refs';
 import { listWorktrees } from '../git/worktree';
 import { discoverRepos, norm } from '../repos/discover';
@@ -622,6 +624,14 @@ class GraphSession {
           this.post({ type: 'branchMerged', requestId: msg.requestId, merged });
           return;
         }
+        case 'remoteTags': {
+          const lookup = await loadRemoteTagTips(this.git(), this.repoPath, msg.remotes, remoteTagCacheMs()).catch((error: unknown) => ({
+            tags: [],
+            errors: [{ remote: '', message: error instanceof Error ? error.message : String(error) }],
+          }));
+          this.post({ type: 'remoteTags', requestId: msg.requestId, tags: lookup.tags, errors: lookup.errors });
+          return;
+        }
         case 'pickFolder': {
           const pick = await vscode.window.showOpenDialog({
             canSelectFolders: true,
@@ -933,13 +943,18 @@ class GraphSession {
     return run;
   }
 
+  private forgetRemoteTags(action: GitAction, remotes = remoteTagTargets(action)): void {
+    if (!this.repoPath || !remotes.length) return;
+    invalidateRemoteTagCache(this.repoPath, remotes);
+  }
+
   private async run(action: GitAction): Promise<void> {
     const policy = undoPolicy(action);
     this.quietUntil = Date.now() + 60_000;
     this.post({ type: 'busy', on: true, fetch: action.kind === 'fetchRemote' });
     let report: string | undefined;
+    let before: LocalCheckpoint | null = null;
     try {
-      let before: LocalCheckpoint | null = null;
       if (policy.record && this.repoPath) {
         try {
           before = await captureCheckpoint(this.git(), this.repoPath);
@@ -963,6 +978,7 @@ class GraphSession {
         shellPath: cfg('integratedTerminalShell', '') || undefined,
       });
       if (result) report = result;
+      this.forgetRemoteTags(action);
       await this.reload({ recordExternal: false });
       if (before) {
         try {
@@ -971,6 +987,19 @@ class GraphSession {
           /* the git action succeeded; skip history if the after-snapshot fails */
         }
       }
+    } catch (error) {
+      if (error instanceof TagPushError) {
+        this.forgetRemoteTags(action, error.pushedRemotes);
+        try {
+          await this.reload({ recordExternal: false });
+          if (before) await this.recordUndo(action, before, error.pushed ? policy.warning : null);
+        } catch {
+          /* the local tag exists; still surface the push error */
+        }
+      } else if (error instanceof PartialRemotePushError) {
+        this.forgetRemoteTags(action, error.pushedRemotes);
+      }
+      throw error;
     } finally {
       this.post({ type: 'busy', on: false });
       this.postUndoState();
@@ -1240,4 +1269,17 @@ export function prUrl(
   dest: string,
 ): string {
   return fillPrUrl(template, { repo, source, dest });
+}
+
+function remoteTagCacheMs(): number {
+  const seconds = cfg<number>('repository.remoteTags.cacheSeconds', 300);
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) return 0;
+  return seconds * 1000;
+}
+
+function remoteTagTargets(action: GitAction): string[] {
+  if (action.kind === 'addTag') return action.pushTo?.filter(Boolean) ?? [];
+  if (action.kind === 'pushTag') return action.remotes.filter(Boolean);
+  if (action.kind === 'deleteTag' && action.deleteOnRemote) return [action.deleteOnRemote];
+  return [];
 }

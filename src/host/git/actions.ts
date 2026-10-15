@@ -6,6 +6,7 @@ import { gitMaybe, gitOk } from './runner';
 import { readRepoOperation } from './repoState';
 import { workingTreeHasTrackedChanges } from './undo';
 import { runInteractiveRebase } from './terminal';
+import { PartialRemotePushError, pushTagToRemotes } from './tagPush';
 import { addWorktree, removeWorktree } from './worktree';
 import { existsSync } from 'node:fs';
 import * as path from 'node:path';
@@ -84,16 +85,29 @@ export async function runGitAction(
         : ['tag', action.name, action.hash];
       if (opts.signTags && action.annotated) args.splice(1, 0, '-s');
       await gitOk(git, cwd, args);
-      if (action.pushTo) await gitOk(git, cwd, ['push', action.pushTo, action.name]);
+      await pushTagToRemotes(action.pushTo?.filter(Boolean) ?? [], async (remote) => {
+        await gitOk(git, cwd, ['push', remote, action.name]);
+      });
       return;
     }
     case 'deleteTag':
       await gitOk(git, cwd, ['tag', '-d', action.name]);
       if (action.deleteOnRemote) await gitOk(git, cwd, ['push', action.deleteOnRemote, `--delete`, `refs/tags/${action.name}`]);
       return;
-    case 'pushTag':
-      await gitOk(git, cwd, ['push', action.remote, action.name]);
+    case 'pushTag': {
+      const remotes = action.remotes.filter(Boolean);
+      const done: string[] = [];
+      for (const remote of remotes) {
+        try {
+          await gitOk(git, cwd, ['push', remote, action.name]);
+          done.push(remote);
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : String(error);
+          throw new PartialRemotePushError(detail, done);
+        }
+      }
       return;
+    }
     case 'stash': {
       const args = ['stash', 'push'];
       if (action.includeUntracked) args.push('-u');

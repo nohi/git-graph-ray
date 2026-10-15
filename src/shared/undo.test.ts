@@ -65,7 +65,7 @@ describe('undoPolicy', () => {
   it('skips remotes, worktrees, clean, and interactive rebase', () => {
     expect(undoPolicy({ kind: 'fetchRemote', prune: false, pruneTags: false }).record).toBe(false);
     expect(undoPolicy({ kind: 'pushBranch', name: 'main', remotes: ['origin'], setUpstream: false, mode: 'normal' }).record).toBe(false);
-    expect(undoPolicy({ kind: 'pushTag', name: 'v1', remote: 'origin' }).record).toBe(false);
+    expect(undoPolicy({ kind: 'pushTag', name: 'v1', remotes: ['origin'] }).record).toBe(false);
     expect(undoPolicy({ kind: 'deleteRemoteBranch', remote: 'origin', name: 'origin/feature' }).record).toBe(false);
     expect(undoPolicy({ kind: 'worktreeAdd', hash: A, path: '/tmp/wt' }).record).toBe(false);
     expect(undoPolicy({ kind: 'worktreeRemove', path: '/tmp/wt', force: false }).record).toBe(false);
@@ -88,7 +88,9 @@ describe('undoPolicy', () => {
     ).toMatch(/pulled/);
     expect(undoPolicy({ kind: 'deleteBranch', name: 'feature', force: false, deleteOnRemote: 'origin' }).warning).toMatch(/remote branch/);
     expect(undoPolicy({ kind: 'deleteTag', name: 'v1', deleteOnRemote: 'origin' }).warning).toMatch(/remote tag/);
-    expect(undoPolicy({ kind: 'addTag', hash: A, name: 'v1', annotated: false, pushTo: 'origin' }).warning).toMatch(/pushed/);
+    expect(undoPolicy({ kind: 'addTag', hash: A, name: 'v1', annotated: false, pushTo: ['origin'] }).warning).toMatch(/pushed/);
+    expect(undoPolicy({ kind: 'addTag', hash: A, name: 'v1', annotated: false }).warning).toBeNull();
+    expect(undoPolicy({ kind: 'addTag', hash: A, name: 'v1', annotated: false, pushTo: [] }).warning).toBeNull();
     expect(undoPolicy({ kind: 'checkoutBranch', name: 'main' }).warning).toBeNull();
   });
 });
