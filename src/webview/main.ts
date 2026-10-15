@@ -33,7 +33,7 @@ import {
   type PersonField,
   type PersonFilter,
 } from '../shared/personFilter';
-import { foldBridgeEdges, historyLanes, layoutCommits, type Layout } from '../shared/layout';
+import { foldBridgeEdges, historyEdgeHot, historyLanes, layoutCommits, type Layout } from '../shared/layout';
 import { buildFileTree, FOLDER_MENU, folderFoldPlan, wantsNestedFolderToggle, type FolderFoldPlan } from '../shared/fileTree';
 import { decideNamedRemoteCheckout, startCheckoutFromRef } from '../shared/checkout';
 import { applySpaceSubstitution, defaultRepoSettings, type RepoSettings } from '../shared/dialogs';
@@ -700,7 +700,6 @@ function paintGraph(rows: number[], gap: { after: number; height: number } | nul
   const nodeAt = new Set(rows.map((commitIndex, index) => `${index}:${layout.vertices[commitIndex]?.lane ?? ''}`));
   const history = pickedHistory();
   const lanes = history ? historyLanes(layout, snap.commits, history) : null;
-  const laneHot = (row: number, lane: number) => !lanes || Boolean(lanes[row]?.[lane]);
   const pathD: string[] = [];
   const drawEdge = (
     fromDisplay: number,
@@ -710,7 +709,6 @@ function paintGraph(rows: number[], gap: { after: number; height: number } | nul
     lane: number,
     committed: boolean,
     fromCommitIndex: number,
-    toCommitIndex: number,
   ): void => {
     const colour = colourForLane(lane, snap!.config.graphColours, snap!.config.theme);
     const y1 = rowY(fromDisplay, gap);
@@ -726,7 +724,7 @@ function paintGraph(rows: number[], gap: { after: number; height: number } | nul
       snap!.config.graphStyle,
       edgeCurveAt(nodeAt.has(`${toDisplay}:${toLane}`), fromIsMerge),
     );
-    const hot = laneHot(fromCommitIndex, fromLane) || laneHot(toCommitIndex, toLane);
+    const hot = historyEdgeHot(lanes, fromCommitIndex, fromLane);
     const fade = lanes && !hot ? ' stroke-opacity="0.2"' : '';
     pathD.push(
       `<path d="${d}" fill="none" stroke="${colour}" stroke-width="${hot && lanes ? 2.75 : 2}" stroke-linecap="round"${fade} ${committed ? '' : 'stroke-dasharray="4 3"'} />`,
@@ -736,14 +734,14 @@ function paintGraph(rows: number[], gap: { after: number; height: number } | nul
     const fromDisplay = displayOf.get(edge.fromRow);
     const toDisplay = displayOf.get(edge.toRow);
     if (fromDisplay == null || toDisplay == null) continue;
-    drawEdge(fromDisplay, toDisplay, edge.fromLane, edge.toLane, edge.lane, edge.committed, edge.fromRow, edge.toRow);
+    drawEdge(fromDisplay, toDisplay, edge.fromLane, edge.toLane, edge.lane, edge.committed, edge.fromRow);
   }
   for (const span of hiddenGaps(rows)) {
     const fromDisplay = displayOf.get(span.above);
     const toDisplay = displayOf.get(span.below);
     if (fromDisplay == null || toDisplay == null) continue;
     for (const edge of foldBridgeEdges(layout, span.above, span.below)) {
-      drawEdge(fromDisplay, toDisplay, edge.fromLane, edge.toLane, edge.lane, edge.committed, span.above, span.below);
+      drawEdge(fromDisplay, toDisplay, edge.fromLane, edge.toLane, edge.lane, edge.committed, span.above);
     }
   }
   for (const commitIndex of rows) {

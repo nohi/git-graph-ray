@@ -13,6 +13,10 @@
 - Compare a commit, local branch, or remote branch with another revision. Right-click and choose Compare with… to search local branches, remote branches, tags, or a commit hash, or choose Compare with HEAD.
 - Show that diff in the same commit details view as Ctrl/Cmd+click. The details panel opens on the row of the commit or branch you right-clicked.
 
+### Fixes
+
+- Dim the first curve of a branch that was not selected. Only lines that already carry the selected history stay bright.
+
 ## v0.3.0
 
 ### Features

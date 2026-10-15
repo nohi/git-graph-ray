@@ -103,6 +103,12 @@ export function historyLanes(layout: Layout, commits: ReadonlyArray<{ hash: stri
   return hot;
 }
 
+/** Bright only when the selected history already occupies the edge's source lane. */
+export function historyEdgeHot(lanes: boolean[][] | null, fromRow: number, fromLane: number): boolean {
+  if (!lanes) return true;
+  return Boolean(lanes[fromRow]?.[fromLane]);
+}
+
 export type BridgeEdge = Pick<Edge, 'fromLane' | 'toLane' | 'lane' | 'committed'>;
 
 /**

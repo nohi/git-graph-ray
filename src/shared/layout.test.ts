@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { foldBridgeEdges, historyLanes, layoutCommits } from './layout';
+import { foldBridgeEdges, historyEdgeHot, historyLanes, layoutCommits } from './layout';
 import type { GraphCommit } from './types';
 
 function c(hash: string, parents: string[]): GraphCommit {
@@ -31,11 +31,16 @@ describe('layoutCommits', () => {
 
   it('keeps a selected branch lit across commits that are not on it', () => {
     const commits = [c('feature', ['base']), c('side', ['base']), c('base', [])];
-    const lanes = historyLanes(layoutCommits(commits), commits, new Set(['feature', 'base']));
+    const layout = layoutCommits(commits);
+    const lanes = historyLanes(layout, commits, new Set(['feature', 'base']));
     expect(lanes[0]?.[0]).toBe(true);
     expect(lanes[1]?.[0]).toBe(true);
     expect(lanes[1]?.[1]).toBeUndefined();
     expect(lanes[2]?.[0]).toBe(true);
+    const sideLane = layout.vertices[1]!.lane;
+    const join = layout.edges.find((edge) => edge.fromRow === 1 && edge.fromLane === sideLane);
+    expect(historyEdgeHot(lanes, join!.fromRow, join!.fromLane)).toBe(false);
+    expect(lanes[join!.toRow]?.[join!.toLane]).toBe(true);
   });
 
   it('keeps a second-parent lane through intervening commits', () => {
