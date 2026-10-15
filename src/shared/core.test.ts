@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cherryPickArgs, mergeArgs, rebaseArgs } from './gitArgs';
+import { cherryPickArgs, mergeArgs, rebaseArgs, rebaseBranchArgs } from './gitArgs';
 import { parseGitVersion } from './graph';
 import { parseWorktreePorcelain } from './worktreePorcelain';
 import { startCheckoutFromRef } from './checkout';
@@ -78,6 +78,8 @@ describe('gitArgs', () => {
   });
   it('adds rebase ignore-date', () => {
     expect(rebaseArgs({ kind: 'rebase', ref: 'main', ignoreDate: true, interactive: false })).toContain('--committer-date-is-author-date');
+    expect(rebaseBranchArgs('main', 'feature', true)).toEqual(['rebase', '--committer-date-is-author-date', 'main', 'feature']);
+    expect(rebaseBranchArgs('main', 'feature', false)).toEqual(['rebase', 'main', 'feature']);
   });
   it('adds cherry-pick -x', () => {
     expect(cherryPickArgs({ kind: 'cherryPick', hash: 'abc', noCommit: false, recordOrigin: true })).toContain('-x');

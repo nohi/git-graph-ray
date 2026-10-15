@@ -16,6 +16,14 @@ export function rebaseArgs(action: Extract<GitAction, { kind: 'rebase' }>): stri
   return args;
 }
 
+/** Rebase one named branch onto another. `git rebase <onto> <branch>` checks that branch out. */
+export function rebaseBranchArgs(onto: string, branch: string, ignoreDate: boolean): string[] {
+  const args = ['rebase'];
+  if (ignoreDate) args.push('--committer-date-is-author-date');
+  args.push(onto, branch);
+  return args;
+}
+
 export function cherryPickArgs(action: Extract<GitAction, { kind: 'cherryPick' }>): string[] {
   const args = ['cherry-pick'];
   if (action.noCommit) args.push('--no-commit');

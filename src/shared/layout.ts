@@ -82,6 +82,27 @@ export function layoutCommits(commits: GraphCommit[]): Layout {
   return { vertices, edges, maxLanes: Math.max(1, occupants.length) };
 }
 
+/**
+ * Lanes that carry a commit in `history`, including the segments that pass other commits
+ * on the way to an ancestor.
+ */
+export function historyLanes(layout: Layout, commits: ReadonlyArray<{ hash: string }>, history: Set<string>): boolean[][] {
+  const hot: boolean[][] = commits.map(() => []);
+  const mark = (row: number, lane: number) => {
+    const lanes = hot[row];
+    if (lanes) lanes[lane] = true;
+  };
+  for (let row = 0; row < commits.length; row++) {
+    if (!history.has(commits[row]!.hash)) continue;
+    const lane = layout.vertices[row]?.lane;
+    if (lane != null) mark(row, lane);
+  }
+  for (const edge of layout.edges) {
+    if (hot[edge.fromRow]?.[edge.fromLane]) mark(edge.toRow, edge.toLane);
+  }
+  return hot;
+}
+
 export type BridgeEdge = Pick<Edge, 'fromLane' | 'toLane' | 'lane' | 'committed'>;
 
 /**

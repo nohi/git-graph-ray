@@ -234,19 +234,40 @@ export function scrollNeededToRevealDetails(opts: {
   return Math.max(0, panelBottom - opts.viewHeight + pad);
 }
 
-export function ancestorHashes(commits: Array<{ hash: string; parents: string[] }>, head: string | null): Set<string> {
+export function ancestorHashes(commits: ReadonlyArray<{ hash: string; parents: readonly string[] }>, head: string | null): Set<string> {
+  if (!head) return new Set();
+  return ancestorHashesOf(commits, [head]);
+}
+
+export function ancestorHashesOf(commits: ReadonlyArray<{ hash: string; parents: readonly string[] }>, heads: readonly string[]): Set<string> {
   const seen = new Set<string>();
-  if (!head) return seen;
   const byHash = new Map(commits.map((c) => [c.hash, c]));
-  const stack = [head];
+  const stack = [...heads];
   while (stack.length) {
     const h = stack.pop()!;
-    if (seen.has(h)) continue;
+    if (!h || seen.has(h)) continue;
     seen.add(h);
     const node = byHash.get(h);
     if (node) stack.push(...node.parents);
   }
   return seen;
+}
+
+/** Commits reachable from the named local branches, including each tip. Null when none of those tips are loaded. */
+export function branchHistoryHashes(
+  commits: ReadonlyArray<{ hash: string; parents: string[]; refs: ReadonlyArray<{ kind: string; name: string }> }>,
+  branches: readonly string[],
+): Set<string> | null {
+  if (!branches.length) return null;
+  const wanted = new Set(branches);
+  const tips: string[] = [];
+  for (const commit of commits) {
+    for (const ref of commit.refs) {
+      if (ref.kind === 'head' && wanted.has(ref.name)) tips.push(commit.hash);
+    }
+  }
+  if (!tips.length) return null;
+  return ancestorHashesOf(commits, tips);
 }
 
 export function shortcutMatches(setting: string, event: { key: string; ctrlKey: boolean; metaKey: boolean }): boolean {

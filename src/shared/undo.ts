@@ -73,6 +73,8 @@ export function undoPolicy(action: GitAction): { record: boolean; warning: strin
       return { record: false, warning: null };
     case 'rebase':
       return action.interactive ? { record: false, warning: null } : { record: true, warning: null };
+    case 'rebaseBranches':
+      return { record: true, warning: null };
     case 'checkoutBranch':
       return { record: true, warning: action.pullAfterwards ? CHECKOUT_PULL_WARNING : null };
     case 'deleteBranch':
@@ -110,6 +112,10 @@ export function undoLabel(action: GitAction): string {
       return `Merge ${action.ref}`;
     case 'rebase':
       return `Rebase onto ${action.ref}`;
+    case 'rebaseBranches': {
+      const count = action.branches.length;
+      return `Rebase ${count} ${count === 1 ? 'branch' : 'branches'} onto ${action.onto}`;
+    }
     case 'cherryPick':
       return `Cherry-pick ${shortHash(action.hash)}`;
     case 'revert':

@@ -1,4 +1,6 @@
-export type MenuItem = { id: string; label: string };
+import { escapeAttr, escapeHtml } from './issueLinks';
+
+export type MenuItem = { id: string; label: string; disabled?: boolean; title?: string };
 export type MenuEntry = MenuItem | 'sep';
 
 export function commitMenuEntries(opts: {
@@ -41,7 +43,12 @@ export function commitMenuEntries(opts: {
   return out;
 }
 
-export function branchMenuEntries(opts: { current: boolean; visible: (id: string) => boolean }): MenuEntry[] {
+export function branchMenuEntries(opts: {
+  current: boolean;
+  visible: (id: string) => boolean;
+  /** Local branches selected besides the menu target. Omit when there are none. */
+  selectedRebase?: { count: number; disabledReason?: string };
+}): MenuEntry[] {
   const v = opts.visible;
   const other = !opts.current;
   const groups: MenuItem[][] = [
@@ -51,6 +58,7 @@ export function branchMenuEntries(opts: { current: boolean; visible: (id: string
       other && v('delete') && { id: 'br-del', label: 'Delete Branch' },
       other && v('merge') && { id: 'br-mg', label: 'Merge into current branch' },
       other && v('rebase') && { id: 'br-rb', label: 'Rebase current branch on this branch' },
+      selectedRebaseEntry(opts),
       v('push') && { id: 'br-ps', label: 'Push branch' },
     ],
     [v('pr') && { id: 'pr', label: 'Create PR' }, { id: 'copy', label: 'Copy branch name' }],
@@ -64,10 +72,26 @@ export function branchMenuEntries(opts: { current: boolean; visible: (id: string
   return out;
 }
 
+function selectedRebaseEntry(opts: {
+  visible: (id: string) => boolean;
+  selectedRebase?: { count: number; disabledReason?: string };
+}): MenuItem | false {
+  const selected = opts.selectedRebase;
+  if (!selected || selected.count < 1 || !opts.visible('rebase')) return false;
+  const label = selected.count === 1 ? 'Rebase selected branch on this branch' : 'Rebase selected branches on this branch';
+  return selected.disabledReason
+    ? { id: 'br-rbs', label, disabled: true, title: selected.disabledReason }
+    : { id: 'br-rbs', label };
+}
+
 export function menuHtml(entries: MenuEntry[]): string {
   return entries
-    .map((entry) =>
-      entry === 'sep' ? '<hr class="menu-sep" />' : `<button type="button" data-act="${entry.id}">${entry.label}</button>`,
-    )
+    .map((entry) => (entry === 'sep' ? '<hr class="menu-sep" />' : menuButton(entry)))
     .join('');
+}
+
+function menuButton(entry: MenuItem): string {
+  const disabled = entry.disabled ? ' disabled' : '';
+  const title = entry.title ? ` title="${escapeAttr(entry.title)}"` : '';
+  return `<button type="button" data-act="${escapeAttr(entry.id)}"${disabled}${title}>${escapeHtml(entry.label)}</button>`;
 }

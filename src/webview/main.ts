@@ -1,6 +1,6 @@
 import { firstCommitIndexForDate, formatDate, localDayBounds } from '../shared/date';
 import { applyEmoji, fillPrUrl, formatCommitMessageHtml } from '../shared/issueLinks';
-import { ancestorHashes, colourForLane, DETAILS_MAX, DETAILS_MIN, edgeCurveAt, edgePath, estimateDetailsHeight, gitAtLeast, graphWidth, laneX, rayStreamGradient, RAY_STREAM_PERIOD, ROW, rowTop, rowY, scrollNeededToRevealDetails, shortcutMatches, visibleRowRange } from '../shared/graph';
+import { ancestorHashes, branchHistoryHashes, colourForLane, DETAILS_MAX, DETAILS_MIN, edgeCurveAt, edgePath, estimateDetailsHeight, gitAtLeast, graphWidth, laneX, rayStreamGradient, RAY_STREAM_PERIOD, ROW, rowTop, rowY, scrollNeededToRevealDetails, shortcutMatches, visibleRowRange } from '../shared/graph';
 import {
   commitHidden,
   copyDateFilter,
@@ -33,7 +33,7 @@ import {
   type PersonField,
   type PersonFilter,
 } from '../shared/personFilter';
-import { foldBridgeEdges, layoutCommits, type Layout } from '../shared/layout';
+import { foldBridgeEdges, historyLanes, layoutCommits, type Layout } from '../shared/layout';
 import { buildFileTree, FOLDER_MENU, folderFoldPlan, wantsNestedFolderToggle, type FolderFoldPlan } from '../shared/fileTree';
 import { decideNamedRemoteCheckout, startCheckoutFromRef } from '../shared/checkout';
 import { applySpaceSubstitution, defaultRepoSettings, type RepoSettings } from '../shared/dialogs';
@@ -52,6 +52,12 @@ import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg
 import { compileFindRegex, formatFindCount, highlightFind } from '../shared/commitFind';
 import { formatRefChange, presentPreview } from '../shared/undo';
 import { branchMenuEntries, commitMenuEntries, menuHtml } from '../shared/commitMenu';
+import {
+  parseRebaseCheckout,
+  parseRebaseOnFailure,
+  rebaseBranchesDialogHtml,
+  rebaseTargetBranches,
+} from '../shared/rebaseBranches';
 import { UNCOMMITTED, type ColumnVisibility, type CommitDetails, type GraphCommit, type GraphRef } from '../shared/types';
 import type { GitAction, GraphSnapshot, HostToView, ViewToHost } from '../shared/protocol';
 import { anchoredPopoverPlacement, cursorDialogPlacement, type AnchoredPopoverAlign } from '../shared/popover';
@@ -118,6 +124,8 @@ let detailsKey = '';
 let filterDraft: { showAll: boolean; showRemotes: boolean; tab: FilterTab; picked: Set<string>; shown: number } | null = null;
 let stashI = 0;
 let ctxRef: GraphRef | null = null;
+/** Local branch names chosen with Ctrl/Cmd+click, in click order. */
+let pickedBranches: string[] = [];
 let ctxCommit: GraphCommit | null = null;
 let ctxFile: { path: string; oldPath?: string } | null = null;
 let ctxFolder: HTMLDetailsElement | null = null;
@@ -201,6 +209,8 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
     setGitBusy(m.on, m.fetch);
   } else if (m.type === 'notice') {
     /* action kinds used to show here; Fetch already has its own button */
+  } else if (m.type === 'rebaseReport') {
+    gitDialog('Rebase', m.html, () => {});
   } else if (m.type === 'face') {
     faces.set(m.email, m.dataUri);
     paint();
@@ -295,6 +305,8 @@ function syncBanners(): void {
 
 function applySnap(): void {
   if (!snap) return;
+  const live = new Set(snap.branches);
+  if (pickedBranches.some((name) => !live.has(name))) pickedBranches = pickedBranches.filter((name) => live.has(name));
   if (!viewRestored) {
     restoring = true;
     restoreView();
@@ -665,6 +677,7 @@ function paintGraph(rows: number[], gap: { after: number; height: number } | nul
     snap.head ?? '',
     snap.currentBranch ?? '',
     snap.hasMore ? '1' : '0',
+    pickedBranches.join('\0'),
   ].join('|');
   if (graphCommits === snap.commits && key === graphKey) return;
   graphCommits = snap.commits;
@@ -673,6 +686,9 @@ function paintGraph(rows: number[], gap: { after: number; height: number } | nul
   const layout = fullLayout();
   const displayOf = new Map(rows.map((commitIndex, index) => [commitIndex, index]));
   const nodeAt = new Set(rows.map((commitIndex, index) => `${index}:${layout.vertices[commitIndex]?.lane ?? ''}`));
+  const history = pickedHistory();
+  const lanes = history ? historyLanes(layout, snap.commits, history) : null;
+  const laneHot = (row: number, lane: number) => !lanes || Boolean(lanes[row]?.[lane]);
   const pathD: string[] = [];
   const drawEdge = (
     fromDisplay: number,
@@ -682,6 +698,7 @@ function paintGraph(rows: number[], gap: { after: number; height: number } | nul
     lane: number,
     committed: boolean,
     fromCommitIndex: number,
+    toCommitIndex: number,
   ): void => {
     const colour = colourForLane(lane, snap!.config.graphColours, snap!.config.theme);
     const y1 = rowY(fromDisplay, gap);
@@ -697,22 +714,24 @@ function paintGraph(rows: number[], gap: { after: number; height: number } | nul
       snap!.config.graphStyle,
       edgeCurveAt(nodeAt.has(`${toDisplay}:${toLane}`), fromIsMerge),
     );
+    const hot = laneHot(fromCommitIndex, fromLane) || laneHot(toCommitIndex, toLane);
+    const fade = lanes && !hot ? ' stroke-opacity="0.2"' : '';
     pathD.push(
-      `<path d="${d}" fill="none" stroke="${colour}" stroke-width="2" stroke-linecap="round" ${committed ? '' : 'stroke-dasharray="4 3"'} />`,
+      `<path d="${d}" fill="none" stroke="${colour}" stroke-width="${hot && lanes ? 2.75 : 2}" stroke-linecap="round"${fade} ${committed ? '' : 'stroke-dasharray="4 3"'} />`,
     );
   };
   for (const edge of layout.edges) {
     const fromDisplay = displayOf.get(edge.fromRow);
     const toDisplay = displayOf.get(edge.toRow);
     if (fromDisplay == null || toDisplay == null) continue;
-    drawEdge(fromDisplay, toDisplay, edge.fromLane, edge.toLane, edge.lane, edge.committed, edge.fromRow);
+    drawEdge(fromDisplay, toDisplay, edge.fromLane, edge.toLane, edge.lane, edge.committed, edge.fromRow, edge.toRow);
   }
   for (const span of hiddenGaps(rows)) {
     const fromDisplay = displayOf.get(span.above);
     const toDisplay = displayOf.get(span.below);
     if (fromDisplay == null || toDisplay == null) continue;
     for (const edge of foldBridgeEdges(layout, span.above, span.below)) {
-      drawEdge(fromDisplay, toDisplay, edge.fromLane, edge.toLane, edge.lane, edge.committed, span.above);
+      drawEdge(fromDisplay, toDisplay, edge.fromLane, edge.toLane, edge.lane, edge.committed, span.above, span.below);
     }
   }
   for (const commitIndex of rows) {
@@ -725,12 +744,19 @@ function paintGraph(rows: number[], gap: { after: number; height: number } | nul
       (commit?.hash === UNCOMMITTED && snap.config.uncommittedChanges.startsWith('Open Circle at the Uncommitted')) ||
       (commit?.hash === snap.head && (snap.config.uncommittedChanges.includes('Checked Out') || !snap.currentBranch));
     const isHead = commit?.hash === snap.head && commit.hash !== UNCOMMITTED;
+    const onHistory = !history || (!!commit && history.has(commit.hash));
+    const fade = history && !onHistory ? ' fill-opacity="0.2" stroke-opacity="0.2"' : '';
+    const cx = laneX(vertex.lane);
+    const cy = rowY(displayRow, gap);
     pathD.push(
-      `<circle cx="${laneX(vertex.lane)}" cy="${rowY(displayRow, gap)}" r="${isHead ? 5.5 : 4}" fill="${open ? 'none' : colour}" stroke="${colour}" />`,
+      `<circle cx="${cx}" cy="${cy}" r="${isHead ? 5.5 : 4}" fill="${open ? 'none' : colour}" stroke="${colour}"${fade} />`,
     );
+    if (history && onHistory) {
+      pathD.push(`<circle cx="${cx}" cy="${cy}" r="7.5" fill="none" stroke="var(--hl)" stroke-width="1.6" />`);
+    }
     if (isHead) {
       pathD.push(
-        `<circle cx="${laneX(vertex.lane)}" cy="${rowY(displayRow, gap)}" r="8" fill="none" stroke="${colour}" stroke-opacity="0.35" />`,
+        `<circle cx="${cx}" cy="${cy}" r="8" fill="none" stroke="${colour}" stroke-opacity="0.35" />`,
       );
     }
   }
@@ -741,11 +767,17 @@ function paintGraph(rows: number[], gap: { after: number; height: number } | nul
   paintGraphSvg(svg, pathD.join(''), snap.config.theme === 'Ray Stream', height);
 }
 
-function rowClass(c: GraphCommit, ancestors: Set<string> | null): string {
+function pickedHistory(): Set<string> | null {
+  if (!snap || !pickedBranches.length) return null;
+  return branchHistoryHashes(snap.commits, pickedBranches);
+}
+
+function rowClass(c: GraphCommit, ancestors: Set<string> | null, history: Set<string> | null): string {
   if (!snap) return 'row';
   const muteMerge = snap.config.muteMergeCommits && c.parents.length > 1;
   const muteRow = Boolean(ancestors && c.hash !== UNCOMMITTED && !ancestors.has(c.hash));
-  return `row${muteMerge ? ' muted-merge' : ''}${muteRow ? ' muted' : ''}${c.hash === selected ? ' sel' : ''}${c.hash === compare ? ' cmp' : ''}${c.hash === snap.head ? ' head-commit' : ''}`;
+  const onHistory = Boolean(history?.has(c.hash));
+  return `row${muteMerge ? ' muted-merge' : ''}${muteRow ? ' muted' : ''}${onHistory ? ' branch-hist' : ''}${c.hash === selected ? ' sel' : ''}${c.hash === compare ? ' cmp' : ''}${c.hash === snap.head ? ' head-commit' : ''}`;
 }
 
 function rowContentMark(c: GraphCommit): string {
@@ -766,6 +798,10 @@ function rowContentMark(c: GraphCommit): string {
     String(c.committerDate),
     c.signatureKind ?? '',
     c.refs.map((r) => `${r.kind}:${r.name}:${r.hash}`).join(','),
+    c.refs
+      .filter((r) => r.kind === 'head' && pickedBranches.includes(r.name))
+      .map((r) => r.name)
+      .join(','),
   ].join('\u001f');
 }
 
@@ -793,6 +829,7 @@ function paintRows(rows: number[], gap: { after: number; height: number } | null
     gap,
   });
   const ancestors = snap.config.muteNonAncestorsOfHead ? ancestorHashes(snap.commits, snap.head) : null;
+  const history = pickedHistory();
   const host = $('rows');
   const keep = new Set<string>();
   for (let i = start; i < end; i++) {
@@ -808,7 +845,7 @@ function paintRows(rows: number[], gap: { after: number; height: number } | null
     el.style.left = '0';
     el.style.right = '0';
     el.style.top = `${rowTop(i, gap)}px`;
-    const cls = rowClass(c, ancestors);
+    const cls = rowClass(c, ancestors, history);
     if (el.className !== cls) el.className = cls;
     const mark = rowContentMark(c);
     if (el.dataset.mark !== mark) {
@@ -851,13 +888,14 @@ function chips(c: GraphCommit): string {
   const mk = (r: GraphRef, short = false) => {
     const detached = r.kind === 'head' && r.name === 'HEAD';
     const current = r.kind === 'head' && Boolean(snap!.currentBranch) && r.name === snap!.currentBranch;
+    const picked = r.kind === 'head' && !detached && pickedBranches.includes(r.name);
     const ico = chipIcon(r.kind);
     const label = short && r.kind === 'remote' ? remoteShortName(r) : refDisplayName(r);
     const divergence =
       current && snap!.divergence
         ? `<span class="divergence">${snap!.divergence.ahead} ahead · ${snap!.divergence.behind} behind</span>`
         : '';
-    return `<span class="chip ${r.kind}${detached ? ' detached' : ''}${current ? ' current' : ''}" data-kind="${r.kind}" data-name="${esc(r.name)}" data-hash="${esc(r.hash)}" data-remote="${esc(r.remote ?? '')}" data-wt="${esc(r.worktreePath ?? '')}">${ico}${findMark(label)}${divergence}</span>`;
+    return `<span class="chip ${r.kind}${detached ? ' detached' : ''}${current ? ' current' : ''}${picked ? ' picked' : ''}" data-kind="${r.kind}" data-name="${esc(r.name)}" data-hash="${esc(r.hash)}" data-remote="${esc(r.remote ?? '')}" data-wt="${esc(r.worktreePath ?? '')}">${ico}${findMark(label)}${divergence}</span>`;
   };
   const html = (g: ReturnType<typeof groupChipRefs>[number]) =>
     g.kind === 'pair' ? `<span class="chip-pair">${mk(g.local)}${mk(g.remote, true)}</span>` : mk(g.ref);
@@ -2318,18 +2356,24 @@ function bind(): void {
     if (onDetailsClick(ev)) return;
     const chip = t.closest<HTMLElement>('.chip');
     if (chip) {
+      if (wantsNestedFolderToggle(ev, macPlatform())) {
+        if (togglePickedBranch(chip)) paint();
+        return;
+      }
       if (ev.detail === 2) checkoutChip(chip);
       return;
     }
     const row = t.closest<HTMLElement>('.row');
     if (!row?.dataset.hash) return;
     const hash = row.dataset.hash;
+    const clearPicked = pickedBranches.length > 0;
+    if (clearPicked) pickedBranches = [];
     if (ev.ctrlKey || ev.metaKey) {
       if (selected && hash !== selected) {
         compare = hash;
         post({ type: 'compare', a: selected, b: compare });
         paint();
-      }
+      } else if (clearPicked) paint();
       return;
     }
     if (details && (hash === selected || hash === compare)) {
@@ -2713,6 +2757,9 @@ function onKey(ev: KeyboardEvent): void {
       closeConfirmTip();
       return;
     }
+    const popoverOpen = ['pop-settings', 'pop-ctx', 'pop-find', 'pop-date', 'pop-refs', 'pop-dates', 'pop-contributor', 'pop-repo-help'].some((id) =>
+      $(id).matches(':popover-open'),
+    );
     $('pop-settings').hidePopover?.();
     $('pop-ctx').hidePopover?.();
     $('pop-find').hidePopover?.();
@@ -2721,6 +2768,11 @@ function onKey(ev: KeyboardEvent): void {
     $('pop-dates').hidePopover?.();
     $('pop-contributor').hidePopover?.();
     $('pop-repo-help').hidePopover?.();
+    if (!popoverOpen && pickedBranches.length) {
+      pickedBranches = [];
+      paint();
+      return;
+    }
     if (details) {
       details = null;
       selected = null;
@@ -2846,6 +2898,21 @@ function runPlan(plan: ReturnType<typeof startCheckoutFromRef>, at?: { x: number
   }
 }
 
+function togglePickedBranch(chip: HTMLElement): boolean {
+  if (chip.dataset.kind !== 'head' || !chip.dataset.name || chip.dataset.name === 'HEAD') return false;
+  const name = chip.dataset.name;
+  const index = pickedBranches.indexOf(name);
+  if (index >= 0) pickedBranches.splice(index, 1);
+  else pickedBranches.push(name);
+  return true;
+}
+
+function rebaseSelectionBlock(): string | undefined {
+  if (snap?.operation) return 'A Git operation is already in progress';
+  if (snap?.commits.some((commit) => commit.hash === UNCOMMITTED)) return 'Commit or stash changes first';
+  return undefined;
+}
+
 function menuRef(chip: HTMLElement, x: number, y: number): void {
   ctxFolder = null;
   const kind = chip.dataset.kind ?? '';
@@ -2871,8 +2938,15 @@ function menuRef(chip: HTMLElement, x: number, y: number): void {
       ctxCommit = null;
       ctxFile = null;
       ctxRef = { kind: kind as GraphRef['kind'], name, hash: chip.dataset.hash ?? '', remote: chip.dataset.remote, worktreePath: chip.dataset.wt };
+      const selectedRebase = rebaseTargetBranches(pickedBranches, name);
       openCtx(
-        menuHtml(branchMenuEntries({ current: name === snap?.currentBranch, visible: (id) => vis('branch', id) })),
+        menuHtml(
+          branchMenuEntries({
+            current: name === snap?.currentBranch,
+            visible: (id) => vis('branch', id),
+            selectedRebase: selectedRebase.length ? { count: selectedRebase.length, disabledReason: rebaseSelectionBlock() } : undefined,
+          }),
+        ),
         x,
         y,
       );
@@ -2994,6 +3068,26 @@ function onMenu(ev: Event): void {
       gitDialog('Merge', checks(d), () => act({ kind: 'merge', ref: r.name, noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }), p);
     }
     if (id === 'br-rb') gitDialog('Rebase', `<label><input type="checkbox" id="id" ${d.rebaseIgnoreDate ? 'checked' : ''}/> ignore date</label><label><input type="checkbox" id="ir" ${d.rebaseInteractive ? 'checked' : ''}/> interactive</label>`, () => act({ kind: 'rebase', ref: r.name, ignoreDate: (document.getElementById('id') as HTMLInputElement).checked, interactive: (document.getElementById('ir') as HTMLInputElement).checked }), clickPoint(ev));
+    if (id === 'br-rbs') {
+      const branches = rebaseTargetBranches(pickedBranches, r.name);
+      if (!branches.length || rebaseSelectionBlock()) return;
+      gitDialog(
+        'Rebase',
+        rebaseBranchesDialogHtml({ onto: r.name, branches, ignoreDate: d.rebaseIgnoreDate }),
+        () => {
+          const body = $('git-body');
+          act({
+            kind: 'rebaseBranches',
+            onto: r.name,
+            branches,
+            ignoreDate: (document.getElementById('id') as HTMLInputElement).checked,
+            checkout: parseRebaseCheckout(body.querySelector<HTMLInputElement>('input[name="rb-co"]:checked')?.value),
+            onFailure: parseRebaseOnFailure(body.querySelector<HTMLInputElement>('input[name="rb-fail"]:checked')?.value),
+          });
+        },
+        clickPoint(ev),
+      );
+    }
     if (id === 'br-ps') {
       gitDialog('Push branch', pushBranchDialogHtml(snap.remotes.map((x) => x.name)), () => {
         const remotes = selectedPushRemotes();

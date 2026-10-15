@@ -67,6 +67,35 @@ describe('branchMenuEntries', () => {
     ]);
   });
 
+  it('rebases the selection onto the current branch and disables it when blocked', () => {
+    expect(
+      branchMenuEntries({
+        current: true,
+        visible: () => true,
+        selectedRebase: { count: 2, disabledReason: 'Commit or stash changes first' },
+      }),
+    ).toContainEqual({
+      id: 'br-rbs',
+      label: 'Rebase selected branches on this branch',
+      disabled: true,
+      title: 'Commit or stash changes first',
+    });
+    expect(menuHtml([{ id: 'br-rbs', label: 'Rebase selected branch on this branch', disabled: true, title: 'Commit or stash changes first' }])).toBe(
+      '<button type="button" data-act="br-rbs" disabled title="Commit or stash changes first">Rebase selected branch on this branch</button>',
+    );
+  });
+
+  it('hides the selection rebase when nothing else is selected or rebase is hidden', () => {
+    const shown = branchMenuEntries({ current: false, visible: () => true, selectedRebase: { count: 1 } });
+    expect(shown).toContainEqual({ id: 'br-rbs', label: 'Rebase selected branch on this branch' });
+    expect(branchMenuEntries({ current: false, visible: () => true }).some((entry) => entry !== 'sep' && entry.id === 'br-rbs')).toBe(false);
+    expect(
+      branchMenuEntries({ current: false, visible: (id) => id !== 'rebase', selectedRebase: { count: 2 } }).some(
+        (entry) => entry !== 'sep' && entry.id === 'br-rbs',
+      ),
+    ).toBe(false);
+  });
+
   it('lists switch and history actions for other local branches', () => {
     const entries = branchMenuEntries({ current: false, visible: () => true });
     expect(entries).toEqual([

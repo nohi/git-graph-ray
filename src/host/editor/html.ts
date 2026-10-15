@@ -171,6 +171,7 @@ const SHELL = `
     <ul class="help-list">
       <li>Fetch runs immediately. Prune and prune tags are in Repository Settings (and VS Code Settings).</li>
       <li>Double-click a branch or tag label to check it out.</li>
+      <li>Ctrl/Cmd+click local branch labels to select them, then right-click a branch and choose Rebase selected branches on this branch.</li>
       <li>Ctrl/Cmd+click a second commit to compare.</li>
       <li>In the file tree, Ctrl/Cmd+click a folder to expand or collapse it and every nested folder. Right-click a folder to expand, collapse, or collapse child folders.</li>
       <li>Dates filters the graph by author date or committer date. Uncheck a year or month to hide those commits. Show all restores the tab you are on. OK applies the filter.</li>

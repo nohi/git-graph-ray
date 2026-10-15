@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  branchHistoryHashes,
   colourForLane,
   DETAILS_MIN,
   edgeCurveAt,
@@ -11,6 +12,17 @@ import {
 } from './graph';
 import { layoutCommits } from './layout';
 import { RAY_COLOURS, type GraphCommit } from './types';
+
+describe('branchHistoryHashes', () => {
+  it('includes the selected tip and its ancestors, not a sibling branch', () => {
+    const commits = [commit('feature', ['base']), commit('other', ['base']), commit('base', [])];
+    commits[0]!.refs = [{ kind: 'head', name: 'feature', hash: 'feature' }];
+    commits[1]!.refs = [{ kind: 'head', name: 'other', hash: 'other' }];
+    const history = branchHistoryHashes(commits, ['feature']);
+    expect(history ? [...history].sort() : null).toEqual(['base', 'feature']);
+    expect(branchHistoryHashes(commits, [])).toBeNull();
+  });
+});
 
 describe('edgePath', () => {
   it('draws a vertical line on the same lane', () => {

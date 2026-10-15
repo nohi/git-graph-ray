@@ -19,6 +19,7 @@ export type HostToView =
   | { type: 'fail'; message: string }
   | { type: 'busy'; on: boolean; fetch?: boolean }
   | { type: 'notice'; message: string }
+  | { type: 'rebaseReport'; html: string }
   | { type: 'picked'; requestId: string; path: string | null }
   | { type: 'branchMerged'; requestId: string; merged: boolean | null }
   | { type: 'face'; email: string; dataUri: string }
@@ -149,6 +150,16 @@ export type GitAction =
       squashMessageFormat: SquashMessageFormat;
     }
   | { kind: 'rebase'; ref: string; ignoreDate: boolean; interactive: boolean }
+  | {
+      kind: 'rebaseBranches';
+      onto: string;
+      branches: string[];
+      ignoreDate: boolean;
+      /** Where HEAD should be after the batch, including when it stops early. */
+      checkout: 'restore' | 'stay';
+      /** Applies to conflicts and to every other per-branch failure. */
+      onFailure: 'skip' | 'stop';
+    }
   | { kind: 'cherryPick'; hash: string; noCommit: boolean; recordOrigin: boolean; parent?: number }
   | { kind: 'revert'; hash: string; noCommit?: boolean; parent?: number }
   | { kind: 'reset'; hash: string; mode: 'soft' | 'mixed' | 'hard' }

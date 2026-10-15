@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.4.0
+
+### Features
+
+- Rebase several local branches onto one branch. Ctrl/Cmd+click branch labels to select them, then right-click the target branch and choose Rebase selected branches on this branch.
+- In the confirmation dialog, choose ignore date, whether to return to the previous branch or stay on the last branch, and whether a failure skips that branch or stops the rest. Interactive rebase stays on the single-branch action.
+- On a conflict, abort the rebase before skipping or stopping. The same choice applies to other failures, such as a branch checked out in another worktree. Already up to date counts as success.
+- Disable the action while tracked changes are uncommitted or another Git operation is in progress. Untracked files alone do not block it.
+- Record the whole batch as one undo.
+- Highlight the selected branches on the graph. Their history stays bright, including the lane segments that pass other commits, and the other lines fade.
+
 ## v0.3.0
 
 ### Features

@@ -1,7 +1,10 @@
 import type { GitAction } from '../../shared/protocol';
-import { cherryPickArgs, mergeArgs, pushBranchArgs, rebaseArgs, revertArgs, stashApplyArgs } from '../../shared/gitArgs';
+import { cherryPickArgs, mergeArgs, pushBranchArgs, rebaseArgs, rebaseBranchArgs, revertArgs, stashApplyArgs } from '../../shared/gitArgs';
 import { gitEditorCommand, gitShFromExecPath, posixGitPath, rewordEditorScript, rewordSeqScript } from '../../shared/gitPath';
-import { gitOk } from './runner';
+import { rebaseBranchesReportHtml, rebaseBranchesSequence, rebaseTargetBranches, restoreCheckoutArgs, type HeadCheckout } from '../../shared/rebaseBranches';
+import { gitMaybe, gitOk } from './runner';
+import { readRepoOperation } from './repoState';
+import { workingTreeHasTrackedChanges } from './undo';
 import { runInteractiveRebase } from './terminal';
 import { addWorktree, removeWorktree } from './worktree';
 import { existsSync } from 'node:fs';
@@ -12,7 +15,7 @@ export async function runGitAction(
   cwd: string,
   action: GitAction,
   opts: { signCommits: boolean; signTags: boolean; shellPath?: string },
-): Promise<void> {
+): Promise<string | void> {
   switch (action.kind) {
     case 'checkoutCommit':
       await gitOk(git, cwd, ['checkout', action.hash]);
@@ -58,6 +61,8 @@ export async function runGitAction(
       }
       await gitOk(git, cwd, rebaseArgs(action));
       return;
+    case 'rebaseBranches':
+      return rebaseSelectedBranches(git, cwd, action);
     case 'cherryPick':
       await gitOk(git, cwd, cherryPickArgs(action));
       return;
@@ -151,6 +156,55 @@ export async function runGitAction(
       await continueOperation(git, cwd, action.operation);
       return;
   }
+}
+
+async function rebaseSelectedBranches(
+  git: string,
+  cwd: string,
+  action: Extract<GitAction, { kind: 'rebaseBranches' }>,
+): Promise<string | void> {
+  if (await workingTreeHasTrackedChanges(git, cwd)) {
+    throw new Error('Commit or stash changes before rebasing branches.');
+  }
+  const operation = await readRepoOperation(git, cwd);
+  if (operation) throw new Error(`A ${operation.kind} is already in progress.`);
+  const branches = rebaseTargetBranches(action.branches, action.onto);
+  if (!branches.length || !action.onto) return;
+  const head = await readHeadCheckout(git, cwd);
+  const run = await rebaseBranchesSequence(branches, action.onFailure, {
+    rebase: async (branch) => {
+      await gitOk(git, cwd, rebaseBranchArgs(action.onto, branch, action.ignoreDate));
+    },
+    rebaseInProgress: async () => (await readRepoOperation(git, cwd))?.kind === 'rebase',
+    abort: async () => {
+      await gitOk(git, cwd, ['rebase', '--abort']);
+    },
+  });
+  let restoreError: string | undefined;
+  if (action.checkout === 'restore' && !run.blocked) {
+    const args = restoreCheckoutArgs(head);
+    if (args) {
+      try {
+        await gitOk(git, cwd, args);
+      } catch (error) {
+        restoreError = error instanceof Error ? error.message : String(error);
+      }
+    }
+  }
+  return rebaseBranchesReportHtml(run.outcomes, restoreError) ?? undefined;
+}
+
+async function readHeadCheckout(git: string, cwd: string): Promise<HeadCheckout> {
+  const sym = (await gitMaybe(git, cwd, ['symbolic-ref', '-q', 'HEAD'])).trim();
+  const branch = sym.startsWith('refs/heads/') ? sym.slice('refs/heads/'.length) : null;
+  let hash: string | null = null;
+  try {
+    const raw = (await gitOk(git, cwd, ['rev-parse', '--verify', '--quiet', 'HEAD'])).trim();
+    hash = raw || null;
+  } catch {
+    hash = null;
+  }
+  return { branch, hash };
 }
 
 async function continueOperation(git: string, cwd: string, operation: 'merge' | 'rebase' | 'cherry-pick' | 'revert'): Promise<void> {

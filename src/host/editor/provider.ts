@@ -937,6 +937,7 @@ class GraphSession {
     const policy = undoPolicy(action);
     this.quietUntil = Date.now() + 60_000;
     this.post({ type: 'busy', on: true, fetch: action.kind === 'fetchRemote' });
+    let report: string | undefined;
     try {
       let before: LocalCheckpoint | null = null;
       if (policy.record && this.repoPath) {
@@ -956,11 +957,12 @@ class GraphSession {
         await vscode.commands.executeCommand('workbench.view.scm');
         return;
       }
-      await runGitAction(this.git(), this.repoPath, action, {
+      const result = await runGitAction(this.git(), this.repoPath, action, {
         signCommits: cfg('repository.sign.commits', false),
         signTags: cfg('repository.sign.tags', false),
         shellPath: cfg('integratedTerminalShell', '') || undefined,
       });
+      if (result) report = result;
       await this.reload({ recordExternal: false });
       if (before) {
         try {
@@ -972,6 +974,7 @@ class GraphSession {
     } finally {
       this.post({ type: 'busy', on: false });
       this.postUndoState();
+      if (report) this.post({ type: 'rebaseReport', html: report });
     }
   }
 
