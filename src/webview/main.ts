@@ -7,7 +7,6 @@ import {
   dateBuckets,
   emptyDateFilter,
   filterBuckets,
-  hiddenGaps,
   hideAllMonths,
   hideMonth,
   hideYear,
@@ -33,7 +32,8 @@ import {
   type PersonField,
   type PersonFilter,
 } from '../shared/personFilter';
-import { foldBridgeEdges, historyEdgeHot, historyLanes, layoutCommits, type Layout } from '../shared/layout';
+import { foldBridgeEdges, historyEdgeHot, historyLanes, layoutCommits, type Edge, type Layout } from '../shared/layout';
+import { edgeTouchesRange, renderEdges, renderNodes, type DrawnEdge, type DrawnNode } from '../shared/graphPaint';
 import { buildFileTree, FOLDER_MENU, folderFoldPlan, wantsNestedFolderToggle, type FolderFoldPlan } from '../shared/fileTree';
 import { decideNamedRemoteCheckout, startCheckoutFromRef } from '../shared/checkout';
 import { applySpaceSubstitution, defaultRepoSettings, type RepoSettings } from '../shared/dialogs';
@@ -134,6 +134,20 @@ let detailsStamp = 0;
 const rowByHash = new Map<string, HTMLDivElement>();
 let graphCommits: GraphCommit[] | null = null;
 let graphKey = '';
+let graphStart = -1;
+let graphEnd = -1;
+let rowsDirty = true;
+let viewportRows: number[] | null = null;
+let viewportStart = -1;
+let viewportEnd = -1;
+let viewportGapAfter = -2;
+let viewportGapH = -1;
+let viewportChrome = '';
+let viewportFrame = 0;
+let shownCache: { commits: GraphCommit[]; key: string; rows: number[] } | null = null;
+let displayCache: { rows: readonly number[]; map: Map<number, number> } | null = null;
+let ancestorCache: { commits: readonly GraphCommit[]; head: string | null; set: Set<string> } | null = null;
+let historyCache: { commits: readonly GraphCommit[]; key: string; set: Set<string> | null; lanes: boolean[][] | null } | null = null;
 let detailsKey = '';
 let filterDraft: {
   showAll: boolean;
@@ -603,13 +617,20 @@ function paintGraphSvg(svg: HTMLElement, markup: string, stream: boolean, height
   const animate = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const grad = svg.querySelector('#ray-stream');
   if (!grad) svg.insertAdjacentHTML('afterbegin', rayStreamGradient(height, animate));
-  else {
-    const h = Math.max(Math.round(height), 1);
-    grad.setAttribute('y1', String(h));
-    grad.setAttribute('y2', String(h - RAY_STREAM_PERIOD));
+  else syncStreamGradient(svg, height);
+  for (const n of [...svg.children]) {
+    if (n.tagName.toLowerCase() === 'defs') continue;
+    n.remove();
   }
-  for (const n of [...svg.querySelectorAll(':scope > path, :scope > circle')]) n.remove();
   svg.insertAdjacentHTML('beforeend', markup);
+}
+
+function syncStreamGradient(svg: HTMLElement, height: number): void {
+  const grad = svg.querySelector('#ray-stream');
+  if (!grad) return;
+  const h = Math.max(Math.round(height), 1);
+  grad.setAttribute('y1', String(h));
+  grad.setAttribute('y2', String(h - RAY_STREAM_PERIOD));
 }
 
 function detailsHeightCap(): number {
@@ -683,18 +704,36 @@ function ensureDetailsVisible(): void {
 
 function shownCommits(): number[] {
   if (!snap) return [];
+  const key = dateFilterKey();
+  if (shownCache?.commits === snap.commits && shownCache.key === key) return shownCache.rows;
   const commits = snap.commits;
-  return visibleCommitIndices(commits, dateFilter).filter((index) => !personHidden(commits[index]!, personFilter));
+  const rows = visibleCommitIndices(commits, dateFilter).filter((index) => !personHidden(commits[index]!, personFilter));
+  shownCache = { commits, key, rows };
+  return rows;
 }
 
-let layoutCache: { commits: GraphCommit[]; layout: Layout } | null = null;
+let layoutCache: { commits: GraphCommit[]; layout: Layout; byFrom: Edge[][] } | null = null;
 
 function fullLayout(): Layout {
-  if (!snap) return { vertices: [], edges: [], maxLanes: 1 };
-  if (layoutCache?.commits === snap.commits) return layoutCache.layout;
+  return layoutState().layout;
+}
+
+function layoutState(): { layout: Layout; byFrom: Edge[][] } {
+  if (!snap) return { layout: { vertices: [], edges: [], maxLanes: 1 }, byFrom: [] };
+  if (layoutCache?.commits === snap.commits) return layoutCache;
   const layout = layoutCommits(snap.commits);
-  layoutCache = { commits: snap.commits, layout };
-  return layout;
+  const byFrom: Edge[][] = [];
+  for (const edge of layout.edges) (byFrom[edge.fromRow] ??= []).push(edge);
+  layoutCache = { commits: snap.commits, layout, byFrom };
+  return layoutCache;
+}
+
+function displayIndex(rows: readonly number[]): Map<number, number> {
+  if (displayCache?.rows === rows) return displayCache.map;
+  const map = new Map<number, number>();
+  for (let i = 0; i < rows.length; i++) map.set(rows[i]!, i);
+  displayCache = { rows, map };
+  return map;
 }
 
 function displayIndexForCommit(commitIndex: number): number {
@@ -724,12 +763,14 @@ function dateFilterKey(): string {
 
 function paint(): void {
   if (!snap) return;
+  rowsDirty = true;
   const rows = shownCommits();
   const gap = detailsGap(rows);
   const height = rows.length * ROW + (gap ? gap.height : 0);
+  const range = viewRange(rows, gap);
   $('spacer').style.height = `${height}px`;
-  paintGraph(rows, gap, height);
-  paintRows(rows, gap, height);
+  paintGraph(rows, gap, height, range);
+  paintRows(rows, gap, height, range);
   renderDetails();
   syncHeaderScroll();
   syncGraphClip();
@@ -740,11 +781,61 @@ function paintViewport(): void {
   const rows = shownCommits();
   const gap = detailsGap(rows);
   const height = rows.length * ROW + (gap ? gap.height : 0);
-  paintRows(rows, gap, height);
+  const range = viewRange(rows, gap);
+  if (viewportStale(rows, gap, range)) paintRows(rows, gap, height, range);
+  paintGraph(rows, gap, height, range);
   syncHeaderScroll();
 }
 
-function paintGraph(rows: number[], gap: { after: number; height: number } | null, height: number): void {
+function scheduleViewportPaint(): void {
+  if (viewportFrame) return;
+  viewportFrame = requestAnimationFrame(() => {
+    viewportFrame = 0;
+    paintViewport();
+    if (pendingDateJump || findPendingHash) return;
+    if (snap?.hasMore && snap.config.loadMoreAutomatically) {
+      const s = $('scroll');
+      if (s.scrollTop + s.clientHeight > s.scrollHeight - 80) post({ type: 'more' });
+    }
+  });
+}
+
+function viewRange(rows: readonly number[], gap: { after: number; height: number } | null): { start: number; end: number } {
+  const scroll = $('scroll');
+  return visibleRowRange({
+    scrollTop: scroll.scrollTop,
+    viewHeight: scroll.clientHeight,
+    rowCount: rows.length,
+    gap,
+  });
+}
+
+function viewportStale(
+  rows: number[],
+  gap: { after: number; height: number } | null,
+  range: { start: number; end: number },
+): boolean {
+  return (
+    rowsDirty ||
+    viewportRows !== rows ||
+    viewportStart !== range.start ||
+    viewportEnd !== range.end ||
+    viewportGapAfter !== (gap?.after ?? -1) ||
+    viewportGapH !== (gap?.height ?? 0) ||
+    viewportChrome !== rowChrome()
+  );
+}
+
+function rowChrome(): string {
+  return `${selected ?? ''}\0${compare ?? ''}\0${commitRange.join('\0')}\0${pickedBranches.join('\0')}`;
+}
+
+function paintGraph(
+  rows: number[],
+  gap: { after: number; height: number } | null,
+  height: number,
+  range: { start: number; end: number },
+): void {
   if (!snap) return;
   const key = [
     rows.length,
@@ -762,17 +853,15 @@ function paintGraph(rows: number[], gap: { after: number; height: number } | nul
     snap.hasMore ? '1' : '0',
     pickedBranches.join('\0'),
   ].join('|');
-  if (graphCommits === snap.commits && key === graphKey) return;
-  graphCommits = snap.commits;
-  graphKey = key;
+  if (graphCommits === snap.commits && key === graphKey && graphStart === range.start && graphEnd === range.end) return;
   const svg = $('svg');
-  const layout = fullLayout();
-  const displayOf = new Map(rows.map((commitIndex, index) => [commitIndex, index]));
-  const nodeAt = new Set(rows.map((commitIndex, index) => `${index}:${layout.vertices[commitIndex]?.lane ?? ''}`));
+  const { layout, byFrom } = layoutState();
+  const displayOf = displayIndex(rows);
+  const lanes = pickedLaneMask();
   const history = pickedHistory();
-  const lanes = history ? historyLanes(layout, snap.commits, history) : null;
-  const pathD: string[] = [];
-  const drawEdge = (
+  const style = snap.config.graphStyle;
+  const edges: DrawnEdge[] = [];
+  const pushEdge = (
     fromDisplay: number,
     toDisplay: number,
     fromLane: number,
@@ -781,44 +870,51 @@ function paintGraph(rows: number[], gap: { after: number; height: number } | nul
     committed: boolean,
     fromCommitIndex: number,
   ): void => {
-    const colour = colourForLane(lane, snap!.config.graphColours, snap!.config.theme);
-    const y1 = rowY(fromDisplay, gap);
-    const y2 = rowY(toDisplay, gap);
+    if (!edgeTouchesRange(fromDisplay, toDisplay, range.start, range.end)) return;
     const from = snap!.commits[fromCommitIndex];
     const fromVertex = layout.vertices[fromCommitIndex];
     const fromIsMerge = !!from && from.parents.length > 1 && fromVertex?.lane === fromLane;
-    const d = edgePath(
-      laneX(fromLane),
-      y1,
-      laneX(toLane),
-      y2,
-      snap!.config.graphStyle,
-      edgeCurveAt(nodeAt.has(`${toDisplay}:${toLane}`), fromIsMerge),
-    );
+    const toCommit = rows[toDisplay];
+    const joinsNode = toCommit != null && layout.vertices[toCommit]?.lane === toLane;
     const hot = historyEdgeHot(lanes, fromCommitIndex, fromLane);
-    const fade = lanes && !hot ? ' stroke-opacity="0.2"' : '';
-    pathD.push(
-      `<path d="${d}" fill="none" stroke="${colour}" stroke-width="${hot && lanes ? 2.75 : 2}" stroke-linecap="round"${fade} ${committed ? '' : 'stroke-dasharray="4 3"'} />`,
-    );
+    const drawn: DrawnEdge = {
+      fromDisplay,
+      toDisplay,
+      fromLane,
+      toLane,
+      curveAt: edgeCurveAt(joinsNode, fromIsMerge),
+      stroke: {
+        colour: colourForLane(lane, snap!.config.graphColours, snap!.config.theme),
+        width: hot && lanes ? 2.75 : 2,
+        opacity: lanes && !hot ? '0.2' : undefined,
+        dashed: !committed,
+      },
+    };
+    edges.push(drawn);
   };
-  for (const edge of layout.edges) {
-    const fromDisplay = displayOf.get(edge.fromRow);
-    const toDisplay = displayOf.get(edge.toRow);
-    if (fromDisplay == null || toDisplay == null) continue;
-    drawEdge(fromDisplay, toDisplay, edge.fromLane, edge.toLane, edge.lane, edge.committed, edge.fromRow);
-  }
-  for (const span of hiddenGaps(rows)) {
-    const fromDisplay = displayOf.get(span.above);
-    const toDisplay = displayOf.get(span.below);
-    if (fromDisplay == null || toDisplay == null) continue;
-    for (const edge of foldBridgeEdges(layout, span.above, span.below)) {
-      drawEdge(fromDisplay, toDisplay, edge.fromLane, edge.toLane, edge.lane, edge.committed, span.above);
+  const fromLo = Math.max(0, range.start - 1);
+  const fromHi = Math.min(rows.length, range.end);
+  for (let fromDisplay = fromLo; fromDisplay < fromHi; fromDisplay++) {
+    const commitIndex = rows[fromDisplay]!;
+    for (const edge of byFrom[commitIndex] ?? []) {
+      const toDisplay = displayOf.get(edge.toRow);
+      if (toDisplay == null) continue;
+      pushEdge(fromDisplay, toDisplay, edge.fromLane, edge.toLane, edge.lane, edge.committed, edge.fromRow);
     }
   }
-  for (const commitIndex of rows) {
+  for (let fromDisplay = fromLo; fromDisplay < Math.min(rows.length - 1, range.end); fromDisplay++) {
+    const aboveCommit = rows[fromDisplay]!;
+    const belowCommit = rows[fromDisplay + 1]!;
+    if (belowCommit <= aboveCommit + 1) continue;
+    for (const edge of foldBridgeEdges(layout, aboveCommit, belowCommit)) {
+      pushEdge(fromDisplay, fromDisplay + 1, edge.fromLane, edge.toLane, edge.lane, edge.committed, aboveCommit);
+    }
+  }
+  const nodes: DrawnNode[] = [];
+  for (let display = range.start; display < range.end && display < rows.length; display++) {
+    const commitIndex = rows[display]!;
     const vertex = layout.vertices[commitIndex];
     if (!vertex) continue;
-    const displayRow = displayOf.get(commitIndex)!;
     const commit = snap.commits[commitIndex];
     const colour = colourForLane(vertex.lane, snap.config.graphColours, snap.config.theme);
     const open =
@@ -826,31 +922,57 @@ function paintGraph(rows: number[], gap: { after: number; height: number } | nul
       (commit?.hash === snap.head && (snap.config.uncommittedChanges.includes('Checked Out') || !snap.currentBranch));
     const isHead = commit?.hash === snap.head && commit.hash !== UNCOMMITTED;
     const onHistory = !history || (!!commit && history.has(commit.hash));
-    const fade = history && !onHistory ? ' fill-opacity="0.2" stroke-opacity="0.2"' : '';
-    const cx = laneX(vertex.lane);
-    const cy = rowY(displayRow, gap);
-    pathD.push(
-      `<circle cx="${cx}" cy="${cy}" r="${isHead ? 5.5 : 4}" fill="${open ? 'none' : colour}" stroke="${colour}"${fade} />`,
-    );
-    if (history && onHistory) {
-      pathD.push(`<circle cx="${cx}" cy="${cy}" r="7.5" fill="none" stroke="var(--hl)" stroke-width="1.6" />`);
-    }
-    if (isHead) {
-      pathD.push(
-        `<circle cx="${cx}" cy="${cy}" r="8" fill="none" stroke="${colour}" stroke-opacity="0.35" />`,
-      );
-    }
+    const node: DrawnNode = {
+      display,
+      cx: laneX(vertex.lane),
+      colour,
+      radius: isHead ? 5.5 : 4,
+      open,
+      opacity: history && !onHistory ? '0.2' : undefined,
+      historyRing: Boolean(history && onHistory),
+      headRing: Boolean(isHead),
+    };
+    nodes.push(node);
   }
-  svg.setAttribute('width', String(graphWidth(layout.maxLanes)));
-  svg.setAttribute('height', String(height));
+  const yAt = (display: number) => rowY(display, gap);
+  graphCommits = snap.commits;
+  graphKey = key;
+  graphStart = range.start;
+  graphEnd = range.end;
   if (userG != null) document.documentElement.style.setProperty('--g', `${userG}px`);
   else document.documentElement.style.removeProperty('--g');
-  paintGraphSvg(svg, pathD.join(''), snap.config.theme === 'Ray Stream', height);
+  svg.setAttribute('width', String(graphWidth(layout.maxLanes)));
+  svg.setAttribute('height', String(height));
+  paintGraphSvg(svg, renderEdges(edges, style, yAt) + renderNodes(nodes, yAt), snap.config.theme === 'Ray Stream', height);
 }
 
+const NO_HISTORY: { set: Set<string> | null; lanes: boolean[][] | null } = { set: null, lanes: null };
+
 function pickedHistory(): Set<string> | null {
-  if (!snap || !pickedBranches.length) return null;
-  return branchHistoryHashes(snap.commits, pickedBranches);
+  return historyState().set;
+}
+
+function pickedLaneMask(): boolean[][] | null {
+  return historyState().lanes;
+}
+
+function historyState(): { set: Set<string> | null; lanes: boolean[][] | null } {
+  if (!snap || pickedBranches.length === 0) return NO_HISTORY;
+  const key = pickedBranches.join('\0');
+  if (historyCache?.commits === snap.commits && historyCache.key === key) return historyCache;
+  const set = branchHistoryHashes(snap.commits, pickedBranches);
+  const lanes = set ? historyLanes(fullLayout(), snap.commits, set) : null;
+  historyCache = { commits: snap.commits, key, set, lanes };
+  return historyCache;
+}
+
+function headAncestors(): Set<string> | null {
+  if (!snap?.config.muteNonAncestorsOfHead) return null;
+  const head = snap.head;
+  if (ancestorCache?.commits === snap.commits && ancestorCache.head === head) return ancestorCache.set;
+  const set = ancestorHashes(snap.commits, head);
+  ancestorCache = { commits: snap.commits, head, set };
+  return set;
 }
 
 function rowClass(c: GraphCommit, ancestors: Set<string> | null, history: Set<string> | null): string {
@@ -901,16 +1023,15 @@ function rowInnerHtml(c: GraphCommit): string {
       ${signatureCellHtml(c)}`;
 }
 
-function paintRows(rows: number[], gap: { after: number; height: number } | null, height: number): void {
+function paintRows(
+  rows: number[],
+  gap: { after: number; height: number } | null,
+  height: number,
+  range?: { start: number; end: number },
+): void {
   if (!snap) return;
-  const scroll = $('scroll');
-  const { start, end } = visibleRowRange({
-    scrollTop: scroll.scrollTop,
-    viewHeight: scroll.clientHeight,
-    rowCount: rows.length,
-    gap,
-  });
-  const ancestors = snap.config.muteNonAncestorsOfHead ? ancestorHashes(snap.commits, snap.head) : null;
+  const { start, end } = range ?? viewRange(rows, gap);
+  const ancestors = headAncestors();
   const history = pickedHistory();
   const host = $('rows');
   const keep = new Set<string>();
@@ -957,6 +1078,13 @@ function paintRows(rows: number[], gap: { after: number; height: number } | null
   } else if (more) {
     more.remove();
   }
+  rowsDirty = false;
+  viewportRows = rows;
+  viewportStart = start;
+  viewportEnd = end;
+  viewportGapAfter = gap?.after ?? -1;
+  viewportGapH = gap?.height ?? 0;
+  viewportChrome = rowChrome();
 }
 
 function emojiMaps() {
@@ -2404,7 +2532,7 @@ function onDetailsClick(ev: MouseEvent): boolean {
 }
 
 function bind(): void {
-  new ResizeObserver(() => paintViewport()).observe($('scroll'));
+  new ResizeObserver(() => scheduleViewportPaint()).observe($('scroll'));
   $('conflict-continue').addEventListener('click', () => {
     if (!snap?.operation) return;
     post({ type: 'git', action: { kind: 'continueOperation', operation: snap.operation.kind } });
@@ -2631,13 +2759,7 @@ function bind(): void {
     applyPersonFilter();
   });
   $('scroll').addEventListener('scroll', () => {
-    syncHeaderScroll();
-    paintViewport();
-    if (pendingDateJump || findPendingHash) return;
-    if (snap?.hasMore && snap.config.loadMoreAutomatically) {
-      const s = $('scroll');
-      if (s.scrollTop + s.clientHeight > s.scrollHeight - 80) post({ type: 'more' });
-    }
+    scheduleViewportPaint();
   });
   $('scroll').addEventListener('mousedown', (ev) => {
     if ((ev.target as HTMLElement).closest('[data-fv], .file-act')) ev.preventDefault();

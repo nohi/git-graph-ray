@@ -15,6 +15,7 @@
 
 ### Changes
 
+- Draw only the on-screen part of the graph, and join vertical segments of the same stroke into one path. Scrolling updates commit rows only when the visible window, details gap, or selection changes.
 - Branch and tag labels use a larger font in the same chip height, so the letters fill the space above the text.
 - Show other branches on the same commit in Branches/Tags. Uncheck it to hide local and remote branch labels that point at a checked ref's commit but were not checked. Tags, worktrees, and detached HEAD stay. It is on by default.
 
