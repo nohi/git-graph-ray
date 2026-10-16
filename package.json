@@ -335,7 +335,7 @@
         },
         "git-graph-ray.dialog.rebase.ignoreDate": {
           "type": "boolean",
-          "default": true
+          "default": false
         },
         "git-graph-ray.dialog.rebase.launchInteractiveRebase": {
           "type": "boolean",

@@ -56,7 +56,7 @@ export function defaultDialogs() {
     pullRebase: false,
     pullSquash: false,
     pullSquashMessageFormat: 'Default' as const,
-    rebaseIgnoreDate: true,
+    rebaseIgnoreDate: false,
     rebaseInteractive: false,
     resetBranchMode: 'Mixed' as const,
     resetUncommittedMode: 'Mixed' as const,
