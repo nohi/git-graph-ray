@@ -1,3 +1,4 @@
+import type { RefColourRule } from './refColours';
 import type { CommitSignature, SignatureKind } from './signature';
 
 export const UNCOMMITTED = '*';
@@ -146,6 +147,8 @@ export type ViewConfig = {
   referenceLabelAlignment: string;
   /** `referenceLabels.remoteBranchPrefix`. Icon draws a cloud instead of the `remotes/` word. */
   remoteBranchPrefix: 'Icon' | 'Text';
+  /** `referenceLabels.colours`. Glob to hex, first match wins. */
+  referenceLabelColours: RefColourRule[];
   markdown: boolean;
   enhancedAccessibility: boolean;
   autoCenter: boolean;

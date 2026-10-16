@@ -99,6 +99,7 @@ export type ViewToHost =
   | { type: 'setRayCat'; enabled: boolean; count: number }
   | { type: 'setFetchPrune'; prune: boolean; pruneTags: boolean }
   | { type: 'openSettings' }
+  | { type: 'setLabelColours'; colours: Record<string, string> }
   | { type: 'setColumns'; value: ColumnVisibility }
   | { type: 'openRow'; hash: string | null }
   | { type: 'compare'; a: string; b: string }

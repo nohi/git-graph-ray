@@ -1,7 +1,7 @@
 {
   "name": "git-graph-ray",
   "displayName": "Git Graph Ray",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "publisher": "nohi",
   "description": "View a Git graph of your repository and run Git actions from it.",
   "license": "MIT",
@@ -621,6 +621,15 @@
         "git-graph-ray.referenceLabels.combineLocalAndRemoteBranchLabels": {
           "type": "boolean",
           "default": true
+        },
+        "git-graph-ray.referenceLabels.colours": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+          },
+          "default": {},
+          "markdownDescription": "Colours for branch and tag labels. Each key is a glob and each value is a `#RGB`, `#RGBA`, `#RRGGBB`, or `#RRGGBBAA` colour. `*` matches any text, including `/`, and `?` matches one character. `\\*` and `\\?` are literal. This is not a regular expression. The first matching key wins.\n\nA pattern is compared with the branch or tag name. Remote-tracking branches also match `origin/name` and `remotes/origin/name`, so `release*` colours both the local `release/1.0` label and `origin/release/1.0`.\n\nExample: `{ \"release*\": \"#FF8888\", \"v*\": \"#88CCFF\" }`."
         },
         "git-graph-ray.referenceLabels.remoteBranchPrefix": {
           "type": "string",

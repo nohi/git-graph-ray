@@ -49,6 +49,18 @@ import {
 import { detailsMetaRows, commitMessageText, type DetailsMetaRow, type MetaCopyIcon } from '../shared/detailsMeta';
 import { DETAILS_FILES_MIN, DETAILS_META_DEFAULT, draggedDetailsMeta, fittedDetailsMeta } from '../shared/detailsPane';
 import { signatureColumn, signatureInfoRows, signatureSummary, type SignatureInfoRow } from '../shared/signature';
+import {
+  DEFAULT_LABEL_COLOUR,
+  hexToHsv,
+  hsvToHex,
+  labelColourDialogHtml,
+  normalizeHex,
+  refColoursToSetting,
+  refLabelColour,
+  removeRefColour,
+  upsertRefColour,
+  type Hsv,
+} from '../shared/refColours';
 import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg, groupChipRefs, remoteChipText, remoteLabelsUseIcons, remoteShortName, REMOTE_LABEL_FOLD, type FilterTab } from '../shared/refsList';
 import { compileFindRegex, formatFindCount, highlightFind } from '../shared/commitFind';
 import { formatRefChange, presentPreview } from '../shared/undo';
@@ -516,7 +528,8 @@ function fillRefs(): void {
       const rev = refLogArg(r);
       const detached = r.kind === 'head' && r.name === 'HEAD';
       const kindTitle = r.kind === 'head' ? 'Branch' : r.kind === 'remote' ? 'Remote' : r.kind === 'tag' ? 'Tag' : r.kind === 'worktree' ? 'Worktree' : r.kind;
-      return `<label class="ref-item kind-${r.kind}${detached ? ' detached' : ''}"><input type="checkbox" data-ref="${esc(rev)}" ${draft.picked.has(rev) ? 'checked' : ''}/><span class="ref-mark" title="${esc(kindTitle)}"></span><span class="ref-name">${esc(refDisplayName(r))}</span></label>`;
+      const paint = refRowColourAttrs(r);
+      return `<label class="ref-item kind-${r.kind}${detached ? ' detached' : ''}"><input type="checkbox" data-ref="${esc(rev)}" ${draft.picked.has(rev) ? 'checked' : ''}/><span class="ref-mark" title="${esc(kindTitle)}"${paint.mark}></span><span class="ref-name"${paint.name}>${esc(refDisplayName(r))}</span></label>`;
     })
     .join('');
   list.scrollTop = top;
@@ -1000,6 +1013,7 @@ function rowContentMark(c: GraphCommit): string {
     String(c.authorDate),
     String(c.committerDate),
     c.signatureKind ?? '',
+    snap.config.referenceLabelColours.map((rule) => `${rule.pattern}=${rule.colour}`).join(';'),
     c.refs.map((r) => `${r.kind}:${r.name}:${r.hash}`).join(','),
     c.refs
       .filter((r) => r.kind === 'head' && pickedBranches.includes(r.name))
@@ -1109,14 +1123,15 @@ function chips(c: GraphCommit): string {
     const current = r.kind === 'head' && Boolean(snap!.currentBranch) && r.name === snap!.currentBranch;
     const picked = r.kind === 'head' && !detached && pickedBranches.includes(r.name);
     const face = chipFace(r, short, iconOnly);
+    const colour = chipColourAttrs(r);
     const divergence =
       current && snap!.divergence
         ? `<span class="divergence">${snap!.divergence.ahead} ahead · ${snap!.divergence.behind} behind</span>`
         : '';
     const tag = iconOnly ? 'button' : 'span';
     const type = iconOnly ? ' type="button"' : '';
-    const cls = `chip ${r.kind}${face.extra}${detached ? ' detached' : ''}${current ? ' current' : ''}${picked ? ' picked' : ''}`;
-    return `<${tag}${type} class="${cls}"${face.title} data-kind="${r.kind}" data-name="${esc(r.name)}" data-hash="${esc(r.hash)}" data-remote="${esc(r.remote ?? '')}" data-wt="${esc(r.worktreePath ?? '')}">${face.icon}${iconOnly ? '' : findMark(face.label)}${divergence}</${tag}>`;
+    const cls = `chip ${r.kind}${face.extra}${detached ? ' detached' : ''}${current ? ' current' : ''}${picked ? ' picked' : ''}${colour.cls}`;
+    return `<${tag}${type} class="${cls}"${colour.style}${face.title} data-kind="${r.kind}" data-name="${esc(r.name)}" data-hash="${esc(r.hash)}" data-remote="${esc(r.remote ?? '')}" data-wt="${esc(r.worktreePath ?? '')}">${face.icon}${iconOnly ? '' : findMark(face.label)}${divergence}</${tag}>`;
   };
   const html = (g: ReturnType<typeof groupChipRefs>[number]) => {
     if (g.kind !== 'bundle') return mk(g.ref);
@@ -1731,7 +1746,8 @@ function undoChips(refs: GraphRef[]): string {
     const detached = ref.kind === 'head' && ref.name === 'HEAD';
     const current = ref.kind === 'head' && Boolean(snap!.currentBranch) && ref.name === snap!.currentBranch;
     const face = chipFace(ref, short, false);
-    return `<span class="chip ${ref.kind}${face.extra}${detached ? ' detached' : ''}${current ? ' current' : ''}${ref.ghost ? ' ghost' : ''}"${face.title}>${face.icon}${esc(face.label)}</span>`;
+    const colour = chipColourAttrs(ref);
+    return `<span class="chip ${ref.kind}${face.extra}${detached ? ' detached' : ''}${current ? ' current' : ''}${ref.ghost ? ' ghost' : ''}${colour.cls}"${colour.style}${face.title}>${face.icon}${esc(face.label)}</span>`;
   };
   const html = groups
     .map((group) =>
@@ -1899,6 +1915,109 @@ function syncWorktreeForm(): void {
 let gitDialogAt: { x: number; y: number } | null = null;
 
 const REMOTE_CHIP_ICON = '<span class="chip-ico" aria-hidden="true"></span>';
+
+function labelColour(ref: { kind: string; name: string; remote?: string }): string | undefined {
+  if (!snap?.config.referenceLabelColours.length) return undefined;
+  return refLabelColour(ref, snap.config.referenceLabelColours);
+}
+
+function openLabelColourDialog(ref: GraphRef, at?: { x: number; y: number }): void {
+  if (!snap) return;
+  const current = refLabelColour(ref, snap.config.referenceLabelColours) ?? DEFAULT_LABEL_COLOUR;
+  gitDialog('Label colour', labelColourDialogHtml({ pattern: ref.name, colour: current }), () => {
+    if (!snap) return;
+    const pattern = (document.getElementById('lc-pattern') as HTMLInputElement | null)?.value ?? '';
+    const colour = (document.getElementById('lc-hex') as HTMLInputElement | null)?.value ?? '';
+    const next = upsertRefColour(snap.config.referenceLabelColours, pattern, colour);
+    if (!next) return;
+    post({ type: 'setLabelColours', colours: refColoursToSetting(next) });
+  }, at);
+  const hsv = hexToHsv(current) ?? { h: 0, s: 1, v: 1 };
+  renderLabelColourHsv(hsv, normalizeHex(current) ?? DEFAULT_LABEL_COLOUR);
+  syncLabelColourOk();
+}
+
+function renderLabelColourHsv(hsv: Hsv, text?: string): void {
+  const pad = document.getElementById('lc-sv');
+  const hue = document.getElementById('lc-hue') as HTMLInputElement | null;
+  const knob = document.getElementById('lc-knob');
+  const swatch = document.getElementById('lc-swatch');
+  const hex = document.getElementById('lc-hex') as HTMLInputElement | null;
+  if (!pad || !hue || !knob || !swatch || !hex) return;
+  const h = ((hsv.h % 360) + 360) % 360;
+  const s = Math.min(1, Math.max(0, hsv.s));
+  const v = Math.min(1, Math.max(0, hsv.v));
+  pad.dataset.s = String(s);
+  pad.dataset.v = String(v);
+  pad.style.setProperty('--lc-h', String(h));
+  hue.value = String(Math.round(h));
+  knob.style.left = `${s * 100}%`;
+  knob.style.top = `${(1 - v) * 100}%`;
+  const shown = text ?? hsvToHex({ h, s, v });
+  if (text === undefined) hex.value = shown;
+  swatch.style.background = shown;
+}
+
+function labelColourHsv(): Hsv {
+  const pad = document.getElementById('lc-sv');
+  return {
+    h: Number((document.getElementById('lc-hue') as HTMLInputElement | null)?.value ?? 0),
+    s: Number(pad?.dataset.s ?? 1),
+    v: Number(pad?.dataset.v ?? 1),
+  };
+}
+
+function moveLabelColourSv(pad: HTMLElement, ev: PointerEvent): void {
+  const rect = pad.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const s = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+  const v = Math.min(1, Math.max(0, 1 - (ev.clientY - rect.top) / rect.height));
+  renderLabelColourHsv({ h: labelColourHsv().h, s, v });
+  syncLabelColourOk();
+}
+
+function hideLabelColourTip(): void {
+  document.getElementById('lc-tip')?.hidePopover?.();
+  document.getElementById('lc-help')?.setAttribute('aria-expanded', 'false');
+}
+
+function toggleLabelColourTip(): void {
+  const tip = document.getElementById('lc-tip');
+  const btn = document.getElementById('lc-help');
+  if (!tip || !btn) return;
+  if (tip.matches(':popover-open')) {
+    hideLabelColourTip();
+    return;
+  }
+  tip.showPopover?.();
+  positionAnchoredPopover(tip, btn, { align: 'left', maxWidth: 256 });
+  positionAnchoredPopover(tip, btn, { align: 'left', maxWidth: 256 });
+  btn.setAttribute('aria-expanded', 'true');
+}
+
+function syncLabelColourOk(): void {
+  const pattern = (document.getElementById('lc-pattern') as HTMLInputElement | null)?.value.trim() ?? '';
+  const hex = (document.getElementById('lc-hex') as HTMLInputElement | null)?.value ?? '';
+  if (!document.getElementById('lc-pattern')) return;
+  $('git-ok').disabled = !pattern || !normalizeHex(hex);
+  const remove = document.getElementById('lc-remove') as HTMLButtonElement | null;
+  if (remove) remove.disabled = !snap?.config.referenceLabelColours.some((rule) => rule.pattern === pattern);
+}
+
+function chipColourAttrs(ref: GraphRef): { cls: string; style: string } {
+  const colour = labelColour(ref);
+  if (!colour) return { cls: '', style: '' };
+  return { cls: ' coloured', style: ` style="color:${colour};--ref-colour:${colour}"` };
+}
+
+function refRowColourAttrs(ref: { kind: string; name: string; remote?: string }): { mark: string; name: string } {
+  const colour = labelColour(ref);
+  if (!colour) return { mark: '', name: '' };
+  return {
+    mark: ` style="background:${colour};box-shadow:none"`,
+    name: ` style="color:${colour}"`,
+  };
+}
 
 function chipFace(r: GraphRef, short: boolean, iconOnly: boolean): { extra: string; icon: string; label: string; title: string } {
   const remoteShort = short && r.kind === 'remote';
@@ -2266,9 +2385,50 @@ function bindDialogs(): void {
     syncDeleteBranchForm();
     if (tagMark) paintTagRemoteMarks();
   });
-  $('git-body').addEventListener('input', () => {
+  $('git-body').addEventListener('input', (ev) => {
     if (document.getElementById('wt-name')) syncWorktreeForm();
     if (tagMark && document.getElementById('tn')) paintTagRemoteMarks();
+    const id = (ev.target as HTMLElement).id;
+    if (id === 'lc-hue') {
+      renderLabelColourHsv(labelColourHsv());
+      syncLabelColourOk();
+    } else if (id === 'lc-hex') {
+      const parsed = normalizeHex((ev.target as HTMLInputElement).value);
+      if (parsed) {
+        const hsv = hexToHsv(parsed);
+        if (hsv) renderLabelColourHsv(hsv, parsed);
+      }
+      syncLabelColourOk();
+    } else if (id === 'lc-pattern') syncLabelColourOk();
+  });
+  $('git-body').addEventListener('pointerdown', (ev) => {
+    const pad = (ev.target as HTMLElement).closest<HTMLElement>('#lc-sv');
+    if (!pad) return;
+    ev.preventDefault();
+    pad.setPointerCapture(ev.pointerId);
+    moveLabelColourSv(pad, ev);
+  });
+  $('git-body').addEventListener('pointermove', (ev) => {
+    const pad = document.getElementById('lc-sv');
+    if (!pad?.hasPointerCapture(ev.pointerId)) return;
+    moveLabelColourSv(pad, ev);
+  });
+  $('git-body').addEventListener('click', (ev) => {
+    const target = ev.target as HTMLElement;
+    if (target.closest('#lc-tip')) return;
+    if (target.closest('#lc-help')) {
+      ev.preventDefault();
+      toggleLabelColourTip();
+      return;
+    }
+    hideLabelColourTip();
+    if (target.id !== 'lc-remove') return;
+    ev.preventDefault();
+    const pattern = (document.getElementById('lc-pattern') as HTMLInputElement | null)?.value ?? '';
+    if (!snap || !pattern.trim()) return;
+    post({ type: 'setLabelColours', colours: refColoursToSetting(removeRefColour(snap.config.referenceLabelColours, pattern)) });
+    dialogOk = null;
+    dlg.close();
   });
   $('git-cancel').addEventListener('click', () => {
     dialogOk = null;
@@ -2278,6 +2438,7 @@ function bindDialogs(): void {
     dialogOk = null;
   });
   dlg.addEventListener('close', () => {
+    hideLabelColourTip();
     tagMark = null;
     remoteTagReq = '';
     remoteTagLoading = false;
@@ -2367,7 +2528,8 @@ function fillCompareList(): void {
           const i = index++;
           const on = i === compareActive ? ' aria-selected="true"' : '';
           const detail = item.detail ? `<span class="cmp-detail">${esc(item.detail)}</span>` : '';
-          return `<button type="button" class="ref-item kind-${item.kind}" role="option" data-cmp="${i}"${on}><span class="ref-mark" aria-hidden="true"></span><span class="ref-name">${esc(item.label)}</span>${detail}</button>`;
+          const paint = item.kind === 'commit' ? { mark: '', name: '' } : refRowColourAttrs({ kind: item.kind, name: item.label });
+          return `<button type="button" class="ref-item kind-${item.kind}" role="option" data-cmp="${i}"${on}><span class="ref-mark" aria-hidden="true"${paint.mark}></span><span class="ref-name"${paint.name}>${esc(item.label)}</span>${detail}</button>`;
         })
         .join('');
       return `<div class="cmp-section"><div class="cmp-h">${esc(section.title)}</div>${rows}</div>`;
@@ -3042,6 +3204,11 @@ function bind(): void {
   bindPopoverAnchor('btn-date', 'pop-date');
   bindPopoverAnchor('btn-repo-help', 'pop-repo-help', { align: 'left', maxWidth: 400 });
   document.addEventListener('pointerdown', (ev) => {
+    const tip = document.getElementById('lc-tip');
+    if (tip?.matches(':popover-open')) {
+      const node = ev.target as Node;
+      if (!tip.contains(node) && !document.getElementById('lc-help')?.contains(node)) hideLabelColourTip();
+    }
     const pop = $('pop-repo-help');
     if (!pop.matches(':popover-open')) return;
     const t = ev.target as Node;
@@ -3415,6 +3582,7 @@ function menuRef(chip: HTMLElement, x: number, y: number): void {
   } else if (kind === 'tag') {
     if (vis('tag', 'delete')) items.push(btn('tag-del', 'Delete'));
     if (vis('tag', 'push')) items.push(btn('tag-push', 'Push'));
+    if (vis('tag', 'colour')) items.push(btn('ref-colour', 'Set label colour…'));
     items.push(btn('copy', 'Copy name'));
   } else if (kind === 'head') {
     if (name === 'HEAD') items.push(btn('copy', 'Copy name'));
@@ -3450,6 +3618,7 @@ function menuRef(chip: HTMLElement, x: number, y: number): void {
     );
     const tail: string[] = [];
     if (vis('remote', 'pr')) tail.push(btn('pr', 'Create PR'));
+    if (vis('remote', 'colour')) tail.push(btn('ref-colour', 'Set label colour…'));
     tail.push(btn('copy', 'Copy name'));
     if (compareHtml) {
       if (items.length) items.push('<hr class="menu-sep" />');
@@ -3542,6 +3711,7 @@ function onMenu(ev: Event): void {
       post({ type: 'copy', text: r.name });
       showCopiedToast((ev as MouseEvent).clientX, (ev as MouseEvent).clientY);
     }
+    if (id === 'ref-colour') openLabelColourDialog(r, clickPoint(ev));
     if (id === 'wt-open' && r.worktreePath) act({ kind: 'worktreeOpen', path: r.worktreePath, newWindow: false });
     if (id === 'wt-new' && r.worktreePath) act({ kind: 'worktreeOpen', path: r.worktreePath, newWindow: true });
     if (id === 'wt-del' && r.worktreePath) {

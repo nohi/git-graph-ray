@@ -22,7 +22,8 @@ import {
   type UndoStack,
 } from '../../shared/undo';
 import { fillPrUrl } from '../../shared/issueLinks';
-import { cfg, autoFetchIntervalSeconds, getCustomPrProviders, getEmojiMaps, getGlobPatterns, getMenuVisibility, getViewConfig, updateSetting, viewColumn } from '../config';
+import { cfg, autoFetchIntervalSeconds, getCustomPrProviders, getEmojiMaps, getGlobPatterns, getMenuVisibility, getViewConfig, LABEL_COLOUR_STATE_KEY, saveLabelColours, updateSetting, viewColumn } from '../config';
+import { parseRefColours, refColoursToSetting } from '../../shared/refColours';
 import { AvatarStore } from '../avatars';
 import { runGitAction } from '../git/actions';
 import { PartialRemotePushError, TagPushError } from '../git/tagPush';
@@ -405,7 +406,7 @@ class GraphSession {
       const labels = event.affectsConfiguration('git-graph-ray.referenceLabels');
       if (!autoFetch && !labels) return;
       if (autoFetch) this.armAutoFetch();
-      this.post({ type: 'patch', payload: { config: getViewConfig(this.gitVer) } });
+      this.post({ type: 'patch', payload: { config: this.viewConfig() } });
     });
     this.armAutoFetch();
     this.watch();
@@ -413,6 +414,10 @@ class GraphSession {
 
   get repoRoot(): string {
     return this.repoPath;
+  }
+
+  private viewConfig() {
+    return getViewConfig(this.gitVer, this.ctx.globalState.get(LABEL_COLOUR_STATE_KEY));
   }
 
   owns(panel: vscode.WebviewPanel): boolean {
@@ -549,28 +554,32 @@ class GraphSession {
         }
         case 'setTheme':
           await updateSetting('graph.theme', msg.value);
-          this.post({ type: 'patch', payload: { config: getViewConfig(this.gitVer) } });
+          this.post({ type: 'patch', payload: { config: this.viewConfig() } });
           return;
         case 'setRayCat':
           await updateSetting('rayCat.enabled', msg.enabled);
           await updateSetting('rayCat.count', Math.max(1, Math.min(10, Math.round(msg.count))));
-          this.post({ type: 'patch', payload: { config: getViewConfig(this.gitVer) } });
+          this.post({ type: 'patch', payload: { config: this.viewConfig() } });
           return;
         case 'setFetchPrune':
           await updateSetting('repository.fetchAndPrune', msg.prune);
           await updateSetting('repository.fetchAndPruneTags', msg.pruneTags);
-          this.post({ type: 'patch', payload: { config: getViewConfig(this.gitVer) } });
+          this.post({ type: 'patch', payload: { config: this.viewConfig() } });
           return;
         case 'setUndoPreview':
           await updateSetting('undo.preview', msg.value);
-          this.post({ type: 'patch', payload: { config: getViewConfig(this.gitVer) } });
+          this.post({ type: 'patch', payload: { config: this.viewConfig() } });
           return;
         case 'openSettings':
           await vscode.commands.executeCommand('workbench.action.openSettings', 'git-graph-ray');
           return;
+        case 'setLabelColours':
+          await saveLabelColours(this.ctx, refColoursToSetting(parseRefColours(msg.colours)));
+          this.post({ type: 'patch', payload: { config: this.viewConfig() } });
+          return;
         case 'setColumns':
           await updateSetting('defaultColumnVisibility', msg.value);
-          this.post({ type: 'patch', payload: { config: getViewConfig(this.gitVer) } });
+          this.post({ type: 'patch', payload: { config: this.viewConfig() } });
           return;
         case 'openRow':
           if (!msg.hash) {
@@ -741,7 +750,7 @@ class GraphSession {
     this.sortRepos(repos);
     if (!this.repoPath || !repos.some((r) => r.path === this.repoPath)) this.repoPath = repos[0]?.path ?? this.repoPath;
     const settings = loadRepoSettings(this.ctx, this.repoPath);
-    const config = getViewConfig(this.gitVer);
+    const config = this.viewConfig();
     if (settings.showRemotes != null) config.showRemoteBranches = settings.showRemotes;
     if (settings.showStashes != null) config.showStashes = settings.showStashes;
     if (settings.showTags != null) config.showTags = settings.showTags;
@@ -819,7 +828,7 @@ class GraphSession {
   }
 
   private commitLoad(maxCount: number, skip: number) {
-    const config = getViewConfig(this.gitVer);
+    const config = this.viewConfig();
     const settings = loadRepoSettings(this.ctx, this.repoPath);
     if (settings.showStashes != null) config.showStashes = settings.showStashes;
     if (settings.showTags != null) config.showTags = settings.showTags;
@@ -1133,7 +1142,7 @@ class GraphSession {
     try {
       const prepared = await this.prepareUndo(direction, steps);
       if (!prepared) return;
-      const preview = getViewConfig(this.gitVer).undoPreview;
+      const preview = this.viewConfig().undoPreview;
       if (!needsUndoDialog(prepared.plan, preview)) {
         await this.restorePrepared(direction, prepared.entries, prepared.plan.args);
         return;
@@ -1236,7 +1245,7 @@ class GraphSession {
   }
 
   private async previewGraph(checkpoint: LocalCheckpoint): Promise<GraphSnapshot['commits']> {
-    const config = getViewConfig(this.gitVer);
+    const config = this.viewConfig();
     const loaded = await loadRefs(this.git(), this.repoPath, true).catch(() => ({ refs: [] as GraphRef[] }));
     return loadCheckpointCommits(
       this.git(),

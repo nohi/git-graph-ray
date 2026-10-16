@@ -51,6 +51,7 @@ export function defaultViewConfig(): ViewConfig {
     combineLocalAndRemote: true,
     referenceLabelAlignment: 'Normal',
     remoteBranchPrefix: 'Icon',
+    referenceLabelColours: [],
     markdown: true,
     enhancedAccessibility: false,
     autoCenter: false,

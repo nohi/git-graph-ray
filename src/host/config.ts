@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { defaultDialogs } from '../shared/dialogs';
 import { defaultViewConfig, parseGitVersion } from '../shared/graph';
+import { isUnregisteredConfigurationMessage, labelColourSettingValue, parseRefColours, refColoursToSetting } from '../shared/refColours';
 import type { ColumnVisibility, RefSort, ViewConfig } from '../shared/types';
 
 const SECTION = 'git-graph-ray';
@@ -33,7 +34,41 @@ export async function updateSetting<T>(key: string, value: T): Promise<void> {
   await vscode.workspace.getConfiguration(SECTION).update(key, value, vscode.ConfigurationTarget.Global);
 }
 
-export function getViewConfig(gitVersion = ''): ViewConfig {
+/** Colours saved while `referenceLabels.colours` is missing from the window's configuration registry. */
+export const LABEL_COLOUR_STATE_KEY = 'referenceLabelColours';
+
+export async function saveLabelColours(context: vscode.ExtensionContext, colours: Record<string, string>): Promise<void> {
+  try {
+    await updateSetting('referenceLabels.colours', colours);
+    await context.globalState.update(LABEL_COLOUR_STATE_KEY, undefined);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!isUnregisteredConfigurationMessage(message)) throw error;
+    await context.globalState.update(LABEL_COLOUR_STATE_KEY, colours);
+  }
+}
+
+/** Move colours kept during an unregistered write into User Settings once the key is registered. */
+export async function migrateLabelColours(context: vscode.ExtensionContext): Promise<void> {
+  const stored = context.globalState.get<unknown>(LABEL_COLOUR_STATE_KEY);
+  if (stored === undefined) return;
+  const inspected = vscode.workspace.getConfiguration(SECTION).inspect('referenceLabels.colours');
+  if (inspected?.defaultValue === undefined) return;
+  const hasUserValue =
+    inspected.globalValue !== undefined || inspected.workspaceValue !== undefined || inspected.workspaceFolderValue !== undefined;
+  if (!hasUserValue) {
+    try {
+      await updateSetting('referenceLabels.colours', refColoursToSetting(parseRefColours(stored)));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isUnregisteredConfigurationMessage(message)) return;
+      throw error;
+    }
+  }
+  await context.globalState.update(LABEL_COLOUR_STATE_KEY, undefined);
+}
+
+export function getViewConfig(gitVersion = '', storedLabelColours?: unknown): ViewConfig {
   const c = vscode.workspace.getConfiguration(SECTION);
   const defaults = defaultViewConfig();
   const colours = c.get<string[]>('graph.colours') ?? defaults.graphColours;
@@ -68,6 +103,7 @@ export function getViewConfig(gitVersion = ''): ViewConfig {
     combineLocalAndRemote: c.get('referenceLabels.combineLocalAndRemoteBranchLabels') ?? true,
     referenceLabelAlignment: c.get('referenceLabels.alignment') ?? defaults.referenceLabelAlignment,
     remoteBranchPrefix: c.get('referenceLabels.remoteBranchPrefix') === 'Text' ? 'Text' : 'Icon',
+    referenceLabelColours: parseRefColours(labelColourSettingValue(c.inspect('referenceLabels.colours'), storedLabelColours)),
     markdown: c.get('markdown') ?? true,
     enhancedAccessibility: c.get('enhancedAccessibility') ?? false,
     autoCenter: c.get('commitDetailsView.autoCenter') ?? false,

@@ -79,7 +79,11 @@ export function branchMenuEntries(opts: {
       v('push') && { id: 'br-ps', label: 'Push branch' },
     ]),
     compareMenuEntries({ withHead: opts.withHead, visible: v }),
-    keep([v('pr') && { id: 'pr', label: 'Create PR' }, { id: 'copy', label: 'Copy branch name' }]),
+    keep([
+      v('pr') && { id: 'pr', label: 'Create PR' },
+      v('colour') && { id: 'ref-colour', label: 'Set label colour…' },
+      { id: 'copy', label: 'Copy branch name' },
+    ]),
   ];
   const out: MenuEntry[] = [];
   for (const group of groups) {

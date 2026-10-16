@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { startAskpassServer } from './askpass/server';
 import { AvatarStore } from './avatars';
 import { registerCommands } from './commands';
-import { cfg, getGitPathSetting } from './config';
+import { getGitPathSetting, migrateLabelColours } from './config';
 import { DiffFiles } from './diff/provider';
 import { ContributorsPanel } from './editor/contributorsPanel';
 import { GraphEditorProvider } from './editor/provider';
@@ -16,6 +16,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   setGitCommandLogger((line) => output.appendLine(line));
   context.subscriptions.push(output, { dispose: () => setGitCommandLogger(() => {}) });
 
+  await migrateLabelColours(context);
   const git = await findGit(getGitPathSetting());
   const version = await gitVersionString(git);
   await startAskpassServer(context);

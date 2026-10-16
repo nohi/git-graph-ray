@@ -875,6 +875,130 @@ dialog button:disabled {
   }
 }
 
+#dlg-git:has(#lc-sv) {
+  box-sizing: border-box;
+  width: min(18rem, calc(100vw - 16px));
+}
+
+.lc-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+dialog button.lc-help {
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+#lc-tip {
+  inset: auto;
+  margin: 0;
+  min-width: 0;
+  max-width: 16rem;
+  padding: 0.45rem 0.55rem;
+  line-height: 1.45;
+}
+
+.lc-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.lc-sv {
+  position: relative;
+  height: 9rem;
+  border-radius: 2px;
+  background: hsl(var(--lc-h, 0), 100%, 50%);
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+.lc-sv-white,
+.lc-sv-black {
+  position: absolute;
+  inset: 0;
+}
+
+.lc-sv-white {
+  background: linear-gradient(to right, #fff, transparent);
+}
+
+.lc-sv-black {
+  background: linear-gradient(to top, #000, transparent);
+}
+
+.lc-knob {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #000;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+#git-body input.lc-hue {
+  appearance: none;
+  width: 100%;
+  height: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+  cursor: pointer;
+}
+
+.lc-hue::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #000;
+}
+
+.lc-hue::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 1px #000;
+}
+
+.lc-hex-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.lc-swatch {
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+
+#git-body input#lc-hex {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#lc-remove {
+  align-self: flex-start;
+}
+
 #dlg-git:has(#ru) {
   box-sizing: border-box;
   width: clamp(400px, calc(100vw - 16px), 800px);
@@ -1343,6 +1467,10 @@ dialog button:disabled {
   &.worktree {
     color: #34d399;
     --chip-ico: var(--ico-worktree);
+  }
+
+  &.coloured.current {
+    background: color-mix(in srgb, var(--ref-colour) 38%, transparent);
   }
 }
 

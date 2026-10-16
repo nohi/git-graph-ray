@@ -1,9 +1,15 @@
 # Changelog
 
-## v0.5.3
+## v0.6.0
+
+### Features
+
+- Colour branch and tag labels with `git-graph-ray.referenceLabels.colours`. Keys are globs (`release*` matches `release/1.0`) and values are hex colours. The first match wins. The same colour is used on the graph, in Branches/Tags, and in Compare with….
+- Right-click a branch, remote branch, or tag label and choose Set label colour. The dialog starts from that name, so `feature/hoge` can be edited to `feature/*`. The colour is chosen in the picker or typed as hex.
 
 ### Fixes
 
+- Set label colour still saves when VS Code reports that `git-graph-ray.referenceLabels.colours` is not a registered configuration. The colour is kept and copied into User Settings once the setting is registered.
 - Highlight the commit a comparison starts from in gold, so it is distinct from the usual selection color. The other commit stays purple.
 
 ## v0.5.2

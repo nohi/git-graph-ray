@@ -173,6 +173,7 @@ const SHELL = `
     <ul class="help-list">
       <li>Fetch runs immediately. Prune, prune tags, and auto fetch are in Repository Settings (and VS Code Settings). Auto fetch is off until you enable it.</li>
       <li>Double-click a branch or tag label to check it out.</li>
+      <li>Right-click a branch, remote branch, or tag label and choose Set label colour. The pattern starts as that name, and you can widen it (feature/hoge to feature/*). Pick the colour in the square or type a hex value such as #FF8888. The same globs can be edited in git-graph-ray.referenceLabels.colours. The first match wins.</li>
       <li>Ctrl/Cmd+click local branch labels to select them, then right-click a branch and choose Rebase selected branches on this branch.</li>
       <li>Shift+click two commits to select the rows between them. Ctrl/Cmd+click adds or removes individual commits, including ones that are not next to each other. Two selected commits show the diff between them. Three or more close the details. Right-click a selected commit to cherry-pick them. Merge commits are skipped.</li>
       <li>Right-click a commit or branch and choose Compare with… to pick a branch, tag, or commit, or Compare with HEAD.</li>

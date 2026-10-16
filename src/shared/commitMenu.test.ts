@@ -71,6 +71,7 @@ describe('branchMenuEntries', () => {
       { id: 'cmp', label: 'Compare with…' },
       'sep',
       { id: 'pr', label: 'Create PR' },
+      { id: 'ref-colour', label: 'Set label colour…' },
       { id: 'copy', label: 'Copy branch name' },
     ]);
   });
@@ -87,6 +88,7 @@ describe('branchMenuEntries', () => {
       'sep',
       { id: 'cmp', label: 'Compare with…' },
       'sep',
+      { id: 'ref-colour', label: 'Set label colour…' },
       { id: 'copy', label: 'Copy branch name' },
     ]);
   });
@@ -135,7 +137,16 @@ describe('branchMenuEntries', () => {
       { id: 'cmp-head', label: 'Compare with HEAD' },
       'sep',
       { id: 'pr', label: 'Create PR' },
+      { id: 'ref-colour', label: 'Set label colour…' },
       { id: 'copy', label: 'Copy branch name' },
     ]);
+  });
+
+  it('hides the label colour action when visibility is off', () => {
+    expect(
+      branchMenuEntries({ current: false, withHead: false, visible: (id) => id !== 'colour' }).some(
+        (entry) => entry !== 'sep' && entry.id === 'ref-colour',
+      ),
+    ).toBe(false);
   });
 });
