@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.2
+
+### Fixes
+
+- Branch and tag labels use the same font size as the commit title.
+
 ## v0.5.0
 
 ### Features

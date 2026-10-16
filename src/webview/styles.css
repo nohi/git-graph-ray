@@ -1260,9 +1260,8 @@ dialog button:disabled {
 }
 
 .chip {
-  /* 12px at the normal line-height made an 18px box with empty space above the letters. 16px at line-height 1 fills that same box. */
-  font-size: 16px;
-  line-height: 1;
+  /* Same size as the commit title, which inherits the 12px root size. */
+  font-size: inherit;
   padding: 0 0.3rem;
   border-radius: 3px;
   border: 1px solid currentColor;
