@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.3
+
+### Fixes
+
+- Highlight the commit a comparison starts from in gold, so it is distinct from the usual selection color. The other commit stays purple.
+
 ## v0.5.2
 
 ### Fixes

@@ -980,7 +980,7 @@ function rowClass(c: GraphCommit, ancestors: Set<string> | null, history: Set<st
   const muteMerge = snap.config.muteMergeCommits && c.parents.length > 1;
   const muteRow = Boolean(ancestors && c.hash !== UNCOMMITTED && !ancestors.has(c.hash));
   const onHistory = Boolean(history?.has(c.hash));
-  return `row${muteMerge ? ' muted-merge' : ''}${muteRow ? ' muted' : ''}${onHistory ? ' branch-hist' : ''}${commitRange.includes(c.hash) ? ' range' : ''}${c.hash === selected ? ' sel' : ''}${c.hash === compare ? ' cmp' : ''}${c.hash === snap.head ? ' head-commit' : ''}`;
+  return `row${muteMerge ? ' muted-merge' : ''}${muteRow ? ' muted' : ''}${onHistory ? ' branch-hist' : ''}${commitRange.includes(c.hash) ? ' range' : ''}${c.hash === selected ? ' sel' : ''}${compare && c.hash === selected ? ' cmp-base' : ''}${c.hash === compare ? ' cmp' : ''}${c.hash === snap.head ? ' head-commit' : ''}`;
 }
 
 function rowContentMark(c: GraphCommit): string {
