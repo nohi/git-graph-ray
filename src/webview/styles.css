@@ -135,9 +135,14 @@ html.details-open body {
     --tone: var(--tone-jump);
   }
 
+  button.tone-graph {
+    --tone: var(--hl);
+  }
+
   button.tone-filter,
   button.tone-git,
-  button.tone-jump {
+  button.tone-jump,
+  button.tone-graph {
     color: var(--tone);
     border-color: color-mix(in srgb, var(--tone) 62%, var(--line));
     background: color-mix(in srgb, var(--tone) 14%, transparent);
@@ -490,6 +495,7 @@ html {
 #pop-dates,
 #pop-contributor,
 #pop-settings,
+#pop-graph,
 #pop-find,
 #pop-date,
 #pop-confirm,
@@ -502,6 +508,7 @@ html {
 #pop-dates,
 #pop-contributor,
 #pop-settings,
+#pop-graph,
 #pop-find,
 #pop-date,
 #pop-repo-help {
@@ -791,6 +798,11 @@ mark.find-hit {
   color: #f87171;
 }
 
+.settings-note {
+  margin: 0 0 0.45rem;
+  color: var(--muted);
+}
+
 .settings-save {
   display: flex;
   justify-content: flex-end;
@@ -818,6 +830,12 @@ mark.find-hit {
 .remote-name {
   flex: 1;
   min-width: 0;
+}
+
+.lane-pri {
+  min-width: 2.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .settings button,

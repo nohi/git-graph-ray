@@ -4,7 +4,7 @@ import { graphHtml } from './html';
 describe('graphHtml', () => {
   it('embeds toolbar and table chrome the webview script binds to', () => {
     const html = graphHtml('https://csp.example', 'webview.js', 'style.css', 'n0nce');
-    for (const id of ['repo', 's-theme', 's-raycat', 's-raycat-count', 'scroll', 'rows', 'fail', 'fail-msg', 'fail-close', 'conflict', 'conflict-msg', 'conflict-files', 'conflict-continue', 'conflict-abort', 'path-filter', 'path-filter-msg', 'path-filter-clear', 'git-busy-overlay', 'git-busy-hint', 'cols-clip', 'head', 'svg', 'g-clip', 'ray-cats', 'inline-details', 'btn-settings', 'btn-date', 'date-jump-go', 'date-kind-author', 'date-kind-committer', 'btn-dates', 'date-q', 'date-show-all', 'date-tab-author', 'date-tab-committer', 'date-list', 'date-ok', 'btn-contributor', 'pop-contributor', 'person-q', 'person-show-all', 'person-tab-author', 'person-tab-committer', 'person-list', 'person-activity', 'person-ok', 'show-remotes', 'show-same-commit', 'ref-ok', 'btn-repo-help', 'find-case', 'find-regex', 'find-diff', 'find-prev', 'find-next', 'help-settings', 'help-keys', 's-prune', 's-prune-tags', 's-auto-fetch', 's-auto-fetch-interval', 'pop-confirm', 'confirm-ok', 'confirm-cancel']) {
+    for (const id of ['repo', 's-theme', 's-raycat', 's-raycat-count', 'scroll', 'rows', 'fail', 'fail-msg', 'fail-close', 'conflict', 'conflict-msg', 'conflict-files', 'conflict-continue', 'conflict-abort', 'path-filter', 'path-filter-msg', 'path-filter-clear', 'git-busy-overlay', 'git-busy-hint', 'cols-clip', 'head', 'svg', 'g-clip', 'ray-cats', 'inline-details', 'btn-graph', 'pop-graph', 'lane-list', 'add-lane', 'btn-settings', 'btn-date', 'date-jump-go', 'date-kind-author', 'date-kind-committer', 'btn-dates', 'date-q', 'date-show-all', 'date-tab-author', 'date-tab-committer', 'date-list', 'date-ok', 'btn-contributor', 'pop-contributor', 'person-q', 'person-show-all', 'person-tab-author', 'person-tab-committer', 'person-list', 'person-activity', 'person-ok', 'show-remotes', 'show-same-commit', 'ref-ok', 'btn-repo-help', 'find-case', 'find-regex', 'find-diff', 'find-prev', 'find-next', 'help-settings', 'help-keys', 's-prune', 's-prune-tags', 's-auto-fetch', 's-auto-fetch-interval', 'pop-confirm', 'confirm-ok', 'confirm-cancel']) {
       expect(html).toContain(`id="${id}"`);
     }
     expect(html).toContain('Branches/Tags');
@@ -20,8 +20,12 @@ describe('graphHtml', () => {
     expect(html).toContain("script-src https://csp.example 'nonce-n0nce'");
     expect(html).toContain('style="margin:0;padding:0;width:100%"');
     expect(html).toContain('id="btn-settings"');
+    expect(html).toContain('title="Graph Settings"');
+    expect(html).toContain('title="Repository Settings"');
+    expect(html).toContain('Graph lane priority');
     expect(html).toContain('popover="manual"');
     expect(html).not.toContain('commandfor="pop-settings"');
+    expect(html).not.toContain('commandfor="pop-graph"');
     expect(html).not.toContain('commandfor="pop-date"');
     expect(html).toContain('id="pop-date" popover="manual"');
     expect(html).toContain('class="settings-h"');

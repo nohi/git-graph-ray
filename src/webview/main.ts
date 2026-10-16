@@ -32,7 +32,7 @@ import {
   type PersonField,
   type PersonFilter,
 } from '../shared/personFilter';
-import { foldBridgeEdges, historyEdgeHot, historyLanes, layoutCommits, type Edge, type Layout } from '../shared/layout';
+import { foldBridgeEdges, historyEdgeHot, historyLanes, lanePriorityToSetting, layoutCommits, removeLanePriority, upsertLanePriority, type Edge, type Layout } from '../shared/layout';
 import { edgeTouchesRange, renderEdges, renderNodes, type DrawnEdge, type DrawnNode } from '../shared/graphPaint';
 import { buildFileTree, FOLDER_MENU, folderFoldPlan, wantsNestedFolderToggle, type FolderFoldPlan } from '../shared/fileTree';
 import { decideNamedRemoteCheckout, startCheckoutFromRef } from '../shared/checkout';
@@ -433,6 +433,7 @@ function applySnap(): void {
   $('s-auto-fetch-interval').disabled = !snap.config.autoFetch;
   $('s-undo-preview').checked = snap.config.undoPreview;
   fillRemotes();
+  fillLanePriority();
   fillPr();
   if (snap.repoSettings.issueLinking) {
     $('issue-re').value = snap.repoSettings.issueLinking.regex;
@@ -607,6 +608,31 @@ function fillRemotes(): void {
     .join('');
 }
 
+function fillLanePriority(): void {
+  if (!snap) return;
+  $('lane-list').innerHTML = snap.config.lanePriority
+    .map(
+      (rule, index) =>
+        `<div class="remote-row"><span class="remote-name">${esc(rule.pattern)}</span><span class="lane-pri">${esc(String(rule.priority))}</span><button type="button" class="remote-act" data-lane-ed="${index}">Edit</button><button type="button" class="remote-del" data-lane-del="${index}">Delete</button></div>`,
+    )
+    .join('');
+}
+
+function lanePriorityDialog(title: string, pattern: string, priority: string, previous?: string): void {
+  gitDialog(
+    title,
+    `<label class="dlg-field">Pattern <input id="lp-pattern" placeholder="main or release*" value="${esc(pattern)}" /></label><label class="dlg-field">Priority <input id="lp-priority" type="number" step="1" placeholder="50" value="${esc(priority)}" /></label>`,
+    () => {
+      if (!snap) return;
+      const nextPattern = (document.getElementById('lp-pattern') as HTMLInputElement).value;
+      const nextPriority = Number((document.getElementById('lp-priority') as HTMLInputElement).value);
+      const next = upsertLanePriority(snap.config.lanePriority, nextPattern, nextPriority, previous);
+      if (!next) return;
+      post({ type: 'setLanePriority', priorities: lanePriorityToSetting(next) });
+    },
+  );
+}
+
 function fillPr(): void {
   if (!snap) return;
   const names = ['GitHub', 'GitLab', 'Bitbucket', ...snap.customPrProviders.map((p) => p.name)];
@@ -725,19 +751,24 @@ function shownCommits(): number[] {
   return rows;
 }
 
-let layoutCache: { commits: GraphCommit[]; layout: Layout; byFrom: Edge[][] } | null = null;
+let layoutCache: { commits: GraphCommit[]; priority: string; layout: Layout; byFrom: Edge[][] } | null = null;
 
 function fullLayout(): Layout {
   return layoutState().layout;
 }
 
+function lanePriorityMark(): string {
+  return snap?.config.lanePriority.map((rule) => `${rule.pattern}\0${rule.priority}`).join('\n') ?? '';
+}
+
 function layoutState(): { layout: Layout; byFrom: Edge[][] } {
   if (!snap) return { layout: { vertices: [], edges: [], maxLanes: 1 }, byFrom: [] };
-  if (layoutCache?.commits === snap.commits) return layoutCache;
-  const layout = layoutCommits(snap.commits);
+  const priority = lanePriorityMark();
+  if (layoutCache?.commits === snap.commits && layoutCache.priority === priority) return layoutCache;
+  const layout = layoutCommits(snap.commits, snap.config.lanePriority);
   const byFrom: Edge[][] = [];
   for (const edge of layout.edges) (byFrom[edge.fromRow] ??= []).push(edge);
-  layoutCache = { commits: snap.commits, layout, byFrom };
+  layoutCache = { commits: snap.commits, priority, layout, byFrom };
   return layoutCache;
 }
 
@@ -1760,7 +1791,7 @@ function undoChips(refs: GraphRef[]): string {
 }
 
 function undoGraph(commits: GraphCommit[], head: string | null): { svg: string; width: number; height: number } {
-  const layout = layoutCommits(commits);
+  const layout = layoutCommits(commits, snap!.config.lanePriority);
   const height = Math.max(commits.length, 1) * ROW;
   const theme = snap!.config.theme === 'Ray Stream' ? 'classic' : snap!.config.theme;
   const nodeAt = new Set(layout.vertices.map((vertex) => `${vertex.row}:${vertex.lane}`));
@@ -1877,6 +1908,7 @@ const ANCHOR_POPS: Array<[string, string, AnchoredPopoverOpts?]> = [
   ['btn-refs', 'pop-refs'],
   ['btn-dates', 'pop-dates'],
   ['btn-contributor', 'pop-contributor'],
+  ['btn-graph', 'pop-graph'],
   ['btn-settings', 'pop-settings'],
   ['btn-find', 'pop-find'],
   ['btn-date', 'pop-date'],
@@ -2073,6 +2105,7 @@ function gitDialog(title: string, body: string, onOk: () => void, at?: { x: numb
   $('git-ok').disabled = false;
   syncGitOkFromRemotes();
   syncDeleteBranchForm();
+  syncLanePriorityForm();
   const dlg = $('dlg-git') as unknown as HTMLDialogElement;
   clearCursorDialog(dlg);
   if (at) {
@@ -2103,6 +2136,15 @@ function syncDeleteBranchForm(): void {
   const state = deleteBranchConfirm(deleteBranchMerge, force.checked);
   warn.hidden = !state.showWarning;
   $('git-ok').disabled = !state.okEnabled;
+}
+
+function syncLanePriorityForm(): void {
+  const pattern = document.getElementById('lp-pattern') as HTMLInputElement | null;
+  const priority = document.getElementById('lp-priority') as HTMLInputElement | null;
+  if (!pattern || !priority) return;
+  const text = priority.value.trim();
+  const n = Number(text);
+  $('git-ok').disabled = !pattern.value.trim() || text === '' || !Number.isFinite(n);
 }
 
 function syncGitOkFromRemotes(): void {
@@ -2383,10 +2425,12 @@ function bindDialogs(): void {
   $('git-body').addEventListener('change', () => {
     syncGitOkFromRemotes();
     syncDeleteBranchForm();
+    if (document.getElementById('lp-pattern')) syncLanePriorityForm();
     if (tagMark) paintTagRemoteMarks();
   });
   $('git-body').addEventListener('input', (ev) => {
     if (document.getElementById('wt-name')) syncWorktreeForm();
+    if (document.getElementById('lp-pattern')) syncLanePriorityForm();
     if (tagMark && document.getElementById('tn')) paintTagRemoteMarks();
     const id = (ev.target as HTMLElement).id;
     if (id === 'lc-hue') {
@@ -3100,6 +3144,24 @@ function bind(): void {
   $('s-undo-preview').addEventListener('change', () => {
     post({ type: 'setUndoPreview', value: $('s-undo-preview').checked });
   });
+  $('add-lane').addEventListener('click', () => lanePriorityDialog('Add lane priority', '', ''));
+  $('lane-list').addEventListener('click', (ev) => {
+    const t = (ev.target as HTMLElement).closest<HTMLElement>('[data-lane-ed], [data-lane-del]');
+    if (!t || !snap) return;
+    ev.stopPropagation();
+    const index = Number(t.dataset.laneEd ?? t.dataset.laneDel);
+    const rule = snap.config.lanePriority[index];
+    if (!rule) return;
+    if (t.dataset.laneEd != null) {
+      lanePriorityDialog('Edit lane priority', rule.pattern, String(rule.priority), rule.pattern);
+      return;
+    }
+    const r = t.getBoundingClientRect();
+    showConfirmTip(`Delete lane priority "${rule.pattern}"?`, () => {
+      if (!snap) return;
+      post({ type: 'setLanePriority', priorities: lanePriorityToSetting(removeLanePriority(snap.config.lanePriority, rule.pattern)) });
+    }, r.left, r.bottom + 4);
+  });
   $('add-remote').addEventListener('click', () => {
     gitDialog(
       'Add remote',
@@ -3199,6 +3261,7 @@ function bind(): void {
   bindPopoverAnchor('btn-refs', 'pop-refs');
   bindPopoverAnchor('btn-dates', 'pop-dates');
   bindPopoverAnchor('btn-contributor', 'pop-contributor');
+  bindPopoverAnchor('btn-graph', 'pop-graph');
   bindPopoverAnchor('btn-settings', 'pop-settings');
   bindPopoverAnchor('btn-find', 'pop-find');
   bindPopoverAnchor('btn-date', 'pop-date');
@@ -3226,10 +3289,21 @@ function bind(): void {
     if (pop.matches(':popover-open')) pop.hidePopover?.();
     else pop.showPopover?.();
   });
+  $('btn-graph').addEventListener('click', () => {
+    const pop = $('pop-graph');
+    if (pop.matches(':popover-open')) pop.hidePopover?.();
+    else {
+      $('pop-settings').hidePopover?.();
+      pop.showPopover?.();
+    }
+  });
   $('btn-settings').addEventListener('click', () => {
     const pop = $('pop-settings');
     if (pop.matches(':popover-open')) pop.hidePopover?.();
-    else pop.showPopover?.();
+    else {
+      $('pop-graph').hidePopover?.();
+      pop.showPopover?.();
+    }
   });
   window.addEventListener('keydown', onKey);
   window.addEventListener('resize', () => {
@@ -3403,9 +3477,10 @@ function onKey(ev: KeyboardEvent): void {
       closeConfirmTip();
       return;
     }
-    const popoverOpen = ['pop-settings', 'pop-ctx', 'pop-find', 'pop-date', 'pop-refs', 'pop-dates', 'pop-contributor', 'pop-repo-help'].some((id) =>
+    const popoverOpen = ['pop-graph', 'pop-settings', 'pop-ctx', 'pop-find', 'pop-date', 'pop-refs', 'pop-dates', 'pop-contributor', 'pop-repo-help'].some((id) =>
       $(id).matches(':popover-open'),
     );
+    $('pop-graph').hidePopover?.();
     $('pop-settings').hidePopover?.();
     $('pop-ctx').hidePopover?.();
     $('pop-find').hidePopover?.();

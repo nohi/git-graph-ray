@@ -5,6 +5,12 @@ export const UNCOMMITTED = '*';
 
 export type RefKind = 'head' | 'remote' | 'tag' | 'stash' | 'worktree';
 
+/** One `graph.lanePriority` entry. A larger priority is placed further left. */
+export type LanePriorityRule = {
+  pattern: string;
+  priority: number;
+};
+
 export type RefSort = 'version:refname' | '-version:refname' | 'refname' | '-refname';
 
 export type GraphRef = {
@@ -149,6 +155,8 @@ export type ViewConfig = {
   remoteBranchPrefix: 'Icon' | 'Text';
   /** `referenceLabels.colours`. Glob to hex, first match wins. */
   referenceLabelColours: RefColourRule[];
+  /** `graph.lanePriority`. Glob to priority. A larger number is further left. The highest match wins. */
+  lanePriority: LanePriorityRule[];
   markdown: boolean;
   enhancedAccessibility: boolean;
   autoCenter: boolean;

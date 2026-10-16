@@ -68,12 +68,13 @@
 
 ## 6. グラフ UI
 
-- sticky ツールバー: リポジトリ、ブランチ/remote/tag の詮索付きマルチセレクト、Fetch、Jump HEAD、Refresh、Theme、Find、Repo Settings、Help
+- sticky ツールバー: リポジトリ、ブランチ/remote/tag の詮索付きマルチセレクト、Fetch、Jump HEAD、Refresh、Find、Graph Settings（スライダー）、Repo Settings（歯車）、Help
 - 列: Graph と Description は常時。切替可: Author、Author Date、Commit、Committer、Committer Date
 - `date.format` を両日付列に適用。`date.type` なし
 - 初期: Committer と Committer Date のみ非表示。列ヘッダ右クリックで切替。幅ドラッグ、ダブルクリックでリセット
 - 仮想スクロール、行クリックで詳細、再クリックで閉じる、Ctrl/Cmd+クリックで比較
 - テーマ `graph.theme`: `classic` / `Ray` / `Ray Wave` / `Ray Cycle`
+- `graph.lanePriority`: ブランチ glob → 数値。大きいほどその線を左に固定する。第一親で一本のときラベルより上も含む。先端まで左列は空く。同点は上にある線、次に名前。`*` は `/` を含む。リモートは `origin/name` と `remotes/origin/name` も比較し、最大値が勝つ。0 以下は予約しない。未設定は従来の列。Graph Settings で追加・編集・削除する
 - ショートカット: Find F、Refresh R、HEAD H、stash S（Shift で逆）。UNASSIGNED なら無効
 - Escape: ダイアログ → 設定 → メニュー/Find/詳細
 
@@ -105,10 +106,10 @@
 
 ## 9. Repository Settings
 
-- General: remotes / stashes / tags / worktrees / reflogs / first-parent
-- Remotes CRUD、Fetch、Prune
+- Remotes CRUD
 - Issue Linking（regex + URL、グローバル）
 - PR: GitHub / GitLab / Bitbucket + custom providers
+- Graph Settings: Appearance（theme、Ray Cat）、General（表示、fetch prune、auto fetch、Undo プレビュー）、Graph lane priority
 
 ## 10. Code Review
 

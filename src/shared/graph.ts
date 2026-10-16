@@ -25,6 +25,7 @@ export function defaultViewConfig(): ViewConfig {
       '#ffcc00',
     ],
     graphStyle: 'rounded',
+    lanePriority: [],
     uncommittedChanges: 'Open Circle at the Uncommitted Changes',
     theme: 'classic',
     dateFormat: 'Date & Time',

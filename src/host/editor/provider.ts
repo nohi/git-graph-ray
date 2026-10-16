@@ -577,6 +577,10 @@ class GraphSession {
           await saveLabelColours(this.ctx, refColoursToSetting(parseRefColours(msg.colours)));
           this.post({ type: 'patch', payload: { config: this.viewConfig() } });
           return;
+        case 'setLanePriority':
+          await updateSetting('graph.lanePriority', msg.priorities);
+          this.post({ type: 'patch', payload: { config: this.viewConfig() } });
+          return;
         case 'setColumns':
           await updateSetting('defaultColumnVisibility', msg.value);
           this.post({ type: 'patch', payload: { config: this.viewConfig() } });

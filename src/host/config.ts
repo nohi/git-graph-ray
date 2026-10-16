@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { defaultDialogs } from '../shared/dialogs';
 import { defaultViewConfig, parseGitVersion } from '../shared/graph';
+import { parseLanePriority } from '../shared/layout';
 import { isUnregisteredConfigurationMessage, labelColourSettingValue, parseRefColours, refColoursToSetting } from '../shared/refColours';
 import type { ColumnVisibility, RefSort, ViewConfig } from '../shared/types';
 
@@ -77,6 +78,7 @@ export function getViewConfig(gitVersion = '', storedLabelColours?: unknown): Vi
   return {
     graphColours: colours.length ? colours : defaults.graphColours,
     graphStyle: c.get('graph.style') ?? defaults.graphStyle,
+    lanePriority: parseLanePriority(c.get('graph.lanePriority')),
     uncommittedChanges: c.get('graph.uncommittedChanges') ?? defaults.uncommittedChanges,
     theme: c.get('graph.theme') ?? 'classic',
     dateFormat: c.get('date.format') ?? defaults.dateFormat,

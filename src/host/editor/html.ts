@@ -107,7 +107,8 @@ const SHELL = `
       </div>
       <p id="find-err" class="find-err" hidden></p>
     </div>
-    <button type="button" id="btn-settings" title="Repository Settings" aria-pressed="false">⚙</button>
+    <button type="button" id="btn-graph" class="with-icon tone-graph" title="Graph Settings" aria-label="Graph Settings" aria-pressed="false"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2.2 4h4.3M9.9 4h4M2.2 8h1.3M6.9 8h7M2.2 12h6.1M11.7 12h2.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8.2" cy="4" r="1.35" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="5.2" cy="8" r="1.35" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="12" r="1.35" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button>
+    <button type="button" id="btn-settings" title="Repository Settings" aria-label="Repository Settings" aria-pressed="false">⚙</button>
     <button type="button" id="btn-help" commandfor="dlg-help" command="show-modal" title="Help">?</button>
   </span>
 </header>
@@ -171,7 +172,8 @@ const SHELL = `
     <dl id="help-keys" class="help-keys"></dl>
     <h3 class="help-sub">Also</h3>
     <ul class="help-list">
-      <li>Fetch runs immediately. Prune, prune tags, and auto fetch are in Repository Settings (and VS Code Settings). Auto fetch is off until you enable it.</li>
+      <li>Fetch runs immediately. Prune, prune tags, and auto fetch are in Graph Settings (and VS Code Settings). Auto fetch is off until you enable it.</li>
+      <li>Graph Settings sets the theme and lane priority. A larger priority keeps that branch further left. Repository Settings edits remotes, issue links, and the pull request provider.</li>
       <li>Double-click a branch or tag label to check it out.</li>
       <li>Right-click a branch, remote branch, or tag label and choose Set label colour. The pattern starts as that name, and you can widen it (feature/hoge to feature/*). Pick the colour in the square or type a hex value such as #FF8888. The same globs can be edited in git-graph-ray.referenceLabels.colours. The first match wins.</li>
       <li>Ctrl/Cmd+click local branch labels to select them, then right-click a branch and choose Rebase selected branches on this branch.</li>
@@ -226,7 +228,7 @@ const SHELL = `
     <button type="button" id="undo-cancel">Cancel</button>
   </div>
 </dialog>
-<div id="pop-settings" popover="manual" class="pop settings">
+<div id="pop-graph" popover="manual" class="pop settings">
   <section class="settings-block">
     <h3 class="settings-h">Appearance</h3>
     <label class="settings-row">Theme
@@ -262,6 +264,14 @@ const SHELL = `
       <label><input type="checkbox" id="s-undo-preview" /> Preview Undo and Redo</label>
     </div>
   </section>
+  <section class="settings-block">
+    <h3 class="settings-h">Graph lane priority</h3>
+    <p class="settings-note">Larger numbers stay further left. * matches any text, including /.</p>
+    <div id="lane-list"></div>
+    <button type="button" id="add-lane">Add pattern</button>
+  </section>
+</div>
+<div id="pop-settings" popover="manual" class="pop settings">
   <section class="settings-block">
     <h3 class="settings-h">Remotes</h3>
     <div id="remote-list"></div>
