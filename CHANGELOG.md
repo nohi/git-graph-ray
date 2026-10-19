@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.6.1
+
+### Fixes
+
+- Size the Rename branch dialog to the same width as Create branch.
+
 ## v0.6.0
 
 ### Features
