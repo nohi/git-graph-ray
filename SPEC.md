@@ -91,11 +91,12 @@
 
 - Worktree: 開く（同/新窓）、削除（メイン以外）、追加
 - Stash: apply/pop/branch/drop、未コミット全体、または詳細で Ctrl/Cmd+クリックしたファイルだけ
-- Tag: add/delete/push
-- Branch: create/checkout/rename/delete/merge/rebase/push/PR
-- Remote: checkout/delete/fetch-into/pull（rebase / no-ff / squash）/PR
+- Tag: add/delete/push/rebase interactive
+- Branch: create/checkout/rename/delete/merge/rebase/rebase interactive/push/PR
+- Remote: checkout/delete/fetch-into/pull（rebase / no-ff / squash）/rebase interactive/PR
 - Uncommitted: stash/reset/clean/SCM、パッチ作成、パッチ適用
 - Commit: tag/branch/checkout/cherry-pick/revert/drop（親1）/merge/rebase/reset/worktree/copy/reword、パッチ作成、パッチ適用
+- 選んだローカルブランチの rebase 先はローカルブランチ、リモートブランチ、タグ、コミット。対話 rebase はコミットに加え、ローカルブランチ、リモートブランチ、タグのラベルから。現在のブランチ自身は対話 rebase の対象にしない
 - ファイル: 未コミットの選択ファイルは stash またはパッチ。コミット上の選択ファイルはパッチ
 - Shift+クリックでグラフ上の範囲を選ぶ。Ctrl/Cmd+クリックで個別に追加・解除でき、連続していなくてもよい。2件のときはその差分を開き、3件以上では詳細を閉じる。右クリックで cherry-pick。マージは除き、古い順
 - 進行中の merge / rebase / cherry-pick / revert / `git am` は衝突ファイル名から VS Code のマージエディタを開く

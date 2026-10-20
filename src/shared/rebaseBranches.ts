@@ -17,12 +17,12 @@ export type RebaseBranchesRun = {
 
 export type HeadCheckout = { branch: string | null; hash: string | null };
 
-/** Selected local branches, in click order, without the rebase target. */
-export function rebaseTargetBranches(selected: readonly string[], onto: string): string[] {
+/** Selected local branches, in click order. `onto` drops that branch so it is not rebased onto itself. */
+export function rebaseTargetBranches(selected: readonly string[], onto?: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
   for (const name of selected) {
-    if (!name || name === onto || seen.has(name)) continue;
+    if (!name || (onto !== undefined && name === onto) || seen.has(name)) continue;
     seen.add(name);
     out.push(name);
   }

@@ -117,7 +117,7 @@ export function undoLabel(action: GitAction): string {
       return `Rebase onto ${action.ref}`;
     case 'rebaseBranches': {
       const count = action.branches.length;
-      return `Rebase ${count} ${count === 1 ? 'branch' : 'branches'} onto ${action.onto}`;
+      return `Rebase ${count} ${count === 1 ? 'branch' : 'branches'} onto ${rebaseOntoLabel(action.onto)}`;
     }
     case 'cherryPick':
       return action.hashes.length > 1 ? `Cherry-pick ${action.hashes.length} commits` : `Cherry-pick ${shortHash(action.hashes[0] ?? '')}`;
@@ -870,6 +870,15 @@ function joinWarnings(parts: Array<string | null>): string | null {
 
 function shortHash(hash: string): string {
   return hash.slice(0, 7);
+}
+
+function rebaseOntoLabel(onto: string): string {
+  const name = onto.startsWith('refs/tags/')
+    ? onto.slice('refs/tags/'.length)
+    : onto.startsWith('refs/remotes/')
+      ? onto.slice('refs/remotes/'.length)
+      : onto;
+  return /^[0-9a-f]{12,}$/i.test(name) ? name.slice(0, 7) : name;
 }
 
 function shortenHashes(value: string): string {

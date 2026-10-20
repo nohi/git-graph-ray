@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Rebase selected local branches onto a remote branch, a tag, or a commit. Ctrl/Cmd+click the branches, then right-click that target.
+- Rebase the current branch interactively onto a local branch, remote branch, or tag from that label's context menu. It opens in the integrated terminal, the same way a commit already does.
+
 ## v0.6.1
 
 ### Fixes

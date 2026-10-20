@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cherryPickArgs, mergeArgs, rebaseArgs, rebaseBranchArgs } from './gitArgs';
+import { cherryPickArgs, mergeArgs, rebaseArgs, rebaseBranchArgs, rebaseRevision } from './gitArgs';
 import { parseGitVersion } from './graph';
 import { parseWorktreePorcelain } from './worktreePorcelain';
 import { startCheckoutFromRef } from './checkout';
@@ -80,6 +80,10 @@ describe('gitArgs', () => {
     expect(rebaseArgs({ kind: 'rebase', ref: 'main', ignoreDate: true, interactive: false })).toContain('--committer-date-is-author-date');
     expect(rebaseBranchArgs('main', 'feature', true)).toEqual(['rebase', '--committer-date-is-author-date', 'main', 'feature']);
     expect(rebaseBranchArgs('main', 'feature', false)).toEqual(['rebase', 'main', 'feature']);
+    expect(rebaseRevision('head', 'feature')).toBe('feature');
+    expect(rebaseRevision('commit', 'abc123')).toBe('abc123');
+    expect(rebaseRevision('remote', 'origin/feature')).toBe('refs/remotes/origin/feature');
+    expect(rebaseRevision('tag', 'v1.0')).toBe('refs/tags/v1.0');
   });
   it('adds cherry-pick -x', () => {
     expect(cherryPickArgs({ kind: 'cherryPick', hashes: ['abc'], noCommit: false, recordOrigin: true })).toContain('-x');

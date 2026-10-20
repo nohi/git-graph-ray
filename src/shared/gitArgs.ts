@@ -16,6 +16,16 @@ export function rebaseArgs(action: Extract<GitAction, { kind: 'rebase' }>): stri
   return args;
 }
 
+/**
+ * Revision passed to `git rebase`. Remote-tracking branches and tags are fully
+ * qualified so a local branch of the same name is not used instead.
+ */
+export function rebaseRevision(kind: 'head' | 'remote' | 'tag' | 'commit', name: string): string {
+  if (kind === 'remote') return `refs/remotes/${name}`;
+  if (kind === 'tag') return `refs/tags/${name}`;
+  return name;
+}
+
 /** Rebase one named branch onto another. `git rebase <onto> <branch>` checks that branch out. */
 export function rebaseBranchArgs(onto: string, branch: string, ignoreDate: boolean): string[] {
   const args = ['rebase'];

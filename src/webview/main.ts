@@ -64,9 +64,10 @@ import {
 import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg, groupChipRefs, remoteChipText, remoteLabelsUseIcons, remoteShortName, REMOTE_LABEL_FOLD, type FilterTab } from '../shared/refsList';
 import { compileFindRegex, formatFindCount, highlightFind } from '../shared/commitFind';
 import { formatRefChange, presentPreview } from '../shared/undo';
-import { branchMenuEntries, commitMenuEntries, compareMenuEntries, menuHtml } from '../shared/commitMenu';
+import { branchMenuEntries, commitMenuEntries, menuHtml, remoteMenuEntries, tagMenuEntries } from '../shared/commitMenu';
 import { cherryPickPlan, displayedRange, patchFileName, toggleCommitSelection } from '../shared/historyActions';
 import { comparePick, type CompareCandidate } from '../shared/comparePick';
+import { rebaseRevision } from '../shared/gitArgs';
 import {
   parseRebaseCheckout,
   parseRebaseOnFailure,
@@ -3639,6 +3640,59 @@ function rebaseSelectionBlock(): string | undefined {
   return undefined;
 }
 
+function selectedRebaseState(ontoBranch?: string): { count: number; disabledReason?: string } | undefined {
+  const branches = rebaseTargetBranches(pickedBranches, ontoBranch);
+  if (!branches.length) return undefined;
+  return { count: branches.length, disabledReason: rebaseSelectionBlock() };
+}
+
+function openSelectedRebase(ev: Event): void {
+  if (!snap || rebaseSelectionBlock()) return;
+  const spec = rebaseTargetSpec();
+  if (!spec) return;
+  const branches = rebaseTargetBranches(pickedBranches, spec.drop);
+  if (!branches.length) return;
+  const d = snap.config.dialogs;
+  gitDialog(
+    'Rebase',
+    rebaseBranchesDialogHtml({ onto: spec.label, branches, ignoreDate: d.rebaseIgnoreDate }),
+    () => {
+      const body = $('git-body');
+      sendGit({
+        kind: 'rebaseBranches',
+        onto: spec.onto,
+        branches,
+        ignoreDate: (document.getElementById('id') as HTMLInputElement).checked,
+        checkout: parseRebaseCheckout(body.querySelector<HTMLInputElement>('input[name="rb-co"]:checked')?.value),
+        onFailure: parseRebaseOnFailure(body.querySelector<HTMLInputElement>('input[name="rb-fail"]:checked')?.value),
+      });
+    },
+    clickPoint(ev),
+  );
+}
+
+function rebaseTargetSpec(): { label: string; onto: string; drop?: string } | null {
+  if (ctxCommit && ctxCommit.hash !== UNCOMMITTED) {
+    const hash = ctxCommit.hash;
+    return { label: hash.slice(0, 7), onto: hash };
+  }
+  const ref = ctxRef;
+  if (!ref || (ref.kind !== 'head' && ref.kind !== 'remote' && ref.kind !== 'tag') || !ref.name || ref.name === 'HEAD') return null;
+  return {
+    label: ref.name,
+    onto: rebaseRevision(ref.kind, ref.name),
+    drop: ref.kind === 'head' ? ref.name : undefined,
+  };
+}
+
+function interactiveRebaseRef(): string | null {
+  if (ctxCommit && ctxCommit.hash !== UNCOMMITTED) return ctxCommit.hash;
+  const ref = ctxRef;
+  if (!ref || (ref.kind !== 'head' && ref.kind !== 'remote' && ref.kind !== 'tag') || !ref.name || ref.name === 'HEAD') return null;
+  if (ref.kind === 'head' && ref.name === snap?.currentBranch) return null;
+  return rebaseRevision(ref.kind, ref.name);
+}
+
 function menuRef(chip: HTMLElement, x: number, y: number): void {
   ctxFolder = null;
   const kind = chip.dataset.kind ?? '';
@@ -3655,24 +3709,33 @@ function menuRef(chip: HTMLElement, x: number, y: number): void {
     if (vis('stash', 'drop')) items.push(btn('st-drop', 'Drop'));
     items.push(btn('copy', 'Copy name'));
   } else if (kind === 'tag') {
-    if (vis('tag', 'delete')) items.push(btn('tag-del', 'Delete'));
-    if (vis('tag', 'push')) items.push(btn('tag-push', 'Push'));
-    if (vis('tag', 'colour')) items.push(btn('ref-colour', 'Set label colour…'));
-    items.push(btn('copy', 'Copy name'));
+    ctxCommit = null;
+    ctxFile = null;
+    ctxRef = { kind: 'tag', name, hash: chip.dataset.hash ?? '' };
+    openCtx(
+      menuHtml(
+        tagMenuEntries({
+          visible: (id) => vis('tag', id),
+          selectedRebase: selectedRebaseState(),
+        }),
+      ),
+      x,
+      y,
+    );
+    return;
   } else if (kind === 'head') {
     if (name === 'HEAD') items.push(btn('copy', 'Copy name'));
     else {
       ctxCommit = null;
       ctxFile = null;
       ctxRef = { kind: kind as GraphRef['kind'], name, hash: chip.dataset.hash ?? '', remote: chip.dataset.remote, worktreePath: chip.dataset.wt };
-      const selectedRebase = rebaseTargetBranches(pickedBranches, name);
       openCtx(
         menuHtml(
           branchMenuEntries({
             current: name === snap?.currentBranch,
             withHead: canCompareWithHead(chip.dataset.hash ?? ''),
             visible: (id) => vis('branch', id),
-            selectedRebase: selectedRebase.length ? { count: selectedRebase.length, disabledReason: rebaseSelectionBlock() } : undefined,
+            selectedRebase: selectedRebaseState(name),
           }),
         ),
         x,
@@ -3681,25 +3744,21 @@ function menuRef(chip: HTMLElement, x: number, y: number): void {
       return;
     }
   } else if (kind === 'remote') {
-    if (vis('remote', 'checkout')) items.push(btn('rm-co', 'Checkout'));
-    if (vis('remote', 'delete')) items.push(btn('rm-del', 'Delete'));
-    if (vis('remote', 'fetchInto')) items.push(btn('rm-fi', 'Fetch into local'));
-    if (vis('remote', 'pull')) items.push(btn('rm-pl', 'Pull'));
-    const compareHtml = menuHtml(
-      compareMenuEntries({
-        withHead: canCompareWithHead(chip.dataset.hash ?? ''),
-        visible: (id) => vis('remote', id),
-      }),
+    ctxCommit = null;
+    ctxFile = null;
+    ctxRef = { kind: 'remote', name, hash: chip.dataset.hash ?? '', remote: chip.dataset.remote };
+    openCtx(
+      menuHtml(
+        remoteMenuEntries({
+          withHead: canCompareWithHead(chip.dataset.hash ?? ''),
+          visible: (id) => vis('remote', id),
+          selectedRebase: selectedRebaseState(),
+        }),
+      ),
+      x,
+      y,
     );
-    const tail: string[] = [];
-    if (vis('remote', 'pr')) tail.push(btn('pr', 'Create PR'));
-    if (vis('remote', 'colour')) tail.push(btn('ref-colour', 'Set label colour…'));
-    tail.push(btn('copy', 'Copy name'));
-    if (compareHtml) {
-      if (items.length) items.push('<hr class="menu-sep" />');
-      items.push(compareHtml, '<hr class="menu-sep" />');
-    }
-    items.push(...tail);
+    return;
   }
   ctxCommit = null;
   ctxFile = null;
@@ -3734,6 +3793,7 @@ function menuCommit(hash: string, x: number, y: number): void {
         visible: (id) => vis('commit', id),
         cherryPick: rangeCherryItem(hash),
         createPatch: rangePatchItem(hash),
+        selectedRebase: selectedRebaseState(),
       }),
     )}`,
     x,
@@ -3780,6 +3840,15 @@ function onMenu(ev: Event): void {
   const d = snap.config.dialogs;
   const sp = d.spaceSubstitution;
   const act = (a: GitAction) => sendGit(a);
+  if (id === 'rbi') {
+    const ref = interactiveRebaseRef();
+    if (ref) act({ kind: 'rebase', ref, ignoreDate: false, interactive: true });
+    return;
+  }
+  if (id === 'br-rbs') {
+    openSelectedRebase(ev);
+    return;
+  }
   if (ctxRef) {
     const r = ctxRef;
     if (id === 'copy') {
@@ -3832,26 +3901,6 @@ function onMenu(ev: Event): void {
       gitDialog('Merge', checks(d), () => act({ kind: 'merge', ref: r.name, noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }), p);
     }
     if (id === 'br-rb') gitDialog('Rebase', `<label><input type="checkbox" id="id" ${d.rebaseIgnoreDate ? 'checked' : ''}/> ignore date</label><label><input type="checkbox" id="ir" ${d.rebaseInteractive ? 'checked' : ''}/> interactive</label>`, () => act({ kind: 'rebase', ref: r.name, ignoreDate: (document.getElementById('id') as HTMLInputElement).checked, interactive: (document.getElementById('ir') as HTMLInputElement).checked }), clickPoint(ev));
-    if (id === 'br-rbs') {
-      const branches = rebaseTargetBranches(pickedBranches, r.name);
-      if (!branches.length || rebaseSelectionBlock()) return;
-      gitDialog(
-        'Rebase',
-        rebaseBranchesDialogHtml({ onto: r.name, branches, ignoreDate: d.rebaseIgnoreDate }),
-        () => {
-          const body = $('git-body');
-          act({
-            kind: 'rebaseBranches',
-            onto: r.name,
-            branches,
-            ignoreDate: (document.getElementById('id') as HTMLInputElement).checked,
-            checkout: parseRebaseCheckout(body.querySelector<HTMLInputElement>('input[name="rb-co"]:checked')?.value),
-            onFailure: parseRebaseOnFailure(body.querySelector<HTMLInputElement>('input[name="rb-fail"]:checked')?.value),
-          });
-        },
-        clickPoint(ev),
-      );
-    }
     if (id === 'br-ps') {
       gitDialog('Push branch', pushBranchDialogHtml(snap.remotes.map((x) => x.name)), () => {
         const remotes = selectedPushRemotes();
@@ -3951,7 +4000,6 @@ function onMenu(ev: Event): void {
       gitDialog('Merge', checks(d), () => act({ kind: 'merge', ref: c.hash, noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }), p);
     }
     if (id === 'c-rb') gitDialog('Rebase', `<label><input type="checkbox" id="id" ${d.rebaseIgnoreDate ? 'checked' : ''}/> ignore date</label>`, () => act({ kind: 'rebase', ref: c.hash, ignoreDate: (document.getElementById('id') as HTMLInputElement).checked, interactive: false }), clickPoint(ev));
-    if (id === 'c-rbi') act({ kind: 'rebase', ref: c.hash, ignoreDate: false, interactive: true });
     if (id === 'c-rs') gitDialog('Reset', 'Reset current branch?', () => act({ kind: 'reset', hash: c.hash, mode: d.resetBranchMode.toLowerCase() as 'soft' | 'mixed' | 'hard' }), clickPoint(ev));
     if (id === 'c-wt') {
       const main = snap.mainWorktreePath || snap.repoPath;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { branchMenuEntries, commitMenuEntries, menuHtml } from './commitMenu';
+import { branchMenuEntries, commitMenuEntries, menuHtml, remoteMenuEntries, tagMenuEntries } from './commitMenu';
 
 describe('commitMenuEntries', () => {
   it('uses the requested labels and separators', () => {
@@ -18,7 +18,7 @@ describe('commitMenuEntries', () => {
       'sep',
       { id: 'c-mg', label: 'Merge into current branch' },
       { id: 'c-rb', label: 'Rebase current branch on this commit' },
-      { id: 'c-rbi', label: 'Rebase interactive on this commit' },
+      { id: 'rbi', label: 'Rebase interactive on this commit' },
       { id: 'c-rs', label: 'Reset current branch to this commit' },
       'sep',
       { id: 'c-rw', label: 'History reword' },
@@ -37,6 +37,32 @@ describe('commitMenuEntries', () => {
     ]);
     expect(menuHtml(entries)).toContain('class="menu-sep"');
     expect(menuHtml(entries)).toContain('Checkout (Switch)');
+  });
+
+  it('rebases the selection onto this commit and hides it when rebase is hidden', () => {
+    expect(
+      commitMenuEntries({
+        canReword: false,
+        isMerge: false,
+        withHead: false,
+        visible: () => true,
+        selectedRebase: { count: 2, disabledReason: 'A Git operation is already in progress' },
+      }),
+    ).toContainEqual({
+      id: 'br-rbs',
+      label: 'Rebase selected branches on this commit',
+      disabled: true,
+      title: 'A Git operation is already in progress',
+    });
+    expect(
+      commitMenuEntries({
+        canReword: false,
+        isMerge: false,
+        withHead: false,
+        visible: (id) => id !== 'rebase',
+        selectedRebase: { count: 1 },
+      }).some((entry) => entry !== 'sep' && entry.id === 'br-rbs'),
+    ).toBe(false);
   });
 
   it('hides drop on merge commits and reword when unavailable', () => {
@@ -94,19 +120,19 @@ describe('branchMenuEntries', () => {
   });
 
   it('rebases the selection onto the current branch and disables it when blocked', () => {
-    expect(
-      branchMenuEntries({
-        current: true,
-        withHead: false,
-        visible: () => true,
-        selectedRebase: { count: 2, disabledReason: 'Commit or stash changes first' },
-      }),
-    ).toContainEqual({
+    const ontoCurrent = branchMenuEntries({
+      current: true,
+      withHead: false,
+      visible: () => true,
+      selectedRebase: { count: 2, disabledReason: 'Commit or stash changes first' },
+    });
+    expect(ontoCurrent).toContainEqual({
       id: 'br-rbs',
       label: 'Rebase selected branches on this branch',
       disabled: true,
       title: 'Commit or stash changes first',
     });
+    expect(ontoCurrent.some((entry) => entry !== 'sep' && entry.id === 'rbi')).toBe(false);
     expect(menuHtml([{ id: 'br-rbs', label: 'Rebase selected branch on this branch', disabled: true, title: 'Commit or stash changes first' }])).toBe(
       '<button type="button" data-act="br-rbs" disabled title="Commit or stash changes first">Rebase selected branch on this branch</button>',
     );
@@ -131,6 +157,7 @@ describe('branchMenuEntries', () => {
       { id: 'br-del', label: 'Delete Branch' },
       { id: 'br-mg', label: 'Merge into current branch' },
       { id: 'br-rb', label: 'Rebase current branch on this branch' },
+      { id: 'rbi', label: 'Rebase interactive on this branch' },
       { id: 'br-ps', label: 'Push branch' },
       'sep',
       { id: 'cmp', label: 'Compare with…' },
@@ -140,6 +167,43 @@ describe('branchMenuEntries', () => {
       { id: 'ref-colour', label: 'Set label colour…' },
       { id: 'copy', label: 'Copy branch name' },
     ]);
+  });
+
+  it('offers interactive rebase and a selected-branch rebase on a remote branch', () => {
+    expect(remoteMenuEntries({ withHead: true, visible: () => true, selectedRebase: { count: 1 } })).toEqual([
+      { id: 'rm-co', label: 'Checkout' },
+      { id: 'rm-del', label: 'Delete' },
+      { id: 'rm-fi', label: 'Fetch into local' },
+      { id: 'rm-pl', label: 'Pull' },
+      { id: 'rbi', label: 'Rebase interactive on this branch' },
+      { id: 'br-rbs', label: 'Rebase selected branch on this branch' },
+      'sep',
+      { id: 'cmp', label: 'Compare with…' },
+      { id: 'cmp-head', label: 'Compare with HEAD' },
+      'sep',
+      { id: 'pr', label: 'Create PR' },
+      { id: 'ref-colour', label: 'Set label colour…' },
+      { id: 'copy', label: 'Copy name' },
+    ]);
+    const hidden = remoteMenuEntries({
+      withHead: false,
+      visible: (id) => id !== 'rebase' && id !== 'compare' && id !== 'compareHead',
+      selectedRebase: { count: 2 },
+    });
+    expect(hidden.some((entry) => entry !== 'sep' && (entry.id === 'rbi' || entry.id === 'br-rbs'))).toBe(false);
+    expect(hidden).not.toContain('sep');
+  });
+
+  it('offers interactive rebase and a selected-branch rebase on a tag', () => {
+    expect(tagMenuEntries({ visible: () => true, selectedRebase: { count: 2 } })).toEqual([
+      { id: 'tag-del', label: 'Delete' },
+      { id: 'tag-push', label: 'Push' },
+      { id: 'rbi', label: 'Rebase interactive on this tag' },
+      { id: 'br-rbs', label: 'Rebase selected branches on this tag' },
+      { id: 'ref-colour', label: 'Set label colour…' },
+      { id: 'copy', label: 'Copy name' },
+    ]);
+    expect(tagMenuEntries({ visible: (id) => id !== 'rebase' }).some((entry) => entry !== 'sep' && entry.id === 'rbi')).toBe(false);
   });
 
   it('hides the label colour action when visibility is off', () => {

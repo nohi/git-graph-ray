@@ -2,6 +2,24 @@ import { escapeAttr, escapeHtml } from './issueLinks';
 
 export type MenuItem = { id: string; label: string; disabled?: boolean; title?: string };
 export type MenuEntry = MenuItem | 'sep';
+export type RebaseTargetKind = 'branch' | 'tag' | 'commit';
+
+export type SelectedRebase = { count: number; disabledReason?: string };
+
+export function rebaseInteractiveLabel(target: RebaseTargetKind): string {
+  return `Rebase interactive on this ${rebaseTargetNoun(target)}`;
+}
+
+export function rebaseSelectedLabel(count: number, target: RebaseTargetKind): string {
+  const branches = count === 1 ? 'branch' : 'branches';
+  return `Rebase selected ${branches} on this ${rebaseTargetNoun(target)}`;
+}
+
+function rebaseTargetNoun(target: RebaseTargetKind): string {
+  if (target === 'tag') return 'tag';
+  if (target === 'commit') return 'commit';
+  return 'branch';
+}
 
 export function compareMenuEntries(opts: { withHead: boolean; visible: (id: string) => boolean }): MenuItem[] {
   const v = opts.visible;
@@ -18,6 +36,8 @@ export function commitMenuEntries(opts: {
   visible: (id: string) => boolean;
   cherryPick?: MenuItem;
   createPatch?: MenuItem;
+  /** Local branches selected to rebase onto this commit. Omit when there are none. */
+  selectedRebase?: SelectedRebase;
 }): MenuEntry[] {
   const v = opts.visible;
   const groups: MenuItem[][] = [
@@ -30,7 +50,8 @@ export function commitMenuEntries(opts: {
     keep([
       v('merge') && { id: 'c-mg', label: 'Merge into current branch' },
       v('rebase') && { id: 'c-rb', label: 'Rebase current branch on this commit' },
-      v('rebase') && { id: 'c-rbi', label: 'Rebase interactive on this commit' },
+      v('rebase') && { id: 'rbi', label: rebaseInteractiveLabel('commit') },
+      selectedRebaseEntry(opts, 'commit'),
       v('reset') && { id: 'c-rs', label: 'Reset current branch to this commit' },
     ]),
     keep([
@@ -63,8 +84,8 @@ export function branchMenuEntries(opts: {
   current: boolean;
   withHead: boolean;
   visible: (id: string) => boolean;
-  /** Local branches selected besides the menu target. Omit when there are none. */
-  selectedRebase?: { count: number; disabledReason?: string };
+  /** Local branches selected besides this branch. Omit when there are none. */
+  selectedRebase?: SelectedRebase;
 }): MenuEntry[] {
   const v = opts.visible;
   const other = !opts.current;
@@ -75,7 +96,8 @@ export function branchMenuEntries(opts: {
       other && v('delete') && { id: 'br-del', label: 'Delete Branch' },
       other && v('merge') && { id: 'br-mg', label: 'Merge into current branch' },
       other && v('rebase') && { id: 'br-rb', label: 'Rebase current branch on this branch' },
-      selectedRebaseEntry(opts),
+      other && v('rebase') && { id: 'rbi', label: rebaseInteractiveLabel('branch') },
+      selectedRebaseEntry(opts, 'branch'),
       v('push') && { id: 'br-ps', label: 'Push branch' },
     ]),
     compareMenuEntries({ withHead: opts.withHead, visible: v }),
@@ -94,16 +116,60 @@ export function branchMenuEntries(opts: {
   return out;
 }
 
-function selectedRebaseEntry(opts: {
+export function remoteMenuEntries(opts: {
+  withHead: boolean;
   visible: (id: string) => boolean;
-  selectedRebase?: { count: number; disabledReason?: string };
-}): MenuItem | false {
+  /** Local branches selected to rebase onto this remote branch. Omit when there are none. */
+  selectedRebase?: SelectedRebase;
+}): MenuEntry[] {
+  const v = opts.visible;
+  const actions = keep([
+    v('checkout') && { id: 'rm-co', label: 'Checkout' },
+    v('delete') && { id: 'rm-del', label: 'Delete' },
+    v('fetchInto') && { id: 'rm-fi', label: 'Fetch into local' },
+    v('pull') && { id: 'rm-pl', label: 'Pull' },
+    v('rebase') && { id: 'rbi', label: rebaseInteractiveLabel('branch') },
+    selectedRebaseEntry(opts, 'branch'),
+  ]);
+  const compare = compareMenuEntries({ withHead: opts.withHead, visible: v });
+  const tail = keep([
+    v('pr') && { id: 'pr', label: 'Create PR' },
+    v('colour') && { id: 'ref-colour', label: 'Set label colour…' },
+    { id: 'copy', label: 'Copy name' },
+  ]);
+  const out: MenuEntry[] = [...actions];
+  if (compare.length) {
+    if (out.length) out.push('sep');
+    out.push(...compare, 'sep');
+  }
+  out.push(...tail);
+  return out;
+}
+
+export function tagMenuEntries(opts: {
+  visible: (id: string) => boolean;
+  /** Local branches selected to rebase onto this tag. Omit when there are none. */
+  selectedRebase?: SelectedRebase;
+}): MenuEntry[] {
+  const v = opts.visible;
+  return keep([
+    v('delete') && { id: 'tag-del', label: 'Delete' },
+    v('push') && { id: 'tag-push', label: 'Push' },
+    v('rebase') && { id: 'rbi', label: rebaseInteractiveLabel('tag') },
+    selectedRebaseEntry(opts, 'tag'),
+    v('colour') && { id: 'ref-colour', label: 'Set label colour…' },
+    { id: 'copy', label: 'Copy name' },
+  ]);
+}
+
+function selectedRebaseEntry(
+  opts: { visible: (id: string) => boolean; selectedRebase?: SelectedRebase },
+  target: RebaseTargetKind,
+): MenuItem | false {
   const selected = opts.selectedRebase;
   if (!selected || selected.count < 1 || !opts.visible('rebase')) return false;
-  const label = selected.count === 1 ? 'Rebase selected branch on this branch' : 'Rebase selected branches on this branch';
-  return selected.disabledReason
-    ? { id: 'br-rbs', label, disabled: true, title: selected.disabledReason }
-    : { id: 'br-rbs', label };
+  const label = rebaseSelectedLabel(selected.count, target);
+  return selected.disabledReason ? { id: 'br-rbs', label, disabled: true, title: selected.disabledReason } : { id: 'br-rbs', label };
 }
 
 function keep(items: Array<MenuItem | false>): MenuItem[] {

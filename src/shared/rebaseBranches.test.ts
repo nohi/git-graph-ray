@@ -13,6 +13,10 @@ describe('rebaseTargetBranches', () => {
   it('keeps click order and drops the target and duplicates', () => {
     expect(rebaseTargetBranches(['feature', 'main', 'next', 'feature', ''], 'main')).toEqual(['feature', 'next']);
   });
+
+  it('keeps every selected branch when the target is not a local branch', () => {
+    expect(rebaseTargetBranches(['feature', 'main', 'feature'])).toEqual(['feature', 'main']);
+  });
 });
 
 describe('rebase dialog', () => {

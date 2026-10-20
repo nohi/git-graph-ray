@@ -101,6 +101,22 @@ describe('undoLabel', () => {
     expect(
       undoLabel({ kind: 'rebaseBranches', onto: 'main', branches: ['a', 'b'], ignoreDate: false, checkout: 'restore', onFailure: 'skip' }),
     ).toBe('Rebase 2 branches onto main');
+    expect(
+      undoLabel({ kind: 'rebaseBranches', onto: 'refs/remotes/origin/main', branches: ['a'], ignoreDate: false, checkout: 'restore', onFailure: 'skip' }),
+    ).toBe('Rebase 1 branch onto origin/main');
+    expect(
+      undoLabel({ kind: 'rebaseBranches', onto: 'refs/tags/v1.0', branches: ['a', 'b'], ignoreDate: false, checkout: 'stay', onFailure: 'stop' }),
+    ).toBe('Rebase 2 branches onto v1.0');
+    expect(
+      undoLabel({
+        kind: 'rebaseBranches',
+        onto: 'abcdef1234567890',
+        branches: ['a'],
+        ignoreDate: false,
+        checkout: 'restore',
+        onFailure: 'skip',
+      }),
+    ).toBe('Rebase 1 branch onto abcdef1');
     expect(undoPolicy({ kind: 'rebaseBranches', onto: 'main', branches: ['a'], ignoreDate: true, checkout: 'stay', onFailure: 'stop' }).record).toBe(true);
     expect(undoLabel({ kind: 'reset', hash: A, mode: 'mixed' })).toBe('Reset to aaaaaaa');
     expect(undoLabel({ kind: 'stashApply', name: 'stash@{0}', pop: true, reinstateIndex: false })).toBe('Pop stash');
