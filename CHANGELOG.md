@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.6.2
+
+### Features
+
+- Jump to a branch, tag, or worktree from Branches/Tags. A bordered button to the left of the checkbox scrolls the graph to that commit. If that commit is further down, the history loads first.
+
 ## v0.6.1
 
 ### Features

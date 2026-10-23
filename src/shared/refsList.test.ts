@@ -10,6 +10,7 @@ import {
   remoteBranchName,
   remoteLabelsUseIcons,
   remoteShortName,
+  refJumpHash,
   sortFilterRefs,
   uniqueRefs,
   windowRefs,
@@ -29,6 +30,37 @@ describe('uniqueRefs', () => {
       'main',
       'v1',
     ]);
+  });
+});
+
+describe('refJumpHash', () => {
+  it('uses the branch commit', () => {
+    const main = r('head', 'main', { hash: 'abc' });
+    expect(refJumpHash(main, [main], new Set(['abc']))).toBe('abc');
+  });
+
+  it('prefers the peeled tag commit when that commit is loaded', () => {
+    const tagObject = r('tag', 'v1', { hash: 'tagobj' });
+    const peeled = r('tag', 'v1', { hash: 'commit' });
+    expect(refJumpHash(tagObject, [tagObject, peeled], new Set(['commit']))).toBe('commit');
+  });
+
+  it('uses the peeled tag commit when the history is not loaded yet', () => {
+    const tagObject = r('tag', 'v1', { hash: 'tagobj' });
+    const peeled = r('tag', 'v1', { hash: 'commit' });
+    expect(refJumpHash(tagObject, [tagObject, peeled], new Set())).toBe('commit');
+  });
+
+  it('keeps worktrees apart when only the path differs', () => {
+    const a = r('worktree', 'app', { hash: 'aaa', worktreePath: '/repo/a' });
+    const b = r('worktree', 'app', { hash: 'bbb', worktreePath: '/repo/b' });
+    expect(refJumpHash(a, [a, b], new Set())).toBe('aaa');
+    expect(refJumpHash(b, [a, b], new Set())).toBe('bbb');
+  });
+
+  it('does not jump to a glob pattern', () => {
+    const glob = r('head', 'glob:release', { hash: 'refs/heads/release/*' });
+    expect(refJumpHash(glob, [glob], new Set())).toBeNull();
   });
 });
 

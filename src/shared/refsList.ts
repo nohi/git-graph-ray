@@ -102,6 +102,34 @@ function refIdentity(r: GraphRef): string {
   return `${r.kind}\0${r.name}`;
 }
 
+function sameListedRef(a: GraphRef, b: GraphRef): boolean {
+  if (a.kind !== b.kind || a.name !== b.name) return false;
+  if (a.kind === 'worktree') return (a.worktreePath ?? a.name) === (b.worktreePath ?? b.name);
+  return true;
+}
+
+/**
+ * Commit to scroll to from a Branches/Tags row.
+ * Glob patterns do not point at one commit.
+ * Annotated tags appear twice in the catalog (tag object, then the peeled commit).
+ * A hash that is already loaded wins; otherwise the last hash is the commit.
+ */
+export function refJumpHash(ref: GraphRef, catalog: readonly GraphRef[], loaded: ReadonlySet<string>): string | null {
+  if (ref.name.startsWith('glob:')) return null;
+  const hashes: string[] = [];
+  const add = (hash: string) => {
+    if (hash && !hashes.includes(hash)) hashes.push(hash);
+  };
+  for (const other of catalog) {
+    if (sameListedRef(other, ref)) add(other.hash);
+  }
+  add(ref.hash);
+  for (const hash of hashes) {
+    if (loaded.has(hash)) return hash;
+  }
+  return hashes.at(-1) ?? null;
+}
+
 function matchingRemotes(refs: GraphRef[], branch: string): GraphRef[] {
   const seen = new Set<string>();
   const remotes: GraphRef[] = [];

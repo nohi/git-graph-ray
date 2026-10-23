@@ -62,7 +62,7 @@ import {
   upsertRefColour,
   type Hsv,
 } from '../shared/refColours';
-import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refLogArg, groupChipRefs, remoteChipText, remoteLabelsUseIcons, remoteShortName, REMOTE_LABEL_FOLD, type FilterTab } from '../shared/refsList';
+import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refJumpHash, refLogArg, groupChipRefs, remoteChipText, remoteLabelsUseIcons, remoteShortName, REMOTE_LABEL_FOLD, type FilterTab } from '../shared/refsList';
 import { compileFindRegex, formatFindCount, highlightFind } from '../shared/commitFind';
 import { formatRefChange, presentPreview } from '../shared/undo';
 import { branchMenuEntries, commitMenuEntries, menuHtml, remoteMenuEntries, tagMenuEntries } from '../shared/commitMenu';
@@ -193,6 +193,7 @@ let ctxFile: { path: string; oldPath?: string } | null = null;
 let ctxFolder: HTMLDetailsElement | null = null;
 let summaryPointer: { folder: HTMLDetailsElement; open: boolean } | null = null;
 let pendingDateJump: { day: string; field: 'author' | 'committer' } | null = null;
+let pendingRefJump: string | null = null;
 let dateFilter: DateFilter = emptyDateFilter();
 let personFilter: PersonFilter = emptyPersonFilter();
 let undoPending: 'undo' | 'redo' | null = null;
@@ -241,6 +242,8 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
       pickedFiles = [];
     }
     pendingDateJump = null;
+    pendingRefJump = null;
+    hideRefJumpMiss();
     snap = m.payload;
     applySnap();
   } else if (m.type === 'patch' && snap) {
@@ -255,6 +258,7 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
     fillPeople();
     continueDateJump();
     continueFindJump();
+    continueRefJump();
   } else if (m.type === 'info') {
     if (!acceptDetails(m.payload)) return;
     if (m.payload?.hash !== details?.hash) pickedFiles = [];
@@ -526,16 +530,77 @@ function fillRefs(): void {
   const list = $('ref-list');
   const top = list.scrollTop;
   const visible = windowRefs(sorted, draft.shown);
+  const catalog = filterCatalog();
+  const loaded = new Set(snap.commits.map((commit) => commit.hash));
   list.innerHTML = visible
     .map((r) => {
       const rev = refLogArg(r);
       const detached = r.kind === 'head' && r.name === 'HEAD';
       const kindTitle = r.kind === 'head' ? 'Branch' : r.kind === 'remote' ? 'Remote' : r.kind === 'tag' ? 'Tag' : r.kind === 'worktree' ? 'Worktree' : r.kind;
       const paint = refRowColourAttrs(r);
-      return `<label class="ref-item kind-${r.kind}${detached ? ' detached' : ''}"><input type="checkbox" data-ref="${esc(rev)}" ${draft.picked.has(rev) ? 'checked' : ''}/><span class="ref-mark" title="${esc(kindTitle)}"${paint.mark}></span><span class="ref-name"${paint.name}>${esc(refDisplayName(r))}</span></label>`;
+      return `<div class="ref-line">${refJumpButton(r, refJumpHash(r, catalog, loaded))}<label class="ref-item kind-${r.kind}${detached ? ' detached' : ''}"><input type="checkbox" data-ref="${esc(rev)}" ${draft.picked.has(rev) ? 'checked' : ''}/><span class="ref-mark" title="${esc(kindTitle)}"${paint.mark}></span><span class="ref-name"${paint.name}>${esc(refDisplayName(r))}</span></label></div>`;
     })
     .join('');
   list.scrollTop = top;
+}
+
+const REF_JUMP_ICON =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="2.35" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="0.9" fill="currentColor"/><path d="M8 1.4v2.15M8 12.45v2.15M1.4 8h2.15M12.45 8h2.15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+
+function refJumpButton(r: GraphRef, hash: string | null): string {
+  if (!hash) {
+    return `<button type="button" class="ref-jump" disabled title="A pattern does not point at one commit" aria-label="Cannot jump to a pattern">${REF_JUMP_ICON}</button>`;
+  }
+  const label = r.name === 'HEAD' ? 'Jump to HEAD' : `Jump to ${refDisplayName(r)}`;
+  return `<button type="button" class="ref-jump" data-jump="${esc(hash)}" title="${esc(label)}" aria-label="${esc(label)}">${REF_JUMP_ICON}</button>`;
+}
+
+function hideRefJumpMiss(): void {
+  const miss = $('ref-jump-miss');
+  miss.hidden = true;
+  miss.textContent = '';
+  miss.classList.remove('is-error');
+}
+
+function showRefJumpMiss(message: string, error: boolean): void {
+  const miss = $('ref-jump-miss');
+  miss.hidden = false;
+  miss.textContent = message;
+  miss.classList.toggle('is-error', error);
+}
+
+function jumpToRef(hash: string): void {
+  if (!snap || !hash) return;
+  if (snap.commits.some((commit) => commit.hash === hash)) {
+    pendingRefJump = null;
+    hideRefJumpMiss();
+    scrollToHash(hash);
+    return;
+  }
+  if (!snap.hasMore) {
+    pendingRefJump = null;
+    showRefJumpMiss('That commit is not in the loaded graph.', true);
+    return;
+  }
+  if (pendingRefJump === hash) return;
+  pendingRefJump = hash;
+  showRefJumpMiss('Loading history…', false);
+  post({ type: 'loadUntil', hash, index: -1 });
+}
+
+function continueRefJump(): void {
+  if (!pendingRefJump || !snap) return;
+  if (snap.commits.some((commit) => commit.hash === pendingRefJump)) {
+    const hash = pendingRefJump;
+    pendingRefJump = null;
+    hideRefJumpMiss();
+    scrollToHash(hash);
+    return;
+  }
+  if (!snap.hasMore) {
+    pendingRefJump = null;
+    showRefJumpMiss('That commit is not in the loaded graph.', true);
+  }
 }
 
 function fillDates(): void {
@@ -838,7 +903,7 @@ function scheduleViewportPaint(): void {
   viewportFrame = requestAnimationFrame(() => {
     viewportFrame = 0;
     paintViewport();
-    if (pendingDateJump || findPendingHash) return;
+    if (pendingDateJump || findPendingHash || pendingRefJump) return;
     if (snap?.hasMore && snap.config.loadMoreAutomatically) {
       const s = $('scroll');
       if (s.scrollTop + s.clientHeight > s.scrollHeight - 80) post({ type: 'more' });
@@ -2831,6 +2896,14 @@ function bind(): void {
     if (!filterDraft) startFilterDraft();
     if (filterDraft) filterDraft.showSameCommitBranches = (e.target as HTMLInputElement).checked;
   });
+  $('ref-list').addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('button.ref-jump');
+    const hash = btn?.dataset.jump;
+    if (!btn || !hash) return;
+    e.preventDefault();
+    e.stopPropagation();
+    jumpToRef(hash);
+  });
   $('ref-list').addEventListener('change', (e) => {
     const box = e.target as HTMLInputElement;
     if (!box.dataset.ref) return;
@@ -2855,7 +2928,7 @@ function bind(): void {
   $('pop-refs').addEventListener('keydown', (ev) => {
     if (ev.key !== 'Enter') return;
     const t = ev.target as HTMLElement;
-    if (t.closest('.ref-tabs') || t.id === 'ref-ok') return;
+    if (t.closest('.ref-tabs') || t.closest('.ref-jump') || t.id === 'ref-ok') return;
     ev.preventDefault();
     applyFilter();
   });
@@ -2873,6 +2946,7 @@ function bind(): void {
     if ((ev as ToggleEvent).newState === 'open') {
       startFilterDraft();
       fillRefs();
+      if (!pendingRefJump) hideRefJumpMiss();
       $('ref-q').focus();
       return;
     }

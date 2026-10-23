@@ -666,6 +666,75 @@ mark.find-hit {
   z-index: 5;
 }
 
+.ref-line {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.bar button.ref-jump {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--tone-jump) 62%, var(--line));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--tone-jump) 14%, transparent);
+  color: var(--tone-jump);
+  line-height: 0;
+  box-shadow: none;
+  cursor: pointer;
+
+  svg {
+    display: block;
+    pointer-events: none;
+  }
+
+  &:hover:not(:disabled),
+  &:focus-visible:not(:disabled) {
+    background: color-mix(in srgb, var(--tone-jump) 26%, transparent);
+    border-color: var(--tone-jump);
+    box-shadow: none;
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--tone-jump);
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    color: var(--muted);
+    border-color: var(--line);
+    background: transparent;
+    cursor: default;
+  }
+}
+
+.ref-line > .ref-item {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-left: 0;
+}
+
+.ref-jump-miss {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+
+  &.is-error {
+    color: #f87171;
+  }
+
+  &[hidden] {
+    display: none;
+  }
+}
+
 .ref-item {
   display: flex;
   align-items: center;
@@ -2138,7 +2207,7 @@ body {
       box-shadow: inset 3px 0 0 #5cff47, inset 0 0 14px color-mix(in srgb, #5cff47 28%, transparent);
     }
 
-    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-primary):not(:disabled):not(.is-disabled) {
+    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):not(.ref-jump):is(:hover, [aria-pressed="true"]):not(.btn-primary):not(:disabled):not(.is-disabled) {
       background: linear-gradient(90deg, color-mix(in srgb, #5cff47 34%, transparent), color-mix(in srgb, #00f6ff 16%, transparent));
       box-shadow: inset 3px 0 0 #5cff47, inset 0 0 14px color-mix(in srgb, #5cff47 28%, transparent);
       border-color: #5cff47;
@@ -2178,7 +2247,7 @@ body {
       animation: wave-sel 2.4s ease-in-out infinite;
     }
 
-    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-primary):not(:disabled):not(.is-disabled) {
+    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):not(.ref-jump):is(:hover, [aria-pressed="true"]):not(.btn-primary):not(:disabled):not(.is-disabled) {
       animation: wave-sel 2.4s ease-in-out infinite;
       border-color: #00f6ff;
     }
@@ -2214,7 +2283,7 @@ body {
       animation: cycle-sel 5s linear infinite;
     }
 
-    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-primary):not(:disabled):not(.is-disabled) {
+    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):not(.ref-jump):is(:hover, [aria-pressed="true"]):not(.btn-primary):not(:disabled):not(.is-disabled) {
       animation: cycle-sel 5s linear infinite;
       border-color: #ff3cf0;
     }
@@ -2253,7 +2322,7 @@ body {
       box-shadow: none;
     }
 
-    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):is(:hover, [aria-pressed="true"]):not(.btn-primary):not(:disabled):not(.is-disabled) {
+    :is(.bar button, .fv-btn, .settings button, .date-jump button, dialog button, .confirm-tip button, .menu button):not(.ref-jump):is(:hover, [aria-pressed="true"]):not(.btn-primary):not(:disabled):not(.is-disabled) {
       background-image: none;
       animation: cycle-sel 5s linear infinite;
       border-color: #ff3cf0;
