@@ -5,6 +5,7 @@
 ### Features
 
 - Jump to a branch, tag, or worktree from Branches/Tags. A bordered button to the left of the checkbox scrolls the graph to that commit. If that commit is further down, the history loads first.
+- Drag the Branches/Tags frame to resize the menu. It opens at 400px and keeps that width when switching Branch, Tag, and Worktree. Long names are shortened, and the full name shows on hover. The size is kept the next time the menu opens.
 
 ## v0.6.1
 

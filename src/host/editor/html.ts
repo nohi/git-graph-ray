@@ -27,24 +27,34 @@ const SHELL = `
   <span class="bar-end">
     <button type="button" id="btn-refs" class="with-icon tone-filter" commandfor="pop-refs" command="toggle-popover" aria-pressed="false"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2.2 3h11.6L9.4 8.1V12.2L6.6 13.4V8.1L2.2 3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg>Branches/Tags</button>
     <div id="pop-refs" popover class="pop">
-      <search>
-        <input type="search" id="ref-q" placeholder="Find a branch, tag, or worktree" />
-      </search>
-      <div class="ref-toggles">
-        <label><input type="checkbox" id="show-all" /> Show all</label>
-        <label><input type="checkbox" id="show-remotes" /> Remotes</label>
-        <label class="ref-toggle-line"><input type="checkbox" id="show-same-commit" checked /> Show other branches on the same commit</label>
+      <div class="pop-refs-body">
+        <search>
+          <input type="search" id="ref-q" placeholder="Find a branch, tag, or worktree" />
+        </search>
+        <div class="ref-toggles">
+          <label><input type="checkbox" id="show-all" /> Show all</label>
+          <label><input type="checkbox" id="show-remotes" /> Remotes</label>
+          <label class="ref-toggle-line"><input type="checkbox" id="show-same-commit" checked /> Show other branches on the same commit</label>
+        </div>
+        <div class="ref-tabs" role="tablist">
+          <button type="button" role="tab" id="ref-tab-branch" aria-selected="true">Branch</button>
+          <button type="button" role="tab" id="ref-tab-tag" aria-selected="false">Tag</button>
+          <button type="button" role="tab" id="ref-tab-worktree" aria-selected="false">Worktree</button>
+        </div>
+        <div id="ref-list"></div>
+        <p id="ref-jump-miss" class="ref-jump-miss" hidden></p>
+        <div class="dlg-actions">
+          <button type="button" id="ref-ok" class="btn-primary">OK</button>
+        </div>
       </div>
-      <div class="ref-tabs" role="tablist">
-        <button type="button" role="tab" id="ref-tab-branch" aria-selected="true">Branch</button>
-        <button type="button" role="tab" id="ref-tab-tag" aria-selected="false">Tag</button>
-        <button type="button" role="tab" id="ref-tab-worktree" aria-selected="false">Worktree</button>
-      </div>
-      <div id="ref-list"></div>
-      <p id="ref-jump-miss" class="ref-jump-miss" hidden></p>
-      <div class="dlg-actions">
-        <button type="button" id="ref-ok" class="btn-primary">OK</button>
-      </div>
+      <div class="pop-frame" data-edge="n" aria-hidden="true"></div>
+      <div class="pop-frame" data-edge="e" aria-hidden="true"></div>
+      <div class="pop-frame" data-edge="s" aria-hidden="true"></div>
+      <div class="pop-frame" data-edge="w" aria-hidden="true"></div>
+      <div class="pop-frame" data-edge="nw" aria-hidden="true"></div>
+      <div class="pop-frame" data-edge="ne" aria-hidden="true"></div>
+      <div class="pop-frame" data-edge="sw" aria-hidden="true"></div>
+      <div class="pop-frame" data-edge="se" aria-hidden="true"></div>
     </div>
     <button type="button" id="btn-dates" class="with-icon tone-filter" commandfor="pop-dates" command="toggle-popover" aria-pressed="false" title="Filter commits by date"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2.2 3h11.6L9.4 8.1V12.2L6.6 13.4V8.1L2.2 3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg>Dates</button>
     <div id="pop-dates" popover class="pop">

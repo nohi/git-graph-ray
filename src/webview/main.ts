@@ -77,7 +77,19 @@ import {
 } from '../shared/rebaseBranches';
 import { UNCOMMITTED, type ColumnVisibility, type CommitDetails, type GraphCommit, type GraphRef } from '../shared/types';
 import type { GitAction, GraphSnapshot, HostToView, ViewToHost } from '../shared/protocol';
-import { anchoredPopoverPlacement, cursorDialogPlacement, type AnchoredPopoverAlign } from '../shared/popover';
+import {
+  REFS_POPOVER_DEFAULT_WIDTH,
+  REFS_POPOVER_MIN_HEIGHT,
+  REFS_POPOVER_MIN_WIDTH,
+  anchoredPopoverPlacement,
+  cursorDialogPlacement,
+  fitPopoverSpan,
+  isPopoverEdge,
+  resizePopoverRect,
+  type AnchoredPopoverAlign,
+  type PopoverEdge,
+  type PopoverRect,
+} from '../shared/popover';
 import { syncRayCats } from './rayCat';
 import { startContributorsPage } from './contributors';
 import './styles.css';
@@ -96,6 +108,8 @@ type WebviewState = {
   authorNames?: string[];
   committerNames?: string[];
   selected?: string;
+  refsPopoverWidth?: number;
+  refsPopoverHeight?: number;
 };
 
 function webviewState(): WebviewState {
@@ -106,6 +120,24 @@ function webviewState(): WebviewState {
 
 let signatureOpen = webviewState().signatureOpen === true;
 let columnWidths: Record<string, number> = { ...(webviewState().columns ?? {}) };
+const REFS_POPOVER_MAX_SPAN = 4000;
+
+function storedRefsPopoverWidth(): number {
+  const width = webviewState().refsPopoverWidth;
+  if (typeof width !== 'number' || !Number.isFinite(width)) return REFS_POPOVER_DEFAULT_WIDTH;
+  return Math.min(REFS_POPOVER_MAX_SPAN, Math.max(REFS_POPOVER_MIN_WIDTH, width));
+}
+
+function storedRefsPopoverHeight(): number | null {
+  const height = webviewState().refsPopoverHeight;
+  if (typeof height !== 'number' || !Number.isFinite(height)) return null;
+  return Math.min(REFS_POPOVER_MAX_SPAN, Math.max(REFS_POPOVER_MIN_HEIGHT, height));
+}
+
+let refsPopoverWidth = storedRefsPopoverWidth();
+let refsPopoverHeight: number | null = storedRefsPopoverHeight();
+let refsPopoverCustomPlace = false;
+let refsPopoverDragging = false;
 let viewRestored = false;
 let restoring = false;
 let restoredScroll: string | null = null;
@@ -358,6 +390,8 @@ function persistView(): void {
     authorNames: [...personFilter.author],
     committerNames: [...personFilter.committer],
     selected: selected ?? undefined,
+    refsPopoverWidth,
+    ...(refsPopoverHeight != null ? { refsPopoverHeight } : {}),
   });
 }
 
@@ -538,7 +572,8 @@ function fillRefs(): void {
       const detached = r.kind === 'head' && r.name === 'HEAD';
       const kindTitle = r.kind === 'head' ? 'Branch' : r.kind === 'remote' ? 'Remote' : r.kind === 'tag' ? 'Tag' : r.kind === 'worktree' ? 'Worktree' : r.kind;
       const paint = refRowColourAttrs(r);
-      return `<div class="ref-line">${refJumpButton(r, refJumpHash(r, catalog, loaded))}<label class="ref-item kind-${r.kind}${detached ? ' detached' : ''}"><input type="checkbox" data-ref="${esc(rev)}" ${draft.picked.has(rev) ? 'checked' : ''}/><span class="ref-mark" title="${esc(kindTitle)}"${paint.mark}></span><span class="ref-name"${paint.name}>${esc(refDisplayName(r))}</span></label></div>`;
+      const label = refDisplayName(r);
+      return `<div class="ref-line">${refJumpButton(r, refJumpHash(r, catalog, loaded))}<label class="ref-item kind-${r.kind}${detached ? ' detached' : ''}"><input type="checkbox" data-ref="${esc(rev)}" ${draft.picked.has(rev) ? 'checked' : ''}/><span class="ref-mark" title="${esc(kindTitle)}"${paint.mark}></span><span class="ref-name" title="${esc(label)}"${paint.name}>${esc(label)}</span></label></div>`;
     })
     .join('');
   list.scrollTop = top;
@@ -1912,15 +1947,48 @@ function fillHelp(): void {
   $('help-keys').innerHTML = rows.map(([l, v]) => `<dt>${esc(l)}</dt><dd><kbd>${esc(v)}</kbd></dd>`).join('');
 }
 
+function lockPopoverWidth(pop: HTMLElement, width: number): void {
+  const px = `${width}px`;
+  pop.style.width = px;
+  pop.style.minWidth = px;
+  pop.style.maxWidth = px;
+}
+
+function lockPopoverHeight(pop: HTMLElement, height: number | null): void {
+  if (height == null) {
+    pop.style.height = '';
+    pop.style.minHeight = '';
+    pop.style.maxHeight = '';
+    pop.classList.remove('is-resized');
+    return;
+  }
+  const px = `${height}px`;
+  pop.style.height = px;
+  pop.style.minHeight = px;
+  pop.style.maxHeight = px;
+  pop.classList.add('is-resized');
+}
+
 function applyAnchoredPopoverPlacement(
   pop: HTMLElement,
   place: ReturnType<typeof anchoredPopoverPlacement>,
+  fixed?: { width: number; height: number | null },
 ): void {
   pop.style.position = 'fixed';
   pop.style.inset = 'auto';
   pop.style.margin = '0';
-  pop.style.width = 'max-content';
-  pop.style.maxWidth = `${place.maxWidth}px`;
+  if (fixed) {
+    lockPopoverWidth(pop, fitPopoverSpan(fixed.width, place.maxWidth, REFS_POPOVER_MIN_WIDTH));
+    const available = window.innerHeight - place.top - 4;
+    lockPopoverHeight(pop, fixed.height == null ? null : fitPopoverSpan(fixed.height, available, REFS_POPOVER_MIN_HEIGHT));
+  } else {
+    pop.style.width = 'max-content';
+    pop.style.minWidth = '';
+    pop.style.maxWidth = `${place.maxWidth}px`;
+    pop.style.height = '';
+    pop.style.minHeight = '';
+    pop.style.maxHeight = '';
+  }
   pop.style.top = `${place.top}px`;
   if (place.align === 'left') {
     pop.style.left = `${place.left}px`;
@@ -1932,11 +2000,131 @@ function applyAnchoredPopoverPlacement(
 }
 
 function positionAnchoredPopover(pop: HTMLElement, btn: HTMLElement, opts: AnchoredPopoverOpts = {}): void {
+  if (pop.id === 'pop-refs' && (refsPopoverDragging || refsPopoverCustomPlace)) return;
   const r = btn.getBoundingClientRect();
   const rect = { top: r.top, left: r.left, right: r.right, bottom: r.bottom };
   const viewport = { width: window.innerWidth, height: window.innerHeight };
-  applyAnchoredPopoverPlacement(pop, anchoredPopoverPlacement(rect, pop.offsetHeight, viewport, opts));
-  applyAnchoredPopoverPlacement(pop, anchoredPopoverPlacement(rect, pop.offsetHeight, viewport, opts));
+  const fixed = pop.id === 'pop-refs' ? { width: refsPopoverWidth, height: refsPopoverHeight } : undefined;
+  applyAnchoredPopoverPlacement(pop, anchoredPopoverPlacement(rect, pop.offsetHeight, viewport, opts), fixed);
+  applyAnchoredPopoverPlacement(pop, anchoredPopoverPlacement(rect, pop.offsetHeight, viewport, opts), fixed);
+}
+
+function refsPopoverEdgeAxis(edge: PopoverEdge): { horizontal: boolean; vertical: boolean } {
+  return {
+    horizontal: edge.includes('e') || edge.includes('w'),
+    vertical: edge.includes('n') || edge.includes('s'),
+  };
+}
+
+function refsPopoverCursor(edge: PopoverEdge): string {
+  if (edge === 'n' || edge === 's') return 'ns-resize';
+  if (edge === 'e' || edge === 'w') return 'ew-resize';
+  if (edge === 'ne' || edge === 'sw') return 'nesw-resize';
+  return 'nwse-resize';
+}
+
+function setRefsResizeCursor(cursor: string | null): void {
+  const root = document.documentElement;
+  if (!cursor) {
+    root.classList.remove('refs-pop-resize');
+    root.style.removeProperty('--refs-pop-resize');
+    return;
+  }
+  root.style.setProperty('--refs-pop-resize', cursor);
+  root.classList.add('refs-pop-resize');
+}
+
+function applyDraggedRefsPopover(pop: HTMLElement, next: PopoverRect, edge: PopoverEdge): void {
+  const axis = refsPopoverEdgeAxis(edge);
+  pop.style.position = 'fixed';
+  pop.style.margin = '0';
+  pop.style.right = 'auto';
+  pop.style.bottom = 'auto';
+  pop.style.left = `${next.left}px`;
+  pop.style.top = `${next.top}px`;
+  if (axis.horizontal) lockPopoverWidth(pop, next.width);
+  if (axis.vertical) lockPopoverHeight(pop, next.height);
+}
+
+function clampRefsPopoverIntoView(pop: HTMLElement): void {
+  const margin = 4;
+  const rect = pop.getBoundingClientRect();
+  const width = fitPopoverSpan(refsPopoverWidth, window.innerWidth - margin * 2, REFS_POPOVER_MIN_WIDTH);
+  const height =
+    refsPopoverHeight == null
+      ? rect.height
+      : fitPopoverSpan(refsPopoverHeight, window.innerHeight - margin * 2, REFS_POPOVER_MIN_HEIGHT);
+  let left = rect.right - width;
+  let top = rect.top;
+  const maxLeft = window.innerWidth - margin - width;
+  const maxTop = window.innerHeight - margin - height;
+  left = Math.min(Math.max(left, margin), Math.max(margin, maxLeft));
+  top = Math.min(Math.max(top, margin), Math.max(margin, maxTop));
+  pop.style.position = 'fixed';
+  pop.style.margin = '0';
+  pop.style.right = 'auto';
+  pop.style.bottom = 'auto';
+  pop.style.left = `${left}px`;
+  pop.style.top = `${top}px`;
+  lockPopoverWidth(pop, width);
+  if (refsPopoverHeight != null) lockPopoverHeight(pop, height);
+}
+
+function bindRefsPopoverResize(): void {
+  const pop = $('pop-refs');
+  pop.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0) return;
+    const handle = (ev.target as HTMLElement).closest<HTMLElement>('.pop-frame');
+    if (!handle || !pop.contains(handle)) return;
+    const edge = handle.dataset.edge;
+    if (!isPopoverEdge(edge)) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const rect = pop.getBoundingClientRect();
+    const start: PopoverRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+    const originX = ev.clientX;
+    const originY = ev.clientY;
+    const axis = refsPopoverEdgeAxis(edge);
+    refsPopoverDragging = true;
+    refsPopoverCustomPlace = true;
+    pop.style.left = `${rect.left}px`;
+    pop.style.right = 'auto';
+    pop.style.top = `${rect.top}px`;
+    pop.style.bottom = 'auto';
+    setRefsResizeCursor(refsPopoverCursor(edge));
+    handle.setPointerCapture(ev.pointerId);
+    const move = (e: PointerEvent) => {
+      const next = resizePopoverRect(start, edge, e.clientX - originX, e.clientY - originY, {
+        minWidth: REFS_POPOVER_MIN_WIDTH,
+        minHeight: REFS_POPOVER_MIN_HEIGHT,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+      });
+      applyDraggedRefsPopover(pop, next, edge);
+    };
+    const finish = (e: PointerEvent) => {
+      if (!refsPopoverDragging) return;
+      refsPopoverDragging = false;
+      setRefsResizeCursor(null);
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', finish);
+      handle.removeEventListener('pointercancel', finish);
+      move(e);
+      const box = pop.getBoundingClientRect();
+      if (axis.horizontal) {
+        refsPopoverWidth = Math.round(box.width);
+        lockPopoverWidth(pop, refsPopoverWidth);
+      }
+      if (axis.vertical) {
+        refsPopoverHeight = Math.round(box.height);
+        lockPopoverHeight(pop, refsPopoverHeight);
+      }
+      persistView();
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', finish);
+    handle.addEventListener('pointercancel', finish);
+  });
 }
 
 function positionPopover(pop: HTMLElement, x: number, y: number): void {
@@ -1987,7 +2175,13 @@ const ANCHOR_POPS: Array<[string, string, AnchoredPopoverOpts?]> = [
 function repositionOpenAnchoredPopovers(): void {
   for (const [btnId, popId, opts] of ANCHOR_POPS) {
     const pop = $(popId);
-    if (pop.matches(':popover-open')) positionAnchoredPopover(pop, $(btnId), opts);
+    if (!pop.matches(':popover-open')) continue;
+    if (popId === 'pop-refs' && refsPopoverDragging) continue;
+    if (popId === 'pop-refs' && refsPopoverCustomPlace) {
+      clampRefsPopoverIntoView(pop);
+      continue;
+    }
+    positionAnchoredPopover(pop, $(btnId), opts);
   }
 }
 
@@ -2951,6 +3145,7 @@ function bind(): void {
       return;
     }
     filterDraft = null;
+    refsPopoverCustomPlace = false;
   });
   $('pop-dates').addEventListener('toggle', (ev) => {
     if ((ev as ToggleEvent).newState === 'open') {
@@ -3335,6 +3530,7 @@ function bind(): void {
     openCtx(FOLDER_MENU.map((item) => btn(item.id, item.label)).join(''), ev.clientX, ev.clientY);
   });
   bindPopoverAnchor('btn-refs', 'pop-refs');
+  bindRefsPopoverResize();
   bindPopoverAnchor('btn-dates', 'pop-dates');
   bindPopoverAnchor('btn-contributor', 'pop-contributor');
   bindPopoverAnchor('btn-graph', 'pop-graph');

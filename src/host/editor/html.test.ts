@@ -43,6 +43,8 @@ describe('graphHtml', () => {
     expect(html.match(/id="s-theme"/g)?.length).toBe(1);
     expect(html).toContain('id="git-ok" value="ok" type="submit" class="btn-primary"');
     expect(html).toContain('id="ref-ok" class="btn-primary"');
+    expect(html).toContain('class="pop-refs-body"');
+    expect(html).toContain('class="pop-frame" data-edge="se"');
     expect(html).toContain('id="date-ok" class="btn-primary"');
     expect(html).toContain('id="issue-save" class="btn-primary"');
     expect(html).toContain('id="pr-save" class="btn-primary"');

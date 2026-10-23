@@ -504,7 +504,6 @@ html {
   margin: 0;
 }
 
-#pop-refs,
 #pop-dates,
 #pop-contributor,
 #pop-settings,
@@ -515,15 +514,160 @@ html {
   width: max-content;
 }
 
-#pop-refs,
 #pop-dates,
 #pop-contributor {
   max-width: 24rem;
   min-width: 18rem;
+}
 
+#pop-refs,
+#pop-dates,
+#pop-contributor {
   .dlg-actions {
     margin-top: 0.5rem;
   }
+}
+
+#pop-refs {
+  width: 400px;
+  min-width: 400px;
+  max-width: 400px;
+  padding: 0;
+  overflow: visible;
+  box-sizing: border-box;
+
+  search {
+    display: block;
+    min-width: 0;
+  }
+
+  input[type="search"] {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .ref-line {
+    max-width: 100%;
+  }
+
+  .ref-item {
+    overflow: hidden;
+  }
+
+  .ref-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #ref-list {
+    overflow-x: hidden;
+  }
+}
+
+.pop-refs-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.6rem;
+  box-sizing: border-box;
+
+  > * {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+}
+
+#pop-refs.is-resized .pop-refs-body {
+  height: 100%;
+  min-height: 0;
+
+  #ref-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+}
+
+#pop-refs .pop-frame {
+  position: absolute;
+  z-index: 2;
+  touch-action: none;
+}
+
+#pop-refs .pop-frame[data-edge="n"],
+#pop-refs .pop-frame[data-edge="s"] {
+  left: 12px;
+  right: 12px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+#pop-refs .pop-frame[data-edge="n"] {
+  top: -4px;
+}
+
+#pop-refs .pop-frame[data-edge="s"] {
+  bottom: -4px;
+}
+
+#pop-refs .pop-frame[data-edge="e"],
+#pop-refs .pop-frame[data-edge="w"] {
+  top: 12px;
+  bottom: 12px;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+#pop-refs .pop-frame[data-edge="e"] {
+  right: -4px;
+}
+
+#pop-refs .pop-frame[data-edge="w"] {
+  left: -4px;
+}
+
+#pop-refs .pop-frame[data-edge="nw"],
+#pop-refs .pop-frame[data-edge="ne"],
+#pop-refs .pop-frame[data-edge="sw"],
+#pop-refs .pop-frame[data-edge="se"] {
+  width: 14px;
+  height: 14px;
+  z-index: 3;
+}
+
+#pop-refs .pop-frame[data-edge="nw"] {
+  top: -5px;
+  left: -5px;
+  cursor: nwse-resize;
+}
+
+#pop-refs .pop-frame[data-edge="ne"] {
+  top: -5px;
+  right: -5px;
+  cursor: nesw-resize;
+}
+
+#pop-refs .pop-frame[data-edge="sw"] {
+  bottom: -5px;
+  left: -5px;
+  cursor: nesw-resize;
+}
+
+#pop-refs .pop-frame[data-edge="se"] {
+  bottom: -5px;
+  right: -5px;
+  cursor: nwse-resize;
+}
+
+html.refs-pop-resize,
+html.refs-pop-resize * {
+  cursor: var(--refs-pop-resize) !important;
+  user-select: none !important;
 }
 
 .ref-toggles {
