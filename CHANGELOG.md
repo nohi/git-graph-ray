@@ -11,6 +11,7 @@
 ### Fixes
 
 - Size the Rename branch dialog to the same width as Create branch.
+- Keep the unmerged-branch warning visible in the Delete branch dialog after force is checked.
 
 ## v0.6.0
 

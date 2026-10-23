@@ -17,9 +17,9 @@ describe('deleteBranchDialogHtml', () => {
 });
 
 describe('deleteBranchConfirm', () => {
-  it('blocks an unmerged branch until force is checked', () => {
+  it('keeps the unmerged warning visible and enables OK only when force is checked', () => {
     expect(deleteBranchConfirm('unmerged', false)).toEqual({ showWarning: true, okEnabled: false });
-    expect(deleteBranchConfirm('unmerged', true)).toEqual({ showWarning: false, okEnabled: true });
+    expect(deleteBranchConfirm('unmerged', true)).toEqual({ showWarning: true, okEnabled: true });
   });
 
   it('allows a merged branch without force', () => {

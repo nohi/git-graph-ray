@@ -11,8 +11,8 @@ export function deleteBranchDialogHtml(force: boolean): string {
 
 /** `git branch -d` refuses an unmerged branch. Force is the only way through. */
 export function deleteBranchConfirm(state: BranchMergeState, force: boolean): { showWarning: boolean; okEnabled: boolean } {
+  if (state === 'unmerged') return { showWarning: true, okEnabled: force };
   if (force) return { showWarning: false, okEnabled: true };
-  if (state === 'unmerged') return { showWarning: true, okEnabled: false };
   if (state === 'pending') return { showWarning: false, okEnabled: false };
   return { showWarning: false, okEnabled: true };
 }
