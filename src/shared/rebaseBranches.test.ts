@@ -22,7 +22,9 @@ describe('rebaseTargetBranches', () => {
 describe('rebase dialog', () => {
   it('lists the branches and omits interactive', () => {
     const html = rebaseBranchesDialogHtml({ onto: 'main', branches: ['feature', 'next'], ignoreDate: true });
-    expect(html).toContain('Rebase onto <code>main</code>');
+    expect(html).toContain('<dt>onto</dt>');
+    expect(html).toContain('<code>main</code>');
+    expect(html).toContain('<dt>from</dt>');
     expect(html).toContain('<code>feature</code>');
     expect(html).toContain('<code>next</code>');
     expect(html).toContain('ignore date');

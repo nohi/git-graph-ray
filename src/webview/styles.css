@@ -878,6 +878,11 @@ dialog button:disabled {
   width: min(24rem, calc(100vw - 16px));
 }
 
+#dlg-git:has(.dlg-refs) {
+  box-sizing: border-box;
+  width: min(36rem, calc(100vw - 16px));
+}
+
 #dlg-git:has(#co),
 #dlg-git:has(#nn) {
   box-sizing: border-box;
@@ -1030,6 +1035,39 @@ dialog button.lc-help {
 
   li {
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+.dlg-refs {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 0.45rem;
+  row-gap: 0.25rem;
+  margin: 0;
+  align-items: start;
+
+  > div {
+    display: contents;
+  }
+
+  dt {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.4rem;
+    margin: 0;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  dt::after {
+    content: ":";
+  }
+
+  dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 }
 

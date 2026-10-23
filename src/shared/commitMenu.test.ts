@@ -175,6 +175,7 @@ describe('branchMenuEntries', () => {
       { id: 'rm-del', label: 'Delete' },
       { id: 'rm-fi', label: 'Fetch into local' },
       { id: 'rm-mg', label: 'Merge into current branch' },
+      { id: 'rm-rb', label: 'Rebase current branch on this branch' },
       { id: 'rm-pl', label: 'Pull' },
       { id: 'rbi', label: 'Rebase interactive on this branch' },
       { id: 'br-rbs', label: 'Rebase selected branch on this branch' },
@@ -191,7 +192,7 @@ describe('branchMenuEntries', () => {
       visible: (id) => id !== 'rebase' && id !== 'compare' && id !== 'compareHead',
       selectedRebase: { count: 2 },
     });
-    expect(hidden.some((entry) => entry !== 'sep' && (entry.id === 'rbi' || entry.id === 'br-rbs'))).toBe(false);
+    expect(hidden.some((entry) => entry !== 'sep' && (entry.id === 'rm-rb' || entry.id === 'rbi' || entry.id === 'br-rbs'))).toBe(false);
     expect(hidden).not.toContain('sep');
     expect(
       remoteMenuEntries({ withHead: false, visible: (id) => id !== 'merge' }).some((entry) => entry !== 'sep' && entry.id === 'rm-mg'),

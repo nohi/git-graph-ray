@@ -37,6 +37,7 @@ import { edgeTouchesRange, renderEdges, renderNodes, type DrawnEdge, type DrawnN
 import { buildFileTree, FOLDER_MENU, folderFoldPlan, wantsNestedFolderToggle, type FolderFoldPlan } from '../shared/fileTree';
 import { decideNamedRemoteCheckout, startCheckoutFromRef } from '../shared/checkout';
 import { applySpaceSubstitution, defaultRepoSettings, type RepoSettings } from '../shared/dialogs';
+import { mergeDialogHtml, rebaseDialogHtml } from '../shared/branchDialog';
 import { deleteBranchConfirm, deleteBranchDialogHtml, type BranchMergeState } from '../shared/deleteBranch';
 import { addTagDialogHtml, parsePushMode, pushBranchDialogHtml, pushTagDialogHtml, tagOnRemoteIcon, tagRemoteLoadingIcon } from '../shared/pushDialog';
 import { remoteTagErrorText, tagOnRemote, type RemoteTagError, type RemoteTagTip } from '../shared/remoteTags';
@@ -3898,9 +3899,9 @@ function onMenu(ev: Event): void {
     }
     if (id === 'br-mg') {
       const p = clickPoint(ev);
-      gitDialog('Merge', checks(d), () => act({ kind: 'merge', ref: r.name, noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }), p);
+      gitDialog('Merge', mergeBody(r.name), () => act({ kind: 'merge', ref: r.name, noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }), p);
     }
-    if (id === 'br-rb') gitDialog('Rebase', `<label><input type="checkbox" id="id" ${d.rebaseIgnoreDate ? 'checked' : ''}/> ignore date</label><label><input type="checkbox" id="ir" ${d.rebaseInteractive ? 'checked' : ''}/> interactive</label>`, () => act({ kind: 'rebase', ref: r.name, ignoreDate: (document.getElementById('id') as HTMLInputElement).checked, interactive: (document.getElementById('ir') as HTMLInputElement).checked }), clickPoint(ev));
+    if (id === 'br-rb') gitDialog('Rebase', rebaseBody(r.name, d.rebaseInteractive), () => act({ kind: 'rebase', ref: r.name, ignoreDate: (document.getElementById('id') as HTMLInputElement).checked, interactive: (document.getElementById('ir') as HTMLInputElement).checked }), clickPoint(ev));
     if (id === 'br-ps') {
       gitDialog('Push branch', pushBranchDialogHtml(snap.remotes.map((x) => x.name)), () => {
         const remotes = selectedPushRemotes();
@@ -3916,7 +3917,21 @@ function onMenu(ev: Event): void {
     }
     if (id === 'rm-mg') {
       const p = clickPoint(ev);
-      gitDialog('Merge', checks(d), () => act({ kind: 'merge', ref: rebaseRevision('remote', r.name), noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }), p);
+      gitDialog('Merge', mergeBody(r.name), () => act({ kind: 'merge', ref: rebaseRevision('remote', r.name), noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }), p);
+    }
+    if (id === 'rm-rb') {
+      gitDialog(
+        'Rebase',
+        rebaseBody(r.name, d.rebaseInteractive),
+        () =>
+          act({
+            kind: 'rebase',
+            ref: rebaseRevision('remote', r.name),
+            ignoreDate: (document.getElementById('id') as HTMLInputElement).checked,
+            interactive: (document.getElementById('ir') as HTMLInputElement).checked,
+          }),
+        clickPoint(ev),
+      );
     }
     if (id === 'rm-co') runPlan(decideNamedRemoteCheckout(snap.commits, r.name, r.name.slice(r.name.indexOf('/') + 1), r.hash, snap.currentBranch), clickPoint(ev));
     if (id === 'rm-del') {
@@ -4001,9 +4016,9 @@ function onMenu(ev: Event): void {
     }
     if (id === 'c-mg') {
       const p = clickPoint(ev);
-      gitDialog('Merge', checks(d), () => act({ kind: 'merge', ref: c.hash, noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }), p);
+      gitDialog('Merge', mergeBody(c.hash.slice(0, 7)), () => act({ kind: 'merge', ref: c.hash, noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }), p);
     }
-    if (id === 'c-rb') gitDialog('Rebase', `<label><input type="checkbox" id="id" ${d.rebaseIgnoreDate ? 'checked' : ''}/> ignore date</label>`, () => act({ kind: 'rebase', ref: c.hash, ignoreDate: (document.getElementById('id') as HTMLInputElement).checked, interactive: false }), clickPoint(ev));
+    if (id === 'c-rb') gitDialog('Rebase', rebaseBody(c.hash.slice(0, 7)), () => act({ kind: 'rebase', ref: c.hash, ignoreDate: (document.getElementById('id') as HTMLInputElement).checked, interactive: false }), clickPoint(ev));
     if (id === 'c-rs') gitDialog('Reset', 'Reset current branch?', () => act({ kind: 'reset', hash: c.hash, mode: d.resetBranchMode.toLowerCase() as 'soft' | 'mixed' | 'hard' }), clickPoint(ev));
     if (id === 'c-wt') {
       const main = snap.mainWorktreePath || snap.repoPath;
@@ -4299,10 +4314,25 @@ function stashSelected(files: { path: string }[], at: { x: number; y: number }):
   );
 }
 
-function checks(d: GraphSnapshot['config']['dialogs']): string {
-  return `<label><input type="checkbox" id="nc" ${d.mergeNoCommit ? 'checked' : ''}/> no commit</label>
-    <label><input type="checkbox" id="nff" ${d.mergeNoFastForward ? 'checked' : ''}/> no ff</label>
-    <label><input type="checkbox" id="sq" ${d.mergeSquash ? 'checked' : ''}/> squash</label>`;
+function mergeBody(from: string): string {
+  const dialogs = snap!.config.dialogs;
+  return mergeDialogHtml({
+    into: snap!.currentBranch,
+    from,
+    noCommit: dialogs.mergeNoCommit,
+    noFastForward: dialogs.mergeNoFastForward,
+    squash: dialogs.mergeSquash,
+  });
+}
+
+function rebaseBody(onto: string, interactive?: boolean): string {
+  const dialogs = snap!.config.dialogs;
+  return rebaseDialogHtml({
+    onto,
+    from: snap!.currentBranch,
+    ignoreDate: dialogs.rebaseIgnoreDate,
+    ...(interactive === undefined ? {} : { interactive }),
+  });
 }
 
 function val(id: string): boolean {

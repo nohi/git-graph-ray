@@ -1,3 +1,4 @@
+import { branchEndRowsHtml, branchNameHtml } from './branchDialog';
 import { escapeHtml } from './issueLinks';
 
 export type RebaseBranchesCheckout = 'restore' | 'stay';
@@ -46,8 +47,11 @@ export function restoreCheckoutArgs(head: HeadCheckout): string[] | null {
 export function rebaseBranchesDialogHtml(opts: { onto: string; branches: readonly string[]; ignoreDate: boolean }): string {
   const items = opts.branches.map((name) => `<li><code>${escapeHtml(name)}</code></li>`).join('');
   const ignore = opts.ignoreDate ? ' checked' : '';
-  return `<p class="dlg-note">Rebase onto <code>${escapeHtml(opts.onto)}</code></p>
-<ul class="rebase-list">${items}</ul>
+  const ends = branchEndRowsHtml([
+    { label: 'onto', body: branchNameHtml(opts.onto) },
+    { label: 'from', body: `<ul class="rebase-list">${items}</ul>` },
+  ]);
+  return `${ends}
 <label><input type="checkbox" id="id"${ignore}/> ignore date</label>
 <fieldset class="dlg-stack">
   <legend>After rebase</legend>

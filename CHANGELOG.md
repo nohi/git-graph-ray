@@ -5,6 +5,8 @@
 ### Features
 
 - Merge a remote branch into the current branch from that label's context menu. The dialog matches merging a local branch (no commit, no fast-forward, squash).
+- Rebase the current branch onto a remote branch from that label's context menu. The dialog matches rebasing onto a local branch (ignore date, interactive). The revision is `refs/remotes/…`, so a local branch of the same name is not used.
+- Show the branches in the Merge and Rebase dialogs. Merge lists the current branch as into and the branch or commit being merged as from. Rebase lists the new base as onto and the current branch, or each selected branch, as from. The dialogs are wider so the names fit.
 - Rebase selected local branches onto a remote branch, a tag, or a commit. Ctrl/Cmd+click the branches, then right-click that target.
 - Rebase the current branch interactively onto a local branch, remote branch, or tag from that label's context menu. It opens in the integrated terminal, the same way a commit already does.
 
