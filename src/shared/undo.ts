@@ -112,7 +112,7 @@ export function undoLabel(action: GitAction): string {
     case 'deleteRemoteBranch':
       return `Delete remote branch ${action.name}`;
     case 'merge':
-      return `Merge ${action.ref}`;
+      return `Merge ${action.ref.startsWith('refs/remotes/') ? action.ref.slice('refs/remotes/'.length) : action.ref}`;
     case 'rebase':
       return `Rebase onto ${action.ref}`;
     case 'rebaseBranches': {

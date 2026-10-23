@@ -93,7 +93,7 @@
 - Stash: apply/pop/branch/drop、未コミット全体、または詳細で Ctrl/Cmd+クリックしたファイルだけ
 - Tag: add/delete/push/rebase interactive
 - Branch: create/checkout/rename/delete/merge/rebase/rebase interactive/push/PR
-- Remote: checkout/delete/fetch-into/pull（rebase / no-ff / squash）/rebase interactive/PR
+- Remote: checkout/delete/fetch-into/merge/pull（rebase / no-ff / squash）/rebase interactive/PR
 - Uncommitted: stash/reset/clean/SCM、パッチ作成、パッチ適用
 - Commit: tag/branch/checkout/cherry-pick/revert/drop（親1）/merge/rebase/reset/worktree/copy/reword、パッチ作成、パッチ適用
 - 選んだローカルブランチの rebase 先はローカルブランチ、リモートブランチ、タグ、コミット。対話 rebase はコミットに加え、ローカルブランチ、リモートブランチ、タグのラベルから。現在のブランチ自身は対話 rebase の対象にしない

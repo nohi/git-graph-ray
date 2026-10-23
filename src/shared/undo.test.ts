@@ -98,6 +98,7 @@ describe('undoPolicy', () => {
 describe('undoLabel', () => {
   it('names the local operation', () => {
     expect(undoLabel({ kind: 'merge', ref: 'feature', noCommit: false, noFastForward: false, squash: false, squashMessageFormat: 'Default' })).toBe('Merge feature');
+    expect(undoLabel({ kind: 'merge', ref: 'refs/remotes/origin/feature', noCommit: false, noFastForward: false, squash: false, squashMessageFormat: 'Default' })).toBe('Merge origin/feature');
     expect(
       undoLabel({ kind: 'rebaseBranches', onto: 'main', branches: ['a', 'b'], ignoreDate: false, checkout: 'restore', onFailure: 'skip' }),
     ).toBe('Rebase 2 branches onto main');

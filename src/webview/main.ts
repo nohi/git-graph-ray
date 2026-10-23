@@ -3914,6 +3914,10 @@ function onMenu(ev: Event): void {
         });
       }, clickPoint(ev));
     }
+    if (id === 'rm-mg') {
+      const p = clickPoint(ev);
+      gitDialog('Merge', checks(d), () => act({ kind: 'merge', ref: rebaseRevision('remote', r.name), noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }), p);
+    }
     if (id === 'rm-co') runPlan(decideNamedRemoteCheckout(snap.commits, r.name, r.name.slice(r.name.indexOf('/') + 1), r.hash, snap.currentBranch), clickPoint(ev));
     if (id === 'rm-del') {
       const p = clickPoint(ev);

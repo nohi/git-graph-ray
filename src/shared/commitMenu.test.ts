@@ -169,11 +169,12 @@ describe('branchMenuEntries', () => {
     ]);
   });
 
-  it('offers interactive rebase and a selected-branch rebase on a remote branch', () => {
+  it('offers merge, interactive rebase, and a selected-branch rebase on a remote branch', () => {
     expect(remoteMenuEntries({ withHead: true, visible: () => true, selectedRebase: { count: 1 } })).toEqual([
       { id: 'rm-co', label: 'Checkout' },
       { id: 'rm-del', label: 'Delete' },
       { id: 'rm-fi', label: 'Fetch into local' },
+      { id: 'rm-mg', label: 'Merge into current branch' },
       { id: 'rm-pl', label: 'Pull' },
       { id: 'rbi', label: 'Rebase interactive on this branch' },
       { id: 'br-rbs', label: 'Rebase selected branch on this branch' },
@@ -192,6 +193,9 @@ describe('branchMenuEntries', () => {
     });
     expect(hidden.some((entry) => entry !== 'sep' && (entry.id === 'rbi' || entry.id === 'br-rbs'))).toBe(false);
     expect(hidden).not.toContain('sep');
+    expect(
+      remoteMenuEntries({ withHead: false, visible: (id) => id !== 'merge' }).some((entry) => entry !== 'sep' && entry.id === 'rm-mg'),
+    ).toBe(false);
   });
 
   it('offers interactive rebase and a selected-branch rebase on a tag', () => {

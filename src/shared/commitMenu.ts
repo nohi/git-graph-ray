@@ -127,6 +127,7 @@ export function remoteMenuEntries(opts: {
     v('checkout') && { id: 'rm-co', label: 'Checkout' },
     v('delete') && { id: 'rm-del', label: 'Delete' },
     v('fetchInto') && { id: 'rm-fi', label: 'Fetch into local' },
+    v('merge') && { id: 'rm-mg', label: 'Merge into current branch' },
     v('pull') && { id: 'rm-pl', label: 'Pull' },
     v('rebase') && { id: 'rbi', label: rebaseInteractiveLabel('branch') },
     selectedRebaseEntry(opts, 'branch'),
