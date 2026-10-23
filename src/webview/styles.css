@@ -884,7 +884,8 @@ dialog button:disabled {
 }
 
 #dlg-git:has(#co),
-#dlg-git:has(#nn) {
+#dlg-git:has(#nn),
+#dlg-git:has(#tn) {
   box-sizing: border-box;
   width: min(400px, calc(100vw - 16px));
 }
