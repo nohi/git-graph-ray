@@ -90,7 +90,7 @@ import {
   type PopoverEdge,
   type PopoverRect,
 } from '../shared/popover';
-import { syncRayCats } from './rayCat';
+import { rayCatBurnBranch, syncRayCats } from './rayCat';
 import { startContributorsPage } from './contributors';
 import './styles.css';
 
@@ -453,7 +453,7 @@ function applySnap(): void {
   $('s-raycat').checked = snap.config.rayCatEnabled;
   $('s-raycat-count').value = String(snap.config.rayCatCount);
   $('s-raycat-count').disabled = !snap.config.rayCatEnabled;
-  syncRayCats($('ray-cats') as unknown as HTMLCanvasElement, snap.config.rayCatEnabled, snap.config.rayCatCount);
+  syncRayCats($('ray-cats'), snap.config.rayCatEnabled, snap.config.rayCatCount);
   fillRepos();
   if (!$('pop-refs').matches(':popover-open')) filterDraft = null;
   fillRefs();
@@ -3602,7 +3602,7 @@ function postRayCat(): void {
   $('s-raycat-count').value = String(count);
   const enabled = $('s-raycat').checked;
   $('s-raycat-count').disabled = !enabled;
-  syncRayCats($('ray-cats') as unknown as HTMLCanvasElement, enabled, count);
+  syncRayCats($('ray-cats'), enabled, count);
   post({ type: 'setRayCat', enabled, count });
 }
 
@@ -4162,7 +4162,10 @@ function onMenu(ev: Event): void {
       gitDialog(
         'Delete branch',
         deleteBranchDialogHtml(d.deleteBranchForce),
-        () => act({ kind: 'deleteBranch', name: r.name, force: (document.getElementById('fr') as HTMLInputElement).checked }),
+        () => {
+          rayCatBurnBranch(r.name);
+          act({ kind: 'deleteBranch', name: r.name, force: (document.getElementById('fr') as HTMLInputElement).checked });
+        },
         p,
       );
       post({ type: 'branchMerged', requestId, name: r.name });

@@ -303,7 +303,7 @@ const SHELL = `
     <div class="settings-save"><button type="button" id="pr-save" class="btn-primary">Save</button></div>
   </section>
 </div>
-<canvas id="ray-cats" class="ray-cats" hidden></canvas>
+<div id="ray-cats" class="ray-cats" hidden></div>
 `;
 
 export function graphHtml(webviewCsp: string, script: string, css: string, n: string): string {

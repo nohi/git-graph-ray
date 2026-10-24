@@ -30,6 +30,8 @@ describe('graphHtml', () => {
     expect(html).toContain('id="pop-date" popover="manual"');
     expect(html).toContain('class="settings-h"');
     expect(html).toContain('class="settings-stack"');
+    expect(html).toContain('<div id="ray-cats" class="ray-cats" hidden></div>');
+    expect(html).not.toContain('<canvas id="ray-cats"');
     expect(html).toContain('Show Ray Cat');
     expect(html).toContain('class="settings-warn"');
     expect(html).toContain('Ray themes and Ray Cat use more CPU and battery.');

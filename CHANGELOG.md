@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.7.0
+
+### Features
+
+- Draw each Ray Cat on its own small canvas and move that canvas with the cat.
+- Add Ray Cat motions
+
 ## v0.6.2
 
 ### Features
