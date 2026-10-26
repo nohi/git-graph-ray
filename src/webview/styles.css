@@ -867,6 +867,98 @@ mark.find-hit {
   visibility: hidden;
 }
 
+.ray-clone {
+  position: fixed;
+  pointer-events: none;
+  z-index: 4;
+  filter: brightness(1.45) saturate(1.35);
+}
+
+.ray-birth {
+  position: fixed;
+  pointer-events: none;
+  z-index: 4;
+
+  &.tag {
+    width: 16px;
+    height: 22px;
+    background: radial-gradient(circle at 50% 30%, transparent 2.2px, #f5c542 2.6px);
+    clip-path: polygon(0 0, 100% 0, 100% 64%, 50% 100%, 0 64%);
+    filter: drop-shadow(0 0 6px #f5c542);
+  }
+
+  &.band {
+    width: 18px;
+    height: 8px;
+    box-sizing: border-box;
+    border: 2px solid #f5c542;
+    border-top: 0;
+    border-radius: 0 0 9px 9px;
+    filter: drop-shadow(0 0 4px #f5c542);
+  }
+
+  &.paw {
+    width: 36px;
+    height: 32px;
+    background:
+      radial-gradient(circle at 50% 70%, #f5c542 0 8px, transparent 8.5px),
+      radial-gradient(circle at 18% 34%, #f5c542 0 4px, transparent 4.5px),
+      radial-gradient(circle at 40% 18%, #f5c542 0 4px, transparent 4.5px),
+      radial-gradient(circle at 64% 16%, #f5c542 0 4px, transparent 4.5px),
+      radial-gradient(circle at 86% 34%, #f5c542 0 4px, transparent 4.5px);
+    filter: drop-shadow(0 0 6px #f5c542);
+  }
+}
+
+.ray-pill {
+  position: fixed;
+  height: 16px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 4;
+  background: #fff;
+  box-shadow:
+    0 0 6px 1px #fff,
+    0 0 12px 3px var(--c, #fff);
+}
+
+.ray-bolt {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.ray-orb {
+  position: fixed;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 6;
+  background: radial-gradient(circle at 35% 35%, #fff 0 30%, #7ee9f5 70%);
+  box-shadow: 0 0 8px 2px #7ee9f5;
+}
+
+.ray-label-born {
+  animation: ray-label-born 280ms ease-out;
+}
+
+@keyframes ray-label-born {
+  from {
+    transform: scale(0.72);
+    filter: brightness(1.8);
+  }
+
+  to {
+    transform: none;
+    filter: none;
+  }
+}
+
 @keyframes ray-scorch {
   0% {
     filter: none;

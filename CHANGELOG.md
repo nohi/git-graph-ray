@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.7.1
+
+### Features
+
+- Add Ray Cat motions (Create branch, Add/Delete tag, Rename, Pull, Push, Cherry-pick, Checkout)
+
 ## v0.7.0
 
 ### Features

@@ -90,7 +90,7 @@ import {
   type PopoverEdge,
   type PopoverRect,
 } from '../shared/popover';
-import { rayCatBurnBranch, syncRayCats } from './rayCat';
+import { rayCatAddTag, rayCatBurnBranch, rayCatCherryPick, rayCatCreateBranch, rayCatDeleteTag, rayCatPull, rayCatPushBranch, rayCatRenameBranch, syncRayCats } from './rayCat';
 import { startContributorsPage } from './contributors';
 import './styles.css';
 
@@ -4142,7 +4142,10 @@ function onMenu(ev: Event): void {
     if (id === 'st-br') gitDialog('Branch from stash', `<input id="bn" />`, () => act({ kind: 'stashCreateBranch', name: applySpaceSubstitution((document.getElementById('bn') as HTMLInputElement).value, sp), stash: r.name.split(' ')[0] ?? r.name }));
     if (id === 'tag-del') {
       const p = clickPoint(ev);
-      showConfirmTip(`Delete tag ${r.name}?`, () => act({ kind: 'deleteTag', name: r.name }), p.x, p.y);
+      showConfirmTip(`Delete tag ${r.name}?`, () => {
+        rayCatDeleteTag(r.name);
+        act({ kind: 'deleteTag', name: r.name });
+      }, p.x, p.y);
     }
     if (id === 'tag-push') {
       gitDialog('Push tag', pushTagDialogHtml(snap.remotes.map((x) => x.name)), () => {
@@ -4153,7 +4156,11 @@ function onMenu(ev: Event): void {
       watchRemoteTags(r.hash, r.name);
     }
     if (id === 'br-co') runPlan({ kind: 'local', name: r.name });
-    if (id === 'br-rn') gitDialog('Rename', `<input id="nn" value="${esc(r.name)}" />`, () => act({ kind: 'renameBranch', oldName: r.name, newName: applySpaceSubstitution((document.getElementById('nn') as HTMLInputElement).value, sp) }), clickPoint(ev));
+    if (id === 'br-rn') gitDialog('Rename', `<input id="nn" value="${esc(r.name)}" />`, () => {
+      const newName = applySpaceSubstitution((document.getElementById('nn') as HTMLInputElement).value, sp);
+      rayCatRenameBranch(r.name, newName);
+      act({ kind: 'renameBranch', oldName: r.name, newName });
+    }, clickPoint(ev));
     if (id === 'br-del') {
       const p = clickPoint(ev);
       const requestId = String(++deleteBranchSeq);
@@ -4179,6 +4186,7 @@ function onMenu(ev: Event): void {
       gitDialog('Push branch', pushBranchDialogHtml(snap.remotes.map((x) => x.name)), () => {
         const remotes = selectedPushRemotes();
         if (!remotes.length) return;
+        rayCatPushBranch(r.name);
         act({
           kind: 'pushBranch',
           name: r.name,
@@ -4220,6 +4228,7 @@ function onMenu(ev: Event): void {
         `<p>Pull <code>${esc(remote)}/${esc(branch)}</code></p>${pullDialogHtml(d)}`,
         () => {
           const rebase = val('rb');
+          rayCatPull(r.name);
           act({
             kind: 'pullBranch',
             remote,
@@ -4263,10 +4272,12 @@ function onMenu(ev: Event): void {
         }),
         () => {
           const remotes = selectedPushRemotes();
+          const name = applySpaceSubstitution((document.getElementById('tn') as HTMLInputElement).value, sp);
+          rayCatAddTag(c.hash, name);
           act({
             kind: 'addTag',
             hash: c.hash,
-            name: applySpaceSubstitution((document.getElementById('tn') as HTMLInputElement).value, sp),
+            name,
             annotated: (document.getElementById('an') as HTMLInputElement).checked,
             ...(remotes.length ? { pushTo: remotes } : {}),
           });
@@ -4277,7 +4288,12 @@ function onMenu(ev: Event): void {
     }
     if (id === 'c-br') {
       const p = clickPoint(ev);
-      gitDialog('Create branch', `<input id="bn" /><label><input type="checkbox" id="co" ${d.createBranchCheckOut ? 'checked' : ''}/> checkout</label>`, () => act({ kind: 'createBranch', hash: c.hash, name: applySpaceSubstitution((document.getElementById('bn') as HTMLInputElement).value, sp), checkout: (document.getElementById('co') as HTMLInputElement).checked }), p);
+      gitDialog('Create branch', `<input id="bn" /><label><input type="checkbox" id="co" ${d.createBranchCheckOut ? 'checked' : ''}/> checkout</label>`, () => {
+        const name = applySpaceSubstitution((document.getElementById('bn') as HTMLInputElement).value, sp);
+        const checkout = (document.getElementById('co') as HTMLInputElement).checked;
+        rayCatCreateBranch(c.hash, name, checkout);
+        act({ kind: 'createBranch', hash: c.hash, name, checkout });
+      }, p);
     }
     if (id === 'c-co') act({ kind: 'checkoutCommit', hash: c.hash });
     if (id === 'c-cp') openCherryDialog(c, clickPoint(ev));
@@ -4516,6 +4532,7 @@ function openCherryDialog(commit: GraphCommit, at: { x: number; y: number }): vo
     `<p>${heading}</p>${note}<ul class="dlg-files">${list}</ul><label><input type="checkbox" id="nc" ${d.cherryPickNoCommit ? 'checked' : ''}/> no commit</label>`,
     () => {
       commitRange = [];
+      rayCatCherryPick(commit.hash);
       sendGit({
         kind: 'cherryPick',
         hashes: rows.map((row) => row.hash),

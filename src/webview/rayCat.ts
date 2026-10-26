@@ -149,6 +149,221 @@ export function beamPose(from: { x: number; y: number }, to: { x: number; y: num
   return { length: Math.hypot(dx, dy), angle: Math.atan2(dy, dx) };
 }
 
+export type RayCatTagMotion = 'collar' | 'paw';
+
+/** Lower half of the roll is the collar tag. The upper half is the paw stamp. */
+export function rayCatTagMotion(roll: number): RayCatTagMotion {
+  const unit = ((roll % 1) + 1) % 1;
+  return unit < 0.5 ? 'collar' : 'paw';
+}
+
+export function rayFlightPoint(from: { x: number; y: number }, to: { x: number; y: number }, p: number): { x: number; y: number } {
+  const u = 1 - p;
+  const lift = Math.min(72, Math.abs(from.y - to.y) * 0.22 + 36);
+  const cx = from.x + (to.x - from.x) * 0.4;
+  const cy = Math.min(from.y, to.y) - lift;
+  return {
+    x: u * u * from.x + 2 * u * p * cx + p * p * to.x,
+    y: u * u * from.y + 2 * u * p * cy + p * p * to.y,
+  };
+}
+
+/** Local head angle after scale(dir). Negative looks up. */
+export function rayHeadAim(from: { x: number; y: number }, to: { x: number; y: number }, dir: number): number {
+  const ang = Math.atan2(to.y - from.y, Math.max(8, (to.x - from.x) * dir));
+  return Math.max(-0.55, Math.min(0.35, ang));
+}
+
+type Point = { x: number; y: number };
+
+/** Jagged bolt. The first and last points are the endpoints. */
+export function rayBoltPoints(from: Point, to: Point, seed: number): Point[] {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const px = -dy / len;
+  const py = dx / len;
+  const pts = [from];
+  for (let i = 1; i < 8; i++) {
+    const p = i / 8;
+    const jag = Math.sin(seed * 1.7 + i * 2.4) * 16 * Math.sin(p * Math.PI);
+    pts.push({ x: from.x + dx * p + px * jag, y: from.y + dy * p + py * jag });
+  }
+  pts.push(to);
+  return pts;
+}
+
+/** Portion of a bolt from its start, so the tip travels instead of fading in place. */
+export function rayBoltGrown(points: Point[], grow: number): Point[] {
+  if (grow <= 0 || points.length < 2) return [];
+  const capped = Math.min(1, grow);
+  if (capped >= 1) return points;
+  const max = (points.length - 1) * capped;
+  const last = Math.floor(max);
+  const frac = max - last;
+  const out = points.slice(0, last + 1);
+  const a = points[last]!;
+  const b = points[last + 1]!;
+  out.push({ x: a.x + (b.x - a.x) * frac, y: a.y + (b.y - a.y) * frac });
+  return out;
+}
+
+/** Face-side foreleg only. The other foreleg and both hind legs stay down. */
+export function rayCatchLegs(amount: number): { backL: number; backR: number; frontL: number; frontR: number } {
+  return { backL: 0, backR: 0, frontL: 0, frontR: amount > 0 ? -1.75 * amount : 0 };
+}
+
+/** Local foot of the face-side foreleg (pivot 20, -15). Negative angles reach forward and up. */
+export function rayForeFoot(angle: number): Point {
+  return { x: 20 - 25 * Math.sin(angle), y: -15 + 25 * Math.cos(angle) };
+}
+
+function motionSpan(t: number, a: number, b: number): number {
+  if (t <= a) return 0;
+  if (t >= b) return 1;
+  const p = (t - a) / (b - a);
+  return p * p * (3 - 2 * p);
+}
+
+type CatPose = ReturnType<typeof catGesture>;
+
+function sitPose(amount: number, headRot: number): CatPose {
+  return {
+    lean: 0,
+    backL: 1.05 * amount,
+    backR: 1.05 * amount,
+    frontL: 1.05 * amount,
+    frontR: 0.95 * amount,
+    bodyY: 8 * amount,
+    headY: 2 * amount,
+    headRot,
+    tail: -0.15 + 0.55 * amount,
+    eye: 1,
+    earL: 0,
+    earR: 0,
+  };
+}
+
+function stampPose(t: number, headRot: number): CatPose {
+  const wind = motionSpan(t, 0, 0.42);
+  const strike = motionSpan(t, 0.42, 0.58);
+  const back = motionSpan(t, 0.72, 1);
+  const raised = wind * (1 - strike);
+  const down = strike * (1 - back);
+  return {
+    lean: 0,
+    backL: 0.2 * raised,
+    backR: 0.2 * raised,
+    frontL: 0.22 * raised,
+    frontR: -1.7 * raised + 0.5 * down,
+    bodyY: 2 * raised,
+    headY: 0,
+    headRot,
+    tail: -0.2 - 0.3 * raised,
+    eye: 1,
+    earL: -0.14 * raised,
+    earR: 0.08 * raised,
+  };
+}
+
+function jumpPose(): CatPose {
+  return {
+    lean: 0,
+    backL: 0.5,
+    backR: -0.5,
+    frontL: -0.5,
+    frontR: 0.5,
+    bodyY: -4,
+    headY: 0,
+    headRot: 0,
+    tail: -0.75,
+    eye: 1,
+    earL: 0,
+    earR: 0,
+  };
+}
+
+type BirthSpec = {
+  kind: 'clone' | RayCatTagMotion;
+  hash: string;
+  name: string;
+  chip: 'head' | 'tag';
+  checkout: boolean;
+};
+
+function birthChip(hash: string, kind: 'head' | 'tag', name: string): HTMLElement | null {
+  const row = document.querySelector<HTMLElement>(`.row[data-hash="${CSS.escape(hash)}"]`);
+  return row?.querySelector<HTMLElement>(`.chip[data-kind="${kind}"][data-name="${CSS.escape(name)}"]`) ?? null;
+}
+
+function namedChip(kind: 'head' | 'tag' | 'remote', name: string): HTMLElement | null {
+  return document.querySelector<HTMLElement>(`.row .chip[data-kind="${kind}"][data-name="${CSS.escape(name)}"]`);
+}
+
+function rowPoint(hash: string): Point | null {
+  const row = document.querySelector<HTMLElement>(`.row[data-hash="${CSS.escape(hash)}"]`);
+  if (!row) return null;
+  const box = row.getBoundingClientRect();
+  if (box.width < 2 || box.height < 2) return null;
+  return { x: box.left + 28, y: box.top + box.height / 2 };
+}
+
+function headPoint(): Point | null {
+  const chip = document.querySelector<HTMLElement>('.row .chip.head.current');
+  if (chip) return boxCenter(chip);
+  const row = document.querySelector<HTMLElement>('.row.head-commit');
+  if (!row) return null;
+  const box = row.getBoundingClientRect();
+  if (box.height < 2) return null;
+  return { x: box.left + 48, y: box.top + box.height / 2 };
+}
+
+function birthAnchor(hash: string): { x: number; y: number } | null {
+  const row = document.querySelector<HTMLElement>(`.row[data-hash="${CSS.escape(hash)}"]`);
+  if (!row) return null;
+  const rect = row.getBoundingClientRect();
+  if (rect.width < 2 || rect.height < 2) return null;
+  const chips = row.querySelectorAll<HTMLElement>('.cell.desc .chip');
+  const chip = chips.length ? chips[chips.length - 1] : null;
+  if (chip) {
+    const box = chip.getBoundingClientRect();
+    return { x: box.right + 24, y: box.top + box.height / 2 };
+  }
+  const subject = row.querySelector<HTMLElement>('.subj');
+  if (subject) {
+    const box = subject.getBoundingClientRect();
+    return { x: box.left + 28, y: box.top + box.height / 2 };
+  }
+  return { x: rect.left + 64, y: rect.top + rect.height / 2 };
+}
+
+function boxCenter(el: HTMLElement): { x: number; y: number } | null {
+  const box = el.getBoundingClientRect();
+  if (box.width < 2 || box.height < 2) return null;
+  return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+}
+
+function birthMark(kind: 'tag' | 'band' | 'paw'): HTMLElement {
+  const el = document.createElement('div');
+  el.className = `ray-birth ${kind}`;
+  el.style.opacity = '0';
+  return el;
+}
+
+function placeMark(el: HTMLElement, x: number, y: number, scale: number, alpha: number, rot: number): void {
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
+  el.style.opacity = String(Math.max(0, alpha));
+  el.style.transform = `translate(-50%, -50%) rotate(${rot}deg) scale(${Math.max(scale, 0.001)})`;
+}
+
+function placeClone(el: HTMLCanvasElement, chest: { x: number; y: number }, scale: number, alpha: number): void {
+  el.style.left = `${chest.x - CAT_ORIGIN_X}px`;
+  el.style.top = `${chest.y - (CAT_ORIGIN_Y - 30)}px`;
+  el.style.opacity = String(Math.max(0, alpha));
+  el.style.transform = `scale(${Math.max(scale, 0.001)})`;
+}
+
 class RayCat {
   x: number;
   dir = Math.random() < 0.5 ? 1 : -1;
@@ -166,6 +381,9 @@ class RayCat {
   private placed = '';
   private scripted = false;
   private scriptGen = 0;
+  private scriptPose: CatPose | null = null;
+  private chipWatch: MutationObserver | null = null;
+  private heldChip: HTMLElement | null = null;
   private aim = 0;
   private bodyTilt = 0;
   private sitAmount = 0;
@@ -173,7 +391,7 @@ class RayCat {
   private warpScale = 1;
   private portal = 0;
   private portalX = PORTAL_X;
-  private fx: HTMLElement[] = [];
+  private fx: (HTMLElement | SVGElement)[] = [];
   private readonly canvas: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D | null;
 
@@ -200,6 +418,9 @@ class RayCat {
     this.scriptGen++;
     if (this.actionTimer) clearTimeout(this.actionTimer);
     this.actionTimer = null;
+    this.releaseHeld(false);
+    this.stopWatch();
+    this.scriptPose = null;
     this.clearFx();
     this.canvas.remove();
   }
@@ -308,6 +529,9 @@ class RayCat {
   }
 
   private beginScript(): number {
+    this.releaseHeld(false);
+    this.stopWatch();
+    this.scriptPose = null;
     this.scripted = true;
     this.isJumping = false;
     this.jumpY = 0;
@@ -324,6 +548,9 @@ class RayCat {
 
   private endScript(gen: number): void {
     if (this.scriptGen !== gen) return;
+    this.releaseHeld(false);
+    this.stopWatch();
+    this.scriptPose = null;
     this.scripted = false;
     this.warpScale = 1;
     this.portal = 0;
@@ -332,9 +559,33 @@ class RayCat {
     this.aim = 0;
     this.bodyTilt = 0;
     this.sitAmount = 0;
+    this.jumpY = 0;
+    this.place();
     this.clearFx();
     this.setState('idle');
     this.scheduleNextAction(600, 1800);
+  }
+
+  private stopWatch(): void {
+    this.chipWatch?.disconnect();
+    this.chipWatch = null;
+  }
+
+  private holdChip(chip: HTMLElement): void {
+    if (chip.classList.contains('ray-label-born') || this.heldChip === chip) return;
+    this.heldChip?.classList.remove('ray-label-gone');
+    chip.classList.add('ray-label-gone');
+    this.heldChip = chip;
+  }
+
+  private releaseHeld(reveal: boolean): void {
+    const chip = this.heldChip;
+    this.heldChip = null;
+    if (!chip?.isConnected) return;
+    chip.classList.remove('ray-label-gone');
+    if (!reveal) return;
+    chip.classList.add('ray-label-born');
+    window.setTimeout(() => chip.classList.remove('ray-label-born'), 420);
   }
 
   private clearFx(): void {
@@ -382,6 +633,607 @@ class RayCat {
       } else {
         this.endScript(gen);
         return;
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  birth(spec: BirthSpec): void {
+    const host = hostEl;
+    if (!host) return;
+    const anchor = birthAnchor(spec.hash);
+    if (anchor) this.dir = anchor.x >= this.x ? 1 : -1;
+    const gen = this.beginScript();
+    this.setState('idle');
+    const rows = document.getElementById('rows');
+    if (rows) {
+      this.chipWatch = new MutationObserver(() => {
+        if (this.scriptGen !== gen) return;
+        const chip = birthChip(spec.hash, spec.chip, spec.name);
+        if (chip) this.holdChip(chip);
+      });
+      this.chipWatch.observe(rows, { childList: true, subtree: true });
+    }
+    const hue = rayCatHue(performance.now(), this.hueOffset);
+    const color = spec.chip === 'head' ? `hsl(${Math.round(hue)}, 100%, 68%)` : '#f5c542';
+    const pill = document.createElement('div');
+    pill.className = 'ray-pill';
+    pill.style.setProperty('--c', color);
+    pill.style.width = `${Math.min(220, Math.max(44, Math.round(spec.name.length * 7.2 + 18)))}px`;
+    pill.style.opacity = '0';
+    const tag = spec.kind === 'collar' ? birthMark('tag') : null;
+    const band = spec.kind === 'collar' ? birthMark('band') : null;
+    const paw = spec.kind === 'paw' ? birthMark('paw') : null;
+    host.append(pill);
+    if (tag) host.append(tag);
+    if (band) host.append(band);
+    if (paw) host.append(paw);
+    this.fx.push(pill);
+    if (tag) this.fx.push(tag);
+    if (band) this.fx.push(band);
+    if (paw) this.fx.push(paw);
+    let ghost: { el: HTMLCanvasElement; home: DOMRect } | null = null;
+    let pillAt = { x: this.x, y: window.innerHeight - FOOT_MARGIN };
+    let landFrom = pillAt;
+    let revealed = false;
+    let sawBusy = false;
+    let idleSince: number | null = null;
+    let phase: 'act' | 'wait' | 'land' | 'hop' | 'fade' = 'act';
+    const t0 = performance.now();
+    let phaseAt = t0;
+    const actMs = spec.kind === 'clone' ? 1620 : spec.kind === 'collar' ? 1500 : 1480;
+    const neckAt = (drop: number) => ({
+      x: this.x + this.dir * 18,
+      y: window.innerHeight - FOOT_MARGIN + this.jumpY - 34 + drop,
+    });
+    const fallback = () => ({ x: this.x + this.dir * 160, y: Math.max(72, window.innerHeight * 0.28) });
+    const showPill = (at: { x: number; y: number }, amount: number) => {
+      if (amount <= 0) return;
+      pillAt = at;
+      pill.style.left = `${at.x}px`;
+      pill.style.top = `${at.y}px`;
+      pill.style.opacity = String(amount);
+      pill.style.transform = `translate(-50%, -50%) scale(${0.65 + 0.35 * amount})`;
+    };
+    const step = (now: number) => {
+      if (!this.alive || this.scriptGen !== gen) return;
+      const chipNow = birthChip(spec.hash, spec.chip, spec.name);
+      if (chipNow && !revealed) this.holdChip(chipNow);
+      const chipCenter = chipNow ? boxCenter(chipNow) : null;
+      const dest = chipCenter ?? birthAnchor(spec.hash) ?? fallback();
+      const giveUp = () => {
+        if (now - t0 > 60_000) return true;
+        const busy = document.documentElement.classList.contains('git-busy');
+        if (busy) {
+          sawBusy = true;
+          idleSince = null;
+          return false;
+        }
+        if (!sawBusy && now - t0 < 800) return false;
+        if (idleSince === null) idleSince = now;
+        return now - idleSince >= 1100;
+      };
+      if (phase === 'act') {
+        const t = now - t0;
+        this.jumpY = 0;
+        if (spec.kind === 'clone') {
+          const peel = motionSpan(t, 300, 620);
+          const fly = motionSpan(t, 660, 1420);
+          const sit = motionSpan(t, 0, 280) * (1 - motionSpan(t, 1300, 1580));
+          if (!ghost && t >= 300) ghost = this.spawnClone(host);
+          let focus = dest;
+          if (ghost) {
+            const from = { x: ghost.home.left + this.dir * 76 + CAT_ORIGIN_X, y: ghost.home.top + CAT_ORIGIN_Y - 30 };
+            const slide = { x: ghost.home.left + this.dir * 76 * peel + CAT_ORIGIN_X, y: ghost.home.top + CAT_ORIGIN_Y - 30 };
+            const chest = fly > 0 ? rayFlightPoint(from, dest, fly) : slide;
+            const alpha = 0.86 * (fly > 0 ? 1 : peel) * (1 - motionSpan(t, 1240, 1520));
+            placeClone(ghost.el, chest, 1 - fly * 0.82, alpha);
+            focus = chest;
+          }
+          this.scriptPose = sitPose(sit, rayHeadAim(neckAt(8 * sit), focus, this.dir));
+          showPill(dest, motionSpan(t, 1280, 1560));
+        } else if (spec.kind === 'collar' && tag && band) {
+          const sit = motionSpan(t, 0, 340) * (1 - motionSpan(t, 1200, 1480));
+          const lift = motionSpan(t, 300, 560);
+          const fly = motionSpan(t, 560, 1280);
+          const drop = 8 * sit;
+          const neck = { x: this.x + this.dir * 16, y: window.innerHeight - FOOT_MARGIN + this.jumpY - 18 + drop };
+          const launch = { x: neck.x + this.dir * 18, y: neck.y - 24 };
+          const parked = { x: neck.x + (launch.x - neck.x) * lift, y: neck.y + (launch.y - neck.y) * lift };
+          const pos = fly > 0 ? rayFlightPoint(launch, dest, fly) : parked;
+          const fade = 1 - motionSpan(t, 1120, 1400);
+          placeMark(tag, pos.x, pos.y, 0.95 - fly * 0.5, fade, this.dir * -28 * (1 - fly));
+          placeMark(band, neck.x, neck.y + 8, 1, fade, 0);
+          this.scriptPose = sitPose(sit, rayHeadAim(neck, pos, this.dir));
+          showPill(dest, motionSpan(t, 1160, 1460));
+        } else if (paw) {
+          const stamp = motionSpan(t, 0, 1000);
+          const fly = motionSpan(t, 640, 1280);
+          const from = { x: this.x + this.dir * 30, y: window.innerHeight - FOOT_MARGIN + this.jumpY - 50 };
+          const pos = fly > 0 ? rayFlightPoint(from, dest, fly) : from;
+          placeMark(paw, pos.x, pos.y, 1 - fly * 0.58, fly * (1 - motionSpan(t, 1140, 1400)), 0);
+          this.scriptPose = stampPose(stamp, rayHeadAim(neckAt(0), fly > 0 ? pos : dest, this.dir));
+          showPill(dest, motionSpan(t, 1180, 1440));
+        }
+        if (t >= actMs) {
+          phase = chipCenter ? 'land' : 'wait';
+          phaseAt = now;
+          landFrom = { ...pillAt };
+          this.scriptPose = sitPose(0, rayHeadAim(neckAt(0), pillAt, this.dir));
+        }
+      } else if (phase === 'wait') {
+        this.scriptPose = sitPose(0, rayHeadAim(neckAt(0), pillAt, this.dir));
+        showPill(pillAt, 1);
+        if (chipCenter) {
+          phase = 'land';
+          phaseAt = now;
+          landFrom = { ...pillAt };
+        } else if (giveUp()) {
+          phase = 'fade';
+          phaseAt = now;
+        }
+      } else if (phase === 'land') {
+        const p = motionSpan(now - phaseAt, 0, 360);
+        const at = { x: landFrom.x + (dest.x - landFrom.x) * p, y: landFrom.y + (dest.y - landFrom.y) * p };
+        pill.style.left = `${at.x}px`;
+        pill.style.top = `${at.y}px`;
+        pill.style.opacity = String(1 - p);
+        pill.style.transform = 'translate(-50%, -50%) scale(1)';
+        if (chipNow) {
+          const box = chipNow.getBoundingClientRect();
+          if (box.width > 2) {
+            pill.style.width = `${box.width}px`;
+            pill.style.height = `${box.height}px`;
+          }
+        }
+        this.scriptPose = sitPose(0, rayHeadAim(neckAt(0), at, this.dir));
+        if (p >= 0.55 && !revealed) {
+          revealed = true;
+          this.stopWatch();
+          this.releaseHeld(true);
+        }
+        if (p >= 1) {
+          if (!revealed) {
+            revealed = true;
+            this.stopWatch();
+            this.releaseHeld(true);
+          }
+          if (spec.checkout) {
+            phase = 'hop';
+            phaseAt = now;
+          } else {
+            this.endScript(gen);
+            return;
+          }
+        }
+      } else if (phase === 'hop') {
+        const p = Math.min(1, (now - phaseAt) / 480);
+        this.jumpY = -Math.sin(p * Math.PI) * 36;
+        this.place();
+        this.scriptPose = p > 0 && p < 1 ? jumpPose() : null;
+        if (p >= 1) {
+          this.jumpY = 0;
+          this.place();
+          this.endScript(gen);
+          return;
+        }
+      } else if (chipCenter) {
+        phase = 'land';
+        phaseAt = now;
+        landFrom = { ...pillAt };
+      } else {
+        const p = Math.min(1, (now - phaseAt) / 300);
+        pill.style.opacity = String(1 - p);
+        if (ghost) ghost.el.style.opacity = '0';
+        if (tag) tag.style.opacity = '0';
+        if (paw) paw.style.opacity = '0';
+        if (band) band.style.opacity = '0';
+        if (p >= 1) {
+          this.endScript(gen);
+          return;
+        }
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  private spawnClone(host: HTMLElement): { el: HTMLCanvasElement; home: DOMRect } | null {
+    const el = document.createElement('canvas');
+    el.className = 'ray-clone';
+    el.width = this.canvas.width;
+    el.height = this.canvas.height;
+    el.style.width = this.canvas.style.width;
+    el.style.height = this.canvas.style.height;
+    el.style.transformOrigin = `${CAT_ORIGIN_X}px ${CAT_ORIGIN_Y - 30}px`;
+    const ctx = el.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(this.canvas, 0, 0);
+    const home = this.canvas.getBoundingClientRect();
+    host.append(el);
+    this.fx.push(el);
+    return { el, home };
+  }
+
+  private feetY(): number {
+    return window.innerHeight - FOOT_MARGIN + this.jumpY;
+  }
+
+  private neck(): Point {
+    return { x: this.x + this.dir * 16, y: this.feetY() - 30 };
+  }
+
+  private mouthPoint(headRot = 0): Point {
+    return catMouthPoint(this.x, this.jumpY, this.dir, window.innerHeight, headRot);
+  }
+
+  private stand(headRot: number, frontR = 0): CatPose {
+    return {
+      lean: 0,
+      backL: 0,
+      backR: 0,
+      frontL: 0,
+      frontR,
+      bodyY: 0,
+      headY: 0,
+      headRot,
+      tail: -0.55,
+      eye: 1,
+      earL: 0,
+      earR: 0,
+    };
+  }
+
+  private boltLayer(): SVGSVGElement | null {
+    const host = hostEl;
+    if (!host) return null;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'ray-bolt');
+    host.append(svg);
+    this.fx.push(svg);
+    return svg;
+  }
+
+  private paintBolts(svg: SVGSVGElement, bolts: { from: Point; to: Point; seed: number; grow: number; alpha: number; ring?: Point }[]): void {
+    const ns = 'http://www.w3.org/2000/svg';
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    svg.replaceChildren();
+    const addLine = (pts: Point[], width: number, color: string, alpha: number) => {
+      if (pts.length < 2 || alpha < 0.04) return;
+      const line = document.createElementNS(ns, 'polyline');
+      line.setAttribute('points', pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '));
+      line.setAttribute('fill', 'none');
+      line.setAttribute('stroke', color);
+      line.setAttribute('stroke-width', String(width));
+      line.setAttribute('stroke-linecap', 'round');
+      line.setAttribute('stroke-linejoin', 'round');
+      line.setAttribute('opacity', String(alpha));
+      svg.append(line);
+    };
+    for (const bolt of bolts) {
+      if (bolt.alpha < 0.04 || bolt.grow < 0.02) continue;
+      const full = rayBoltPoints(bolt.from, bolt.to, bolt.seed);
+      const pts = rayBoltGrown(full, bolt.grow);
+      addLine(pts, 9, 'rgba(126, 233, 245, 0.8)', bolt.alpha * 0.95);
+      addLine(pts, 2.6, '#ffffff', bolt.alpha);
+      if (bolt.grow > 0.5 && bolt.alpha > 0.15 && full.length > 5) {
+        const mid = full[4]!;
+        const dx = bolt.to.x - bolt.from.x;
+        const dy = bolt.to.y - bolt.from.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const fork = Math.sin(bolt.seed * 2.1) * 28;
+        addLine([mid, { x: mid.x + (-dy / len) * fork, y: mid.y + (dx / len) * fork }], 2, '#ffffff', bolt.alpha * 0.9);
+      }
+      if (bolt.ring && bolt.grow > 0.7 && bolt.alpha > 0.05) {
+        const ring = document.createElementNS(ns, 'circle');
+        ring.setAttribute('cx', bolt.ring.x.toFixed(1));
+        ring.setAttribute('cy', bolt.ring.y.toFixed(1));
+        ring.setAttribute('r', (8 + bolt.grow * 26).toFixed(1));
+        ring.setAttribute('fill', 'none');
+        ring.setAttribute('stroke', '#e7fbff');
+        ring.setAttribute('stroke-width', '3');
+        ring.setAttribute('opacity', String(bolt.alpha * 0.85));
+        svg.append(ring);
+      }
+    }
+  }
+
+  private boltLife(t: number, start: number, span = 120): { grow: number; alpha: number } {
+    const grow = motionSpan(t, start, start + span);
+    const alpha = grow <= 0 ? 0 : 1 - motionSpan(t, start + span * 0.92, start + span * 1.92);
+    return { grow, alpha };
+  }
+
+  renameBranch(oldName: string, newName: string): void {
+    const host = hostEl;
+    const chip = namedChip('head', oldName);
+    const spot = chip ? boxCenter(chip) : null;
+    if (!host || !spot) return;
+    this.dir = spot.x >= this.x ? 1 : -1;
+    const gen = this.beginScript();
+    this.setState('idle');
+    const rows = document.getElementById('rows');
+    if (rows) {
+      this.chipWatch = new MutationObserver(() => {
+        if (this.scriptGen !== gen) return;
+        const next = namedChip('head', newName);
+        if (next) this.holdChip(next);
+      });
+      this.chipWatch.observe(rows, { childList: true, subtree: true });
+    }
+    const svg = this.boltLayer();
+    const ghost = chip ? pinGhost(chip, host) : null;
+    if (ghost) this.fx.push(ghost);
+    const sparks = Array.from({ length: 6 }, () => {
+      const el = document.createElement('div');
+      el.className = 'ray-orb';
+      el.style.opacity = '0';
+      el.style.transform = 'translate(-50%, -50%)';
+      host.append(el);
+      this.fx.push(el);
+      return el;
+    });
+    let phase: 'zap' | 'wait' | 'burst' = 'zap';
+    const t0 = performance.now();
+    let phaseAt = t0;
+    const busy = { sawBusy: false, idleSince: null as number | null };
+    const step = (now: number) => {
+      if (!this.alive || this.scriptGen !== gen) return;
+      const next = namedChip('head', newName);
+      if (next && next !== chip) this.holdChip(next);
+      const at = (next && boxCenter(next)) || (chip && chip.isConnected ? boxCenter(chip) : null) || spot;
+      const chest = { x: this.x + this.dir * 36, y: this.feetY() - 26 };
+      const aim = rayHeadAim(this.neck(), at, this.dir);
+      if (phase === 'zap') {
+        const t = now - t0;
+        const paw = motionSpan(t, 60, 240) * (1 - motionSpan(t, 640, 860));
+        const flick = t > 160 && t < 860 ? Math.max(0, Math.sin(((t - 160) / 700) * Math.PI * 6)) : 0;
+        this.scriptPose = this.stand(aim * Math.max(paw, flick > 0 ? 1 : 0), -1.7 * paw);
+        if (svg) this.paintBolts(svg, [{ from: chest, to: at, seed: Math.floor(t / 90) + 1, grow: flick > 0 ? 1 : 0, alpha: flick, ring: at }]);
+        if (t >= 900) {
+          phase = this.heldChip ? 'burst' : 'wait';
+          phaseAt = now;
+        }
+      } else if (phase === 'wait') {
+        this.scriptPose = this.stand(aim);
+        if (svg) this.paintBolts(svg, []);
+        if (this.heldChip) {
+          phase = 'burst';
+          phaseAt = now;
+        } else if (gitSettled(t0, now, busy)) {
+          this.endScript(gen);
+          return;
+        }
+      } else {
+        const p = motionSpan(now - phaseAt, 0, 420);
+        this.scriptPose = this.stand(aim * (1 - p));
+        if (svg) this.paintBolts(svg, []);
+        if (chip?.isConnected) chip.classList.add('ray-label-gone');
+        if (ghost) {
+          ghost.style.opacity = String(1 - p);
+          ghost.style.transform = `translateY(${(-8 * p).toFixed(1)}px) scale(${(1 - p * 0.28).toFixed(3)})`;
+        }
+        const spread = 18 * Math.sin(Math.min(1, p) * Math.PI) * (1 - p);
+        const gx = spot.x + (at.x - spot.x) * p;
+        const gy = spot.y + (at.y - spot.y) * p;
+        sparks.forEach((el, i) => {
+          const ang = (i / sparks.length) * Math.PI * 2;
+          el.style.left = `${gx + Math.cos(ang) * spread}px`;
+          el.style.top = `${gy + Math.sin(ang) * spread}px`;
+          el.style.opacity = String(Math.sin(Math.min(1, p) * Math.PI));
+        });
+        if (p >= 1) {
+          this.stopWatch();
+          this.releaseHeld(true);
+          this.endScript(gen);
+          return;
+        }
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  pushBranch(spot: Point | null): void {
+    this.volley('up', spot);
+  }
+
+  pullBranch(spot: Point | null): void {
+    this.volley('down', spot);
+  }
+
+  private volley(dirY: 'up' | 'down', spot: Point | null): void {
+    const host = hostEl;
+    if (!host) return;
+    const gen = this.beginScript();
+    this.setState('idle');
+    const svg = this.boltLayer();
+    const home = spot ?? { x: this.x + this.dir * 90, y: Math.max(72, window.innerHeight * 0.32) };
+    if (spot) this.dir = spot.x >= this.x ? 1 : -1;
+    const scale = dirY === 'up' ? 2300 : 2100;
+    const span = scale * 0.12;
+    const starts = (dirY === 'up' ? [0.36, 0.5, 0.64, 0.78] : [0.14, 0.32, 0.5, 0.68]).map((mark) => mark * scale);
+    const t0 = performance.now();
+    const step = (now: number) => {
+      if (!this.alive || this.scriptGen !== gen) return;
+      const t = now - t0;
+      const at = spot ?? home;
+      this.scriptPose = this.stand(rayHeadAim(this.neck(), { x: at.x, y: -28 }, this.dir));
+      const bolts: { from: Point; to: Point; seed: number; grow: number; alpha: number; ring?: Point }[] = [];
+      if (dirY === 'up') {
+        const zap = this.boltLife(t, scale * 0.16, span);
+        bolts.push({ from: { x: this.x + this.dir * 36, y: this.feetY() - 26 }, to: at, seed: 2, grow: zap.grow, alpha: zap.alpha, ring: at });
+      }
+      starts.forEach((start, i) => {
+        const strike = this.boltLife(t, start, span);
+        const spread = dirY === 'up' ? 14 : 16;
+        const ox = at.x + (i - 1.5) * spread;
+        const from = dirY === 'up' ? { x: ox, y: at.y } : { x: ox, y: -24 };
+        const to = dirY === 'up' ? { x: ox + Math.sin(i + 1) * 12, y: -30 } : { x: at.x + (i - 1.5) * 5, y: at.y };
+        bolts.push({ from, to, seed: (dirY === 'up' ? 6 : 5) + i, grow: strike.grow, alpha: strike.alpha, ring: at });
+      });
+      if (svg) this.paintBolts(svg, bolts);
+      if (t >= scale) this.endScript(gen);
+      else requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  cherryPick(hash: string): void {
+    const host = hostEl;
+    if (!host || !hash) return;
+    const gen = this.beginScript();
+    this.setState('idle');
+    const orb = document.createElement('div');
+    orb.className = 'ray-orb';
+    orb.style.opacity = '0';
+    host.append(orb);
+    this.fx.push(orb);
+    const source = rowPoint(hash) ?? { x: this.x, y: Math.max(72, window.innerHeight * 0.28) };
+    this.dir = source.x >= this.x ? 1 : -1;
+    let phase: 'pluck' | 'carry' | 'place' = 'pluck';
+    const t0 = performance.now();
+    let phaseAt = t0;
+    let carryFrom = this.x;
+    let carryTo = this.x;
+    const holdRot = 0.08;
+    const placeOrb = (at: Point, radius: number) => {
+      orb.style.left = `${at.x}px`;
+      orb.style.top = `${at.y}px`;
+      orb.style.opacity = '1';
+      orb.style.transform = `translate(-50%, -50%) scale(${radius / 4})`;
+    };
+    const step = (now: number) => {
+      if (!this.alive || this.scriptGen !== gen) return;
+      const mouth = this.mouthPoint(holdRot);
+      const dest = headPoint() ?? { x: mouth.x + this.dir * 80, y: Math.max(72, window.innerHeight * 0.28) };
+      if (phase === 'pluck') {
+        const p = motionSpan(now - phaseAt, 140, 980);
+        const drop = p * p;
+        const at = {
+          x: source.x + (mouth.x - source.x) * drop,
+          y: source.y + (mouth.y - source.y) * drop,
+        };
+        this.scriptPose = this.stand(rayHeadAim(this.neck(), at, this.dir) * (1 - p) + holdRot * p);
+        placeOrb(p > 0 ? at : source, 6.5 - drop * 2.9);
+        if (now - phaseAt >= 1040) {
+          phase = 'carry';
+          phaseAt = now;
+          carryFrom = this.x;
+          const toward = Math.max(EDGE, Math.min(Math.max(EDGE, this.viewWidth - EDGE), dest.x));
+          if (Math.abs(toward - this.x) < 36) carryTo = this.x;
+          else {
+            carryTo = toward;
+            this.dir = carryTo >= this.x ? 1 : -1;
+          }
+        }
+      } else if (phase === 'carry') {
+        const p = motionSpan(now - phaseAt, 0, 1100);
+        const walking = Math.abs(carryTo - carryFrom) > 1 && p > 0 && p < 1;
+        this.x = carryFrom + (carryTo - carryFrom) * p;
+        this.targetX = this.x;
+        this.place();
+        const stepAmt = Math.sin(p * 18) * (walking ? 0.42 : 0);
+        this.scriptPose = {
+          lean: 0,
+          backL: -stepAmt,
+          backR: stepAmt,
+          frontL: stepAmt,
+          frontR: -stepAmt,
+          bodyY: 0,
+          headY: 0,
+          headRot: holdRot,
+          tail: -0.2,
+          eye: 1,
+          earL: 0,
+          earR: 0,
+        };
+        placeOrb(this.mouthPoint(holdRot), 3.6);
+        if (now - phaseAt >= 1160) {
+          phase = 'place';
+          phaseAt = now;
+          const landed = headPoint();
+          if (landed) this.dir = landed.x >= this.x ? 1 : -1;
+        }
+      } else {
+        const p = motionSpan(now - phaseAt, 80, 720);
+        const from = this.mouthPoint(holdRot);
+        const u = 1 - p;
+        const lead = { x: from.x + this.dir * 28, y: from.y };
+        const at = {
+          x: u * u * from.x + 2 * u * p * lead.x + p * p * dest.x,
+          y: u * u * from.y + 2 * u * p * lead.y + p * p * dest.y,
+        };
+        this.scriptPose = this.stand(holdRot * (1 - p) + rayHeadAim(this.neck(), dest, this.dir) * p);
+        placeOrb(at, 3.6 + p * 2.4);
+        if (p >= 1) {
+          orb.style.opacity = '0';
+          this.endScript(gen);
+          return;
+        }
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  deleteTag(name: string): void {
+    const host = hostEl;
+    const chip = namedChip('tag', name);
+    const home = chip ? boxCenter(chip) : null;
+    if (!host || !chip || !home) return;
+    this.dir = home.x >= this.x ? 1 : -1;
+    const gen = this.beginScript();
+    this.setState('idle');
+    this.holdChip(chip);
+    const tag = birthMark('tag');
+    host.append(tag);
+    this.fx.push(tag);
+    const paw = rayForeFoot(-1.75);
+    const maxX = Math.max(EDGE, this.viewWidth - EDGE);
+    const park = Math.max(EDGE, Math.min(maxX, home.x - this.dir * paw.x));
+    const startX = this.x;
+    const mitt = { x: park + this.dir * paw.x, y: this.feetY() + paw.y };
+    const t0 = performance.now();
+    let caught = false;
+    const busy = { sawBusy: false, idleSince: null as number | null };
+    const step = (now: number) => {
+      if (!this.alive || this.scriptGen !== gen) return;
+      const t = now - t0;
+      const slide = motionSpan(t, 0, 640);
+      this.x = startX + (park - startX) * slide;
+      this.targetX = this.x;
+      this.place();
+      const reach = motionSpan(t, 280, 980);
+      const legs = rayCatchLegs(reach);
+      const g = t <= 420 ? 0 : t >= 1600 ? 1 : (t - 420) / 1180;
+      const fall = g * g;
+      const pos = { x: home.x + (mitt.x - home.x) * fall, y: home.y + (mitt.y - home.y) * fall };
+      const absorb = motionSpan(t, 1700, 2140);
+      this.scriptPose = {
+        lean: 0,
+        ...legs,
+        bodyY: 0,
+        headY: 0,
+        headRot: rayHeadAim(this.neck(), pos, this.dir) * (1 - absorb),
+        tail: -0.2 - 0.2 * reach,
+        eye: 1,
+        earL: 0,
+        earR: 0,
+      };
+      placeMark(tag, pos.x, pos.y, 1 - absorb * 0.75, 1 - absorb, fall * 46 * this.dir);
+      if (t >= 2140) caught = true;
+      if (caught) {
+        const gone = !chip.isConnected;
+        if (gone || gitSettled(t0, now, busy)) {
+          if (!gone) this.releaseHeld(false);
+          else this.heldChip = null;
+          this.endScript(gen);
+          return;
+        }
       }
       requestAnimationFrame(step);
     };
@@ -500,7 +1352,7 @@ class RayCat {
     ctx.save();
     ctx.translate(CAT_ORIGIN_X, CAT_ORIGIN_Y);
     ctx.scale(this.dir, 1);
-    const gesture = this.state === 'scratch' || this.state === 'paw' ? catGesture(this.state, this.tick) : null;
+    const gesture = this.scriptPose ?? (this.state === 'scratch' || this.state === 'paw' ? catGesture(this.state, this.tick) : null);
     const sitDrop = this.sitAmount * LASER_SIT_DROP;
     const lean = this.bodyTilt + (gesture?.lean ?? 0);
     if (sitDrop !== 0 || lean !== 0) {
@@ -611,6 +1463,20 @@ class RayCat {
         legAngle1 = 0.5;
         legAngle2 = 0.5;
         break;
+    }
+    if (this.scriptPose) {
+      const pose = this.scriptPose;
+      backL = pose.backL;
+      backR = pose.backR;
+      frontL = pose.frontL;
+      frontR = pose.frontR;
+      bodyY = pose.bodyY;
+      headY = pose.headY;
+      headRot = pose.headRot;
+      tailRot = pose.tail;
+      eyeOpen = pose.eye;
+      earRotL = pose.earL;
+      earRotR = pose.earR;
     }
 
     const baseColor = '#f4f4f4';
@@ -807,8 +1673,110 @@ export function rayCatBurnBranch(name: string): void {
     const rect = chip.getBoundingClientRect();
     if (rect.width > 2 && rect.height > 2) target = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
   }
-  const aimX = target?.x ?? cats[0]!.x;
-  let best = cats[0]!;
+  nearestCat(target?.x ?? cats[0]?.x ?? 0)?.fireLaser(target, target && chip ? chip : null);
+}
+
+export function rayCatCreateBranch(hash: string, name: string, checkout: boolean): void {
+  const trimmed = name.trim();
+  if (!hostEl || !trimmed || !hash) return;
+  const anchor = birthAnchor(hash);
+  nearestCat(anchor?.x ?? window.innerWidth / 2)?.birth({ kind: 'clone', hash, name: trimmed, chip: 'head', checkout });
+}
+
+export function rayCatAddTag(hash: string, name: string, roll = Math.random()): void {
+  const trimmed = name.trim();
+  if (!hostEl || !trimmed || !hash) return;
+  const anchor = birthAnchor(hash);
+  nearestCat(anchor?.x ?? window.innerWidth / 2)?.birth({
+    kind: rayCatTagMotion(roll),
+    hash,
+    name: trimmed,
+    chip: 'tag',
+    checkout: false,
+  });
+}
+
+export function rayCatRenameBranch(oldName: string, newName: string): void {
+  const from = oldName.trim();
+  const to = newName.trim();
+  if (!hostEl || !from || !to || from === to) return;
+  const at = chipCenter(namedChip('head', from));
+  nearestCat(at?.x ?? window.innerWidth / 2)?.renameBranch(from, to);
+}
+
+export function rayCatPushBranch(name: string): void {
+  const trimmed = name.trim();
+  if (!hostEl || !trimmed) return;
+  const at = chipCenter(namedChip('head', trimmed));
+  nearestCat(at?.x ?? window.innerWidth / 2)?.pushBranch(at);
+}
+
+export function rayCatPull(name: string): void {
+  const trimmed = name.trim();
+  if (!hostEl || !trimmed) return;
+  const at = chipCenter(namedChip('remote', trimmed) ?? namedChip('head', trimmed));
+  nearestCat(at?.x ?? window.innerWidth / 2)?.pullBranch(at);
+}
+
+export function rayCatCherryPick(hash: string): void {
+  if (!hostEl || !hash) return;
+  const at = rowPoint(hash);
+  nearestCat(at?.x ?? window.innerWidth / 2)?.cherryPick(hash);
+}
+
+export function rayCatDeleteTag(name: string): void {
+  const trimmed = name.trim();
+  if (!hostEl || !trimmed) return;
+  const at = chipCenter(namedChip('tag', trimmed));
+  nearestCat(at?.x ?? window.innerWidth / 2)?.deleteTag(trimmed);
+}
+
+function chipCenter(chip: HTMLElement | null): Point | null {
+  return chip ? boxCenter(chip) : null;
+}
+
+function gitSettled(t0: number, now: number, state: { sawBusy: boolean; idleSince: number | null }): boolean {
+  if (now - t0 > 60_000) return true;
+  const busy = document.documentElement.classList.contains('git-busy');
+  if (busy) {
+    state.sawBusy = true;
+    state.idleSince = null;
+    return false;
+  }
+  if (!state.sawBusy && now - t0 < 800) return false;
+  if (state.idleSince === null) state.idleSince = now;
+  return now - state.idleSince >= 1100;
+}
+
+function pinGhost(chip: HTMLElement, host: HTMLElement): HTMLElement {
+  const rect = chip.getBoundingClientRect();
+  const ghost = chip.cloneNode(true) as HTMLElement;
+  const cs = getComputedStyle(chip);
+  ghost.classList.add('ray-label-ghost');
+  ghost.classList.remove('ray-label-gone', 'ray-label-born');
+  ghost.style.position = 'fixed';
+  ghost.style.left = `${rect.left}px`;
+  ghost.style.top = `${rect.top}px`;
+  ghost.style.width = `${rect.width}px`;
+  ghost.style.height = `${rect.height}px`;
+  ghost.style.margin = '0';
+  ghost.style.color = cs.color;
+  ghost.style.backgroundColor = cs.backgroundColor;
+  ghost.style.font = cs.font;
+  ghost.style.pointerEvents = 'none';
+  ghost.style.opacity = '0';
+  ghost.style.zIndex = '4';
+  host.append(ghost);
+  return ghost;
+}
+
+function clearStage(): void {
+  document.querySelectorAll('.ray-beam, .ray-spark, .ray-scorch, .ray-label-ghost, .ray-clone, .ray-birth, .ray-pill, .ray-bolt, .ray-orb').forEach((el) => el.remove());
+  document.querySelectorAll('.ray-label-gone, .ray-label-born').forEach((el) => el.classList.remove('ray-label-gone', 'ray-label-born'));
+}
+
+function nearestCat(aimX: number): RayCat | null {
+  let best: RayCat | null = null;
   let bestD = Infinity;
   for (const cat of cats) {
     const d = Math.abs(cat.x - aimX);
@@ -817,12 +1785,7 @@ export function rayCatBurnBranch(name: string): void {
       bestD = d;
     }
   }
-  best.fireLaser(target, target && chip ? chip : null);
-}
-
-function clearStage(): void {
-  document.querySelectorAll('.ray-beam, .ray-spark, .ray-scorch, .ray-label-ghost').forEach((el) => el.remove());
-  document.querySelectorAll('.ray-label-gone').forEach((el) => el.classList.remove('ray-label-gone'));
+  return best;
 }
 
 function tick(ts: number): void {
