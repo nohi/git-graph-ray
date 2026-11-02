@@ -40,7 +40,7 @@
 | `git-graph-ray.addGitRepository` | フォルダ選択して手動追加し開く |
 | `git-graph-ray.removeGitRepository` | QuickPick で hidden に追加 |
 | `git-graph-ray.clearAvatarCache` | アバターキャッシュ削除 |
-| `git-graph-ray.version` | `Git Graph Ray v{version}` |
+| `git-graph-ray.version` | `Git Graph Ray v{version}` と `{git --version}` を1行ずつ。Copy で同じ文字列をコピー。Git を実行できないときは2行目が `Git version unavailable` |
 | `git-graph-ray.openFile` | Diff 上の `git-graph-ray-file` から実ファイルを開く |
 
 - ステータスバー「Git Graph Ray」→ view
@@ -82,6 +82,7 @@
 
 - Inline または Docked to Bottom。高さ自動（min 88、既定上限 300）。sash、ダブルクリックで自動復帰
 - メタ: hash コピー、Parents ナビ、Author/Committer、日付、subject/body、Issue リンク
+- 詳細のメッセージ・メタ・余白の右クリックは Copy（開いた時点の選択範囲）。選択が空なら Copy は無効。ファイル行とフォルダはそれぞれのメニュー。グラフの空白は Apply patch のまま
 - ファイル Tree（compact folders）または List。Diff / リビジョン表示 / パスコピー / 作業ツリーを開く
 - Diff は `git-graph-ray-file`
 

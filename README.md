@@ -33,7 +33,7 @@ Open the graph from the Command Palette (**Git Graph Ray: View Git Graph**), the
 | **Git Graph Ray: Add Git Repository...** | Add a repository that was not discovered automatically |
 | **Git Graph Ray: Remove Git Repository...** | Hide a repository from the graph |
 | **Git Graph Ray: Clear Avatar Cache** | Clear cached author avatars |
-| **Git Graph Ray: Get Version Information** | Show the installed extension version |
+| **Git Graph Ray: Get Version Information** | Show the extension version and the Git version, with a button to copy them |
 
 ## Shortcuts
 

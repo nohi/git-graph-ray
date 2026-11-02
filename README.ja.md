@@ -33,7 +33,7 @@
 | **Git Graph Ray: Add Git Repository...** | 自動検出されなかったリポジトリを追加する |
 | **Git Graph Ray: Remove Git Repository...** | グラフからリポジトリを非表示にする |
 | **Git Graph Ray: Clear Avatar Cache** | キャッシュした Author のアバターを消す |
-| **Git Graph Ray: Get Version Information** | インストール済みの拡張バージョンを表示する |
+| **Git Graph Ray: Get Version Information** | 拡張のバージョンと Git のバージョンを表示し、コピーできる |
 
 ## ショートカット
 

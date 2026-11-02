@@ -4,8 +4,13 @@
 
 ### Features
 
+- Get Version Information shows the extension version and the Git version on separate lines, with a Copy button.
 - Compare two commits from their common parent. The file list splits into changes only on each side and files changed on both. Each section can be collapsed. In Tree view, files changed on both use the same folder tree, with one row for each side. Opening a file shows that side's diff from the common parent, so the other side's work is not shown as deletions. Snapshot switches back to the direct diff. A comparison with no common parent stays on the direct diff.
 - Tint each compare section so the two sides and the files changed on both are easier to tell apart. When the comparison is a branch, the heading shows that branch name instead of the short hash.
+
+### Fixes
+
+- Right-click in the commit details copies the selected text. Most of that panel was showing only Apply patch, which also blocked copying the commit message.
 
 ## v0.7.1
 

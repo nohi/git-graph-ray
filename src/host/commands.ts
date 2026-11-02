@@ -4,6 +4,8 @@ import { GraphEditorProvider } from './editor/provider';
 import { discoverRepos } from './repos/discover';
 import { AvatarStore } from './avatars';
 import { ContributorsPanel } from './editor/contributorsPanel';
+import { gitVersionString } from './git/executable';
+import { versionInformationDisplay, versionInformationText } from './versionInfo';
 
 export function registerCommands(
   ctx: vscode.ExtensionContext,
@@ -38,9 +40,11 @@ export function registerCommands(
       await avatars.clear();
       provider.broadcastFacesCleared();
     }),
-    vscode.commands.registerCommand('git-graph-ray.version', () => {
+    vscode.commands.registerCommand('git-graph-ray.version', async () => {
       const ver = ctx.extension.packageJSON.version as string;
-      void vscode.window.showInformationMessage(`Git Graph Ray v${ver}`);
+      const gitVer = await gitVersionString(git());
+      const choice = await vscode.window.showInformationMessage(versionInformationDisplay(ver, gitVer), 'Copy');
+      if (choice === 'Copy') await vscode.env.clipboard.writeText(versionInformationText(ver, gitVer));
     }),
     vscode.commands.registerCommand('git-graph-ray.openFile', async () => {
       const uri = vscode.window.activeTextEditor?.document.uri;

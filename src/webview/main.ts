@@ -66,6 +66,7 @@ import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refJumpHa
 import { compileFindRegex, formatFindCount, highlightFind } from '../shared/commitFind';
 import { formatRefChange, presentPreview } from '../shared/undo';
 import { branchMenuEntries, commitMenuEntries, menuHtml, remoteMenuEntries, tagMenuEntries } from '../shared/commitMenu';
+import { copySelectionItem } from '../shared/selectionCopy';
 import { cherryPickPlan, displayedRange, patchFileName, toggleCommitSelection } from '../shared/historyActions';
 import { branchNameAt, compareBanners, compareOpenDiff, type CompareView } from '../shared/compareSplit';
 import { comparePick, type CompareCandidate } from '../shared/comparePick';
@@ -232,6 +233,8 @@ const pickWaiters = new Map<string, (result: { path: string | null; patchKind?: 
 let ctxCommit: GraphCommit | null = null;
 let ctxFile: { path: string; oldPath?: string; rev?: string } | null = null;
 let ctxFolder: HTMLDetailsElement | null = null;
+/** Text captured when the details Copy menu opens. A later click can clear the selection. */
+let ctxCopyText = '';
 let summaryPointer: { folder: HTMLDetailsElement; open: boolean } | null = null;
 let pendingDateJump: { day: string; field: 'author' | 'committer' } | null = null;
 let pendingRefJump: string | null = null;
@@ -2342,6 +2345,15 @@ function openCtx(html: string, x: number, y: number): void {
   placePopover(pop, x, y);
 }
 
+function openSelectionCopy(x: number, y: number): void {
+  ctxCommit = null;
+  ctxRef = null;
+  ctxFile = null;
+  ctxFolder = null;
+  ctxCopyText = document.getSelection()?.toString() ?? '';
+  openCtx(menuHtml([copySelectionItem(ctxCopyText)]), x, y);
+}
+
 function syncWorktreeForm(): void {
   const loc = document.getElementById('wt-loc') as HTMLInputElement | null;
   const name = document.getElementById('wt-name') as HTMLInputElement | null;
@@ -3517,8 +3529,9 @@ function bind(): void {
     onDetailsClick(ev);
   });
   $('scroll').addEventListener('contextmenu', (ev) => {
+    const t = eventElement(ev.target);
+    if (!t || t.closest('.details')) return;
     ev.preventDefault();
-    const t = ev.target as HTMLElement;
     const chip = t.closest<HTMLElement>('.chip');
     const row = t.closest<HTMLElement>('.row');
     if (chip) {
@@ -3691,8 +3704,9 @@ function bind(): void {
     true,
   );
   document.addEventListener('contextmenu', (ev) => {
-    if (!details) return;
-    const file = eventElement(ev.target)?.closest<HTMLElement>('.file') ?? null;
+    const el = eventElement(ev.target);
+    if (!el?.closest('.details') || !details) return;
+    const file = el.closest<HTMLElement>('.file');
     if (file) {
       ev.preventDefault();
       ctxFolder = null;
@@ -3701,13 +3715,17 @@ function bind(): void {
       return;
     }
     const folder = treeFolder(ev.target);
-    if (!folder) return;
+    if (folder) {
+      ev.preventDefault();
+      ctxFolder = folder;
+      ctxFile = null;
+      ctxCommit = null;
+      ctxRef = null;
+      openCtx(FOLDER_MENU.map((item) => btn(item.id, item.label)).join(''), ev.clientX, ev.clientY);
+      return;
+    }
     ev.preventDefault();
-    ctxFolder = folder;
-    ctxFile = null;
-    ctxCommit = null;
-    ctxRef = null;
-    openCtx(FOLDER_MENU.map((item) => btn(item.id, item.label)).join(''), ev.clientX, ev.clientY);
+    openSelectionCopy(ev.clientX, ev.clientY);
   });
   bindPopoverAnchor('btn-refs', 'pop-refs');
   bindRefsPopoverResize();
@@ -4260,6 +4278,12 @@ function onMenu(ev: Event): void {
   const id = (ev.target as HTMLElement).dataset.act;
   if (!id) return;
   $('pop-ctx').hidePopover?.();
+  if (id === 'copy-sel') {
+    if (!ctxCopyText) return;
+    post({ type: 'copy', text: ctxCopyText });
+    showCopiedToast((ev as MouseEvent).clientX, (ev as MouseEvent).clientY);
+    return;
+  }
   const folderItem = FOLDER_MENU.find((item) => item.id === id);
   if (folderItem?.action) {
     const folder = ctxFolder;
