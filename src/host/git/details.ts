@@ -1,7 +1,8 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { NO_COMMON_PARENT_NOTE, classifyCompareFiles, compareRelation } from '../../shared/compareSplit';
 import { buildCommitSignature } from '../../shared/signature';
-import { UNCOMMITTED, type CommitDetails, type FileChange } from '../../shared/types';
+import { UNCOMMITTED, type CommitDetails, type CompareSplit, type FileChange } from '../../shared/types';
 import { gitExec, gitOk } from './runner';
 import { signatureFromCommit, type CommitObjectSignature } from './signature';
 
@@ -66,8 +67,12 @@ async function readCommitSignature(git: string, cwd: string, hash: string): Prom
 async function compareDetails(git: string, cwd: string, a: string, b: string, encoding: string): Promise<CommitDetails> {
   const left = a === UNCOMMITTED ? 'HEAD' : a;
   const right = b === UNCOMMITTED ? 'HEAD' : b;
-  const files = await filesFromDiff(git, cwd, ['diff', '--name-status', '-M', left, right]);
-  const da = await loadDetails(git, cwd, a === UNCOMMITTED ? 'HEAD' : a, undefined, encoding);
+  const canSplit = a !== UNCOMMITTED && b !== UNCOMMITTED;
+  const [files, da, split] = await Promise.all([
+    filesFromDiff(git, cwd, ['diff', '--name-status', '-M', left, right]),
+    loadDetails(git, cwd, left, undefined, encoding),
+    canSplit ? loadCompareSplit(git, cwd, a, b) : Promise.resolve(undefined),
+  ]);
   return {
     ...da,
     hash: a,
@@ -75,7 +80,43 @@ async function compareDetails(git: string, cwd: string, a: string, b: string, en
     files,
     subject: `Compare ${short(a)} ↔ ${short(b)}`,
     signature: a === UNCOMMITTED ? { kind: null } : da.signature,
+    ...(split ? { compareSplit: split } : { compareNote: NO_COMMON_PARENT_NOTE }),
   };
+}
+
+/** Changes from the merge base to each tip. Undefined when the revisions have no common parent. */
+async function loadCompareSplit(git: string, cwd: string, a: string, b: string): Promise<CompareSplit | undefined> {
+  const listed = await gitExec(git, cwd, ['merge-base', '--all', a, b]);
+  if (listed.code !== 0) return undefined;
+  const bases = listed.stdout
+    .toString('utf8')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!bases.length) return undefined;
+  const base = bases.length === 1 ? bases[0]! : await chosenMergeBase(git, cwd, a, b, bases[0]!);
+  const [leftId, rightId, leftFiles, rightFiles] = await Promise.all([
+    resolveCommit(git, cwd, a),
+    resolveCommit(git, cwd, b),
+    filesFromDiff(git, cwd, ['diff', '--name-status', '-M', base, a]),
+    filesFromDiff(git, cwd, ['diff', '--name-status', '-M', base, b]),
+  ]);
+  return {
+    base,
+    ...(bases.length > 1 ? { bases } : {}),
+    relation: compareRelation(base, leftId, rightId),
+    ...classifyCompareFiles(leftFiles, rightFiles),
+  };
+}
+
+async function chosenMergeBase(git: string, cwd: string, a: string, b: string, fallback: string): Promise<string> {
+  const best = await gitExec(git, cwd, ['merge-base', a, b]);
+  if (best.code !== 0) return fallback;
+  return best.stdout.toString('utf8').trim() || fallback;
+}
+
+async function resolveCommit(git: string, cwd: string, rev: string): Promise<string> {
+  return (await gitOk(git, cwd, ['rev-parse', '--verify', `${rev}^{commit}`])).trim();
 }
 
 async function uncommittedDetails(git: string, cwd: string, encoding: string): Promise<CommitDetails> {

@@ -41,6 +41,7 @@ export function detailsMetaRows(
     | 'authorEmail'
     | 'committerName'
     | 'committerEmail'
+    | 'compareSplit'
   >,
   dates: { author: string; committer: string },
 ): DetailsMetaRow[] {
@@ -56,6 +57,14 @@ export function detailsMetaRows(
       copies: hashCopies(p),
     });
   });
+  if (d.compareSplit?.base) {
+    rows.push({
+      label: 'Common parent',
+      value: d.compareSplit.base,
+      hashLink: d.compareSplit.base,
+      copies: hashCopies(d.compareSplit.base),
+    });
+  }
   const author = personIdentity(d.authorName, d.authorEmail);
   if (author) {
     rows.push({ label: 'Author', value: author, copies: personCopies(d.authorName, d.authorEmail) });

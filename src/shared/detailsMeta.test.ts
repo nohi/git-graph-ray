@@ -59,6 +59,33 @@ describe('detailsMetaRows', () => {
     expect(rows.find((r) => r.label === 'Author')?.copies.map((c) => c.icon)).toEqual(['contact', 'person', 'mail']);
   });
 
+  it('links the common parent after the commit parents', () => {
+    const rows = detailsMetaRows(
+      {
+        hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        parents: ['bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'],
+        authorName: '',
+        authorEmail: '',
+        committerName: '',
+        committerEmail: '',
+        compareSplit: {
+          base: 'cccccccccccccccccccccccccccccccccccccccc',
+          relation: 'diverged',
+          leftOnly: [],
+          rightOnly: [],
+          both: [],
+        },
+      },
+      { author: '', committer: '' },
+    );
+    expect(rows.map((row) => row.label)).toEqual(['Commit', 'Parents', 'Common parent']);
+    expect(rows[2]?.hashLink).toBe('cccccccccccccccccccccccccccccccccccccccc');
+    expect(rows[2]?.copies.map((copy) => copy.text)).toEqual([
+      'cccccccc',
+      'cccccccccccccccccccccccccccccccccccccccc',
+    ]);
+  });
+
   it('omits commit and person rows for uncommitted changes', () => {
     const rows = detailsMetaRows(
       {

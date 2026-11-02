@@ -63,6 +63,33 @@ describe('buildFileTree', () => {
     ]);
   });
 
+  it('keeps a rename source on the file', () => {
+    const [file] = buildFileTree([{ path: 'src/new.ts', oldPath: 'src/old.ts', status: 'R', rev: 'abc' }], false);
+    expect(file?.children?.[0]).toMatchObject({
+      name: 'new.ts',
+      path: 'src/new.ts',
+      oldPath: 'src/old.ts',
+      rev: 'abc',
+      status: 'R',
+    });
+  });
+
+  it('keeps both rows when two files share a path', () => {
+    const [src] = buildFileTree(
+      [
+        { path: 'src/a.ts', status: 'M', rev: 'left', tone: 'base', sideLabel: 'aaa' },
+        { path: 'src/a.ts', status: 'A', rev: 'right', tone: 'other', sideLabel: 'bbb' },
+        { path: 'src/b.ts', status: 'D' },
+      ],
+      false,
+    );
+    expect(src?.children).toEqual([
+      { name: 'a.ts', path: 'src/a.ts', rev: 'left', tone: 'base', sideLabel: 'aaa', status: 'M' },
+      { name: 'a.ts', path: 'src/a.ts', rev: 'right', tone: 'other', sideLabel: 'bbb', status: 'A' },
+      { name: 'b.ts', path: 'src/b.ts', status: 'D' },
+    ]);
+  });
+
   it('compacts a single nested folder and keeps the deepest path', () => {
     const tree = buildFileTree(files, true);
     const folder = tree.find((node) => node.children);

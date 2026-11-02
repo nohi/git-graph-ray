@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.0
+
+### Features
+
+- Compare two commits from their common parent. The file list splits into changes only on each side and files changed on both. Each section can be collapsed. In Tree view, files changed on both use the same folder tree, with one row for each side. Opening a file shows that side's diff from the common parent, so the other side's work is not shown as deletions. Snapshot switches back to the direct diff. A comparison with no common parent stays on the direct diff.
+- Tint each compare section so the two sides and the files changed on both are easier to tell apart. When the comparison is a branch, the heading shows that branch name instead of the short hash.
+
 ## v0.7.1
 
 ### Features

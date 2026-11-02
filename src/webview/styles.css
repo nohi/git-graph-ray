@@ -2010,16 +2010,110 @@ dialog button.lc-help {
 
 .files-toolbar {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.25rem;
   padding: 0.2rem 0.35rem;
   border-bottom: 1px solid var(--line);
   flex: 0 0 auto;
 }
 
+.files-toolbar-gap {
+  flex: 1 0 0.25rem;
+}
+
 .files {
   overflow: auto;
   flex: 1;
   min-height: 0;
+}
+
+.cmp-note {
+  margin: 0.4rem 0.55rem 0.15rem;
+  color: var(--muted);
+}
+
+.cmp-sec {
+  margin: 0.45rem 0.55rem 0.1rem;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cmp-group {
+  margin: 0.35rem 0.4rem 0.15rem;
+  border-radius: 4px;
+}
+
+.cmp-group-base {
+  background: var(--cmp-base-bg);
+}
+
+.cmp-group-other {
+  background: var(--hl2-bg);
+}
+
+.cmp-group-both {
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+}
+
+.cmp-fold {
+  > summary {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin: 0;
+    padding: 0.28rem 0.45rem;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+
+    &::-webkit-details-marker,
+    &::marker {
+      content: '';
+      display: none;
+    }
+
+    &:hover {
+      background: var(--hl-bg);
+    }
+
+    .scm-twist {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 16px;
+      color: currentColor;
+      transform: rotate(-90deg);
+    }
+  }
+
+  &[open] > summary .scm-twist {
+    transform: none;
+  }
+}
+
+.cmp-fold > summary.cmp-sec {
+  margin: 0;
+}
+
+.cmp-sec-base {
+  color: var(--cmp-base);
+}
+
+.cmp-sec-other {
+  color: var(--hl2);
+}
+
+.file-rev {
+  flex: 0 0 auto;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+
+.file-rev-base {
+  color: var(--cmp-base);
+}
+
+.file-rev-other {
+  color: var(--hl2);
 }
 
 .fv-btn {
@@ -2039,6 +2133,14 @@ dialog button:hover:not(:disabled):not(.btn-primary),
 .confirm-tip button:hover:not(.btn-primary) {
   background: var(--hl-bg);
   border-color: var(--hl);
+}
+
+.fv-btn:disabled,
+.fv-btn:disabled:hover {
+  opacity: 0.45;
+  cursor: default;
+  background: transparent;
+  border-color: var(--line);
 }
 
 .scm-tree {

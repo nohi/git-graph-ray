@@ -86,9 +86,34 @@ export type FileChange = {
   deletions?: number;
 };
 
+/** How the two tips sit relative to their merge base. */
+export type CompareRelation = 'diverged' | 'same' | 'left-contains-right' | 'right-contains-left';
+
+/** One path at the common parent, changed on both tips. */
+export type CompareOverlap = {
+  key: string;
+  left: FileChange;
+  right: FileChange;
+};
+
+/** File changes from the merge base to each tip. `files` on the details stays the direct two-dot diff. */
+export type CompareSplit = {
+  base: string;
+  /** Every merge base when there is more than one. `base` is the one Git would use for `A...B`. */
+  bases?: string[];
+  relation: CompareRelation;
+  leftOnly: FileChange[];
+  rightOnly: FileChange[];
+  both: CompareOverlap[];
+};
+
 export type CommitDetails = {
   hash: string;
   compare?: string;
+  /** Set when the two revisions have a common parent. */
+  compareSplit?: CompareSplit;
+  /** Why Since diverge is unavailable. Set when `compareSplit` is absent. */
+  compareNote?: string;
   authorName: string;
   authorEmail: string;
   authorDate: number;

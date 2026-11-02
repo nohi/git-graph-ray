@@ -67,7 +67,9 @@ import { compileFindRegex, formatFindCount, highlightFind } from '../shared/comm
 import { formatRefChange, presentPreview } from '../shared/undo';
 import { branchMenuEntries, commitMenuEntries, menuHtml, remoteMenuEntries, tagMenuEntries } from '../shared/commitMenu';
 import { cherryPickPlan, displayedRange, patchFileName, toggleCommitSelection } from '../shared/historyActions';
+import { branchNameAt, compareBanners, compareOpenDiff, type CompareView } from '../shared/compareSplit';
 import { comparePick, type CompareCandidate } from '../shared/comparePick';
+import { shortRevLabel } from '../shared/diffSides';
 import { rebaseRevision } from '../shared/gitArgs';
 import {
   parseRebaseCheckout,
@@ -164,8 +166,15 @@ let remoteTagCommits = new Map<string, string>();
 let tagMark: { commit: string; name: string | null } | null = null;
 let confirmOk: (() => void) | null = null;
 let compareBase: string | null = null;
+/** Branch name of the commit Compare with… was opened from, when that commit was a branch. */
+let compareBaseName: string | undefined;
+/** Branch the user chose for each side of the current comparison. */
+let compareLeftName: string | undefined;
+let compareRightName: string | undefined;
 let compareActive = 0;
 let compareRows: CompareCandidate[] = [];
+/** File-list mode for a comparison. Kept until this webview is closed. */
+let compareView: CompareView = 'diverge';
 let faces = new Map<string, string>();
 let findHits: string[] = [];
 let findIndexes: number[] = [];
@@ -221,7 +230,7 @@ let ctxFiles: { path: string; untracked: boolean }[] = [];
 let pickSeq = 0;
 const pickWaiters = new Map<string, (result: { path: string | null; patchKind?: 'am' | 'apply' }) => void>();
 let ctxCommit: GraphCommit | null = null;
-let ctxFile: { path: string; oldPath?: string } | null = null;
+let ctxFile: { path: string; oldPath?: string; rev?: string } | null = null;
 let ctxFolder: HTMLDetailsElement | null = null;
 let summaryPointer: { folder: HTMLDetailsElement; open: boolean } | null = null;
 let pendingDateJump: { day: string; field: 'author' | 'committer' } | null = null;
@@ -748,6 +757,8 @@ function detailsAnchor(): string | null {
 function clearCompare(): void {
   compare = undefined;
   compareAnchor = undefined;
+  compareLeftName = undefined;
+  compareRightName = undefined;
 }
 
 function paintGraphSvg(svg: HTMLElement, markup: string, stream: boolean, height: number): void {
@@ -785,7 +796,7 @@ function estimateFromDetails(d: CommitDetails): number {
   const sigRows = signatureOpen ? signatureRows(d.signature).length + 1 : 1;
   return estimateDetailsHeight({
     message: commitMessageText(d),
-    fileCount: d.files.length,
+    fileCount: shownCompareFileCount(d),
     metaRowCount: detailsMetaRows(d, dates).length + sigRows,
     maxHeight: detailsHeightCap(),
   });
@@ -1298,6 +1309,7 @@ function detailsContentKey(): string {
     snap.config.detailsLocation,
     snap.config.fileViewType,
     signatureOpen ? '1' : '0',
+    details.compare ? activeCompareView(details) : '',
   ].join('|');
 }
 
@@ -1352,22 +1364,149 @@ function detailsHtml(d: CommitDetails): string {
   const issue = snap.repoSettings.issueLinking;
   const body = formatCommitMessageHtml(applyEmoji(commitMessageText(d), emojiMaps()), snap.config.markdown, issue);
   const tree = snap.config.fileViewType !== 'File List';
-  const files = tree
-    ? treeHtml(buildFileTree(d.files, snap.config.compactFolders))
-    : fileListHtml(d.files);
   const rows = detailsMetaRows(d, {
     author: formatDate(d.authorDate, snap.config.dateFormat),
     committer: formatDate(d.committerDate, snap.config.dateFormat),
   });
   const table = `<div class="meta-table">${rows.map(metaRowHtml).join('')}${signaturePaneHtml(d)}</div>`;
+  const modes = d.compare ? compareModeButtons(d) : '';
+  const gap = modes ? '<span class="files-toolbar-gap"></span>' : '';
   return `<div class="meta">${table}<div class="meta-msg">${body}</div>
   </div><div class="sash" id="sash-x"></div><div class="files-pane">
     <div class="files-toolbar">
+      ${modes}${gap}
       <button type="button" class="fv-btn" data-fv="File Tree" aria-pressed="${tree}">Tree</button>
       <button type="button" class="fv-btn" data-fv="File List" aria-pressed="${!tree}">List</button>
     </div>
-    <div class="files">${files}</div>
+    <div class="files">${filesPaneHtml(d)}</div>
   </div>`;
+}
+
+function activeCompareView(d: CommitDetails): CompareView {
+  if (!d.compare || !d.compareSplit) return 'snapshot';
+  return compareView;
+}
+
+function shownCompareFileCount(d: CommitDetails): number {
+  const split = d.compare && activeCompareView(d) === 'diverge' ? d.compareSplit : undefined;
+  if (!split) return d.files.length;
+  return split.leftOnly.length + split.rightOnly.length + split.both.length * 2;
+}
+
+function setCompareView(next: CompareView): void {
+  if (!details?.compare) return;
+  if (next === 'diverge' && !details.compareSplit) return;
+  if (compareView === next) return;
+  compareView = next;
+  if (detailsH == null) autoDetailsH = estimateFromDetails(details);
+  paint();
+  if (detailsH == null) scheduleFitDetails();
+}
+
+function compareModeButtons(d: CommitDetails): string {
+  const diverge = activeCompareView(d) === 'diverge';
+  const disabled = d.compareSplit ? '' : ' disabled';
+  const divergeTitle = d.compareSplit
+    ? 'Changes on each side since the common parent'
+    : (d.compareNote ?? 'No common parent');
+  return `<button type="button" class="fv-btn" data-cv="diverge" aria-pressed="${diverge}"${disabled} title="${esc(divergeTitle)}">Since diverge</button><button type="button" class="fv-btn" data-cv="snapshot" aria-pressed="${!diverge}" title="Direct diff between the two revisions">Snapshot</button>`;
+}
+
+function filesPaneHtml(d: CommitDetails): string {
+  if (!snap) return '';
+  const tree = snap.config.fileViewType !== 'File List';
+  if (d.compare && activeCompareView(d) === 'diverge' && d.compareSplit) return divergeFilesHtml(d, tree);
+  const body = tree ? treeHtml(buildFileTree(d.files, snap.config.compactFolders)) : fileListHtml(d.files);
+  if (d.compare && !d.compareSplit && d.compareNote) return `<p class="cmp-note">${esc(d.compareNote)}</p>${body}`;
+  return body;
+}
+
+function divergeFilesHtml(d: CommitDetails, tree: boolean): string {
+  const split = d.compareSplit;
+  if (!split) return '';
+  const leftLabel = sideHeading(d.hash, compareLeftName);
+  const rightLabel = sideHeading(d.compare ?? '', compareRightName);
+  const notes = compareBanners({
+    relation: split.relation,
+    leftLabel,
+    rightLabel,
+    severalParents: (split.bases?.length ?? 0) > 1,
+    baseLabel: shortRevLabel(split.base),
+    leftEmpty: split.leftOnly.length === 0 && split.both.length === 0,
+    rightEmpty: split.rightOnly.length === 0 && split.both.length === 0,
+  })
+    .map((line) => `<p class="cmp-note">${esc(line)}</p>`)
+    .join('');
+  return (
+    notes +
+    sideSection(`Only on ${leftLabel}`, 'base', split.leftOnly, d.hash, tree) +
+    sideSection(`Only on ${rightLabel}`, 'other', split.rightOnly, d.compare ?? '', tree) +
+    bothSection(split.both, leftLabel, d.hash, rightLabel, d.compare ?? '', tree)
+  );
+}
+
+function sideHeading(rev: string, chosen?: string): string {
+  if (chosen) return chosen;
+  return branchNameAt(rev, snap?.filterRefs ?? []) ?? shortRevLabel(rev);
+}
+
+function namedBranch(ref: GraphRef | null): string | undefined {
+  if (!ref || (ref.kind !== 'head' && ref.kind !== 'remote')) return undefined;
+  if (ref.name === 'HEAD' || ref.name.startsWith('glob:')) return undefined;
+  return refDisplayName(ref);
+}
+
+function foldSection(title: string, tone: '' | 'base' | 'other', body: string): string {
+  const toneClass = tone ? ` cmp-sec-${tone}` : '';
+  const group = tone ? `cmp-group cmp-group-${tone}` : 'cmp-group cmp-group-both';
+  return `<section class="${group}"><details class="cmp-fold" open><summary class="cmp-sec${toneClass}" title="Show or hide these files">${FOLDER_CHEVRON}${esc(title)}</summary>${body}</details></section>`;
+}
+
+function sideSection(
+  title: string,
+  tone: 'base' | 'other',
+  files: CommitDetails['files'],
+  rev: string,
+  tree: boolean,
+): string {
+  if (!files.length || !snap) return '';
+  const body = tree
+    ? treeHtml(buildFileTree(files.map((file) => ({ ...file, rev })), snap.config.compactFolders))
+    : fileListHtml(files, rev);
+  return foldSection(title, tone, body);
+}
+
+function bothSection(
+  pairs: NonNullable<CommitDetails['compareSplit']>['both'],
+  leftLabel: string,
+  leftRev: string,
+  rightLabel: string,
+  rightRev: string,
+  tree: boolean,
+): string {
+  if (!pairs.length || !snap) return '';
+  const files = pairs.flatMap((pair) => [
+    { ...pair.left, rev: leftRev, tone: 'base' as const, sideLabel: leftLabel },
+    { ...pair.right, rev: rightRev, tone: 'other' as const, sideLabel: rightLabel },
+  ]);
+  const body = tree
+    ? treeHtml(buildFileTree(files, snap.config.compactFolders))
+    : files
+        .map((file) => sideFileRow(file, file.rev, file.tone, file.sideLabel))
+        .join('');
+  return foldSection('Changed on both', '', body);
+}
+
+function sideFileRow(
+  file: CommitDetails['files'][number],
+  rev: string,
+  tone: 'base' | 'other',
+  label: string,
+): string {
+  const i = file.path.lastIndexOf('/');
+  const name = i >= 0 ? file.path.slice(i + 1) : file.path;
+  const dir = i >= 0 ? file.path.slice(0, i) : '';
+  return fileRow(file.path, name, file.status, file.oldPath ?? '', dir, file.additions, file.deletions, rev, tone, label);
 }
 
 const COPY_SVG =
@@ -1500,24 +1639,37 @@ function fileEnd(dir: string, additions?: number, deletions?: number): string {
   return `<span class="file-end">${stats}${directory}</span>`;
 }
 
-function fileRow(path: string, name: string, status: string, oldPath = '', dir = '', additions?: number, deletions?: number): string {
+function fileRow(
+  path: string,
+  name: string,
+  status: string,
+  oldPath = '',
+  dir = '',
+  additions?: number,
+  deletions?: number,
+  rev = '',
+  tone: '' | 'base' | 'other' = '',
+  sideLabel = '',
+): string {
   const added = status === 'A' || status === 'U';
   const picked = pickedFiles.includes(path) ? ' picked' : '';
-  return `<div class="file scm-file${picked}" data-path="${esc(path)}" data-old="${esc(oldPath)}" data-st="${status}">
+  const revAttr = rev ? ` data-rev="${esc(rev)}"` : '';
+  const mark = tone && sideLabel ? `<span class="file-rev file-rev-${tone}">${esc(sideLabel)}</span>` : '';
+  return `<div class="file scm-file${picked}" data-path="${esc(path)}" data-old="${esc(oldPath)}" data-st="${status}"${revAttr}>
     <span class="badge st-${status}" title="${statusTitle(status)}">${status}</span>
-    <span class="file-name" data-open="${added ? 'blob' : 'diff'}">${esc(name)}</span>
+    ${mark}<span class="file-name" data-open="${added ? 'blob' : 'diff'}">${esc(name)}</span>
     ${fileActionsHtml()}
     ${fileEnd(dir, additions, deletions)}
   </div>`;
 }
 
-function fileListHtml(files: CommitDetails['files']): string {
+function fileListHtml(files: CommitDetails['files'], rev = ''): string {
   return files
     .map((f) => {
       const i = f.path.lastIndexOf('/');
       const name = i >= 0 ? f.path.slice(i + 1) : f.path;
       const dir = i >= 0 ? f.path.slice(0, i) : '';
-      return fileRow(f.path, name, f.status, f.oldPath ?? '', dir, f.additions, f.deletions);
+      return fileRow(f.path, name, f.status, f.oldPath ?? '', dir, f.additions, f.deletions, rev);
     })
     .join('');
 }
@@ -1536,7 +1688,7 @@ function treeNode(n: ReturnType<typeof buildFileTree>[number]): string {
     const folderPath = n.path ?? n.name;
     return `<li><details open class="scm-folder" data-path="${esc(folderPath)}"><summary title="${esc(hint)}">${FOLDER_CHEVRON}${esc(n.name)}</summary>${treeHtml(n.children)}</details></li>`;
   }
-  return `<li>${fileRow(n.path ?? '', n.name, n.status ?? '', '', '', n.additions, n.deletions)}</li>`;
+  return `<li>${fileRow(n.path ?? '', n.name, n.status ?? '', n.oldPath ?? '', '', n.additions, n.deletions, n.rev ?? '', n.tone ?? '', n.sideLabel ?? '')}</li>`;
 }
 
 function eventElement(target: EventTarget | null): Element | null {
@@ -1582,12 +1734,11 @@ function refreshFileView(): void {
   if (!snap || !details) return;
   const tree = snap.config.fileViewType !== 'File List';
   for (const btn of document.querySelectorAll<HTMLElement>('.fv-btn')) {
+    if (!btn.dataset.fv) continue;
     btn.setAttribute('aria-pressed', String(btn.dataset.fv === (tree ? 'File Tree' : 'File List')));
   }
   const files = document.querySelector('.files');
-  if (files) {
-    files.innerHTML = tree ? treeHtml(buildFileTree(details.files, snap.config.compactFolders)) : fileListHtml(details.files);
-  }
+  if (files) files.innerHTML = filesPaneHtml(details);
   if (detailsH == null) scheduleFitDetails();
 }
 
@@ -2802,12 +2953,14 @@ function canCompareWithHead(hash: string): boolean {
   return Boolean(hash && snap?.head && hash !== snap.head);
 }
 
-function startCompare(a: string, b: string): void {
+function startCompare(a: string, b: string, names?: { left?: string; right?: string }): void {
   if (!a || !b) return;
   pickedBranches = [];
   selected = a;
   compare = b;
   compareAnchor = a;
+  compareLeftName = names?.left;
+  compareRightName = names?.right;
   post({ type: 'compare', a, b });
   persistView();
   paint();
@@ -2845,9 +2998,10 @@ function fillCompareList(): void {
   $('cmp-list').querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
 }
 
-function openCompareDialog(base: string): void {
+function openCompareDialog(base: string, baseName?: string): void {
   if (!base || !snap) return;
   compareBase = base;
+  compareBaseName = baseName;
   compareActive = 0;
   ($('cmp-q') as HTMLInputElement).value = '';
   fillCompareList();
@@ -2860,21 +3014,30 @@ function chooseCompare(index: number): void {
   const base = compareBase;
   if (!row || !base) return;
   ($('dlg-compare') as unknown as HTMLDialogElement).close();
-  startCompare(base, row.rev);
+  const right = row.kind === 'head' || row.kind === 'remote' ? row.label : undefined;
+  startCompare(base, row.rev, { left: compareBaseName, right });
 }
 
 function sub(mode: string): string {
   return applySpaceSubstitution(($('git-body').querySelector('input,textarea') as HTMLInputElement | null)?.value ?? '', mode as 'None');
 }
 
-function postDiff(file: { path: string; oldPath?: string }): void {
+function postDiff(file: { path: string; oldPath?: string; rev?: string }): void {
   if (!details) return;
+  const target = compareOpenDiff({
+    view: activeCompareView(details),
+    hash: details.hash,
+    compare: details.compare,
+    base: details.compareSplit?.base,
+    rev: file.rev,
+  });
   post({
     type: 'diff',
-    hash: details.hash,
+    hash: target.hash,
     path: file.path,
     oldPath: file.oldPath,
-    compare: details.compare,
+    ...(target.parent ? { parent: target.parent } : {}),
+    ...(target.compare ? { compare: target.compare } : {}),
   });
 }
 
@@ -2898,22 +3061,32 @@ function flashCopied(el: HTMLElement): void {
   window.setTimeout(() => el.classList.remove('copied'), 2000);
 }
 
+function fileRef(file: HTMLElement): { path: string; oldPath?: string; rev?: string } {
+  return {
+    path: file.dataset.path ?? '',
+    oldPath: file.dataset.old || undefined,
+    rev: file.dataset.rev || undefined,
+  };
+}
+
 function viewFileAtRevision(file: HTMLElement): void {
   if (!details) return;
   const path = file.dataset.path ?? '';
+  const rev = file.dataset.rev;
   const added = file.dataset.st === 'A' || file.dataset.st === 'U';
-  if (details.hash === UNCOMMITTED && added) {
+  if (!rev && details.hash === UNCOMMITTED && added) {
     post({ type: 'openWorkFile', path });
     return;
   }
-  post({ type: 'showBlob', hash: details.hash === UNCOMMITTED ? 'HEAD' : details.hash, path });
+  const hash = rev || (details.hash === UNCOMMITTED ? 'HEAD' : details.hash);
+  post({ type: 'showBlob', hash, path });
 }
 
 function runFileAction(kind: string, file: HTMLElement): void {
   if (!details) return;
   const path = file.dataset.path ?? '';
   if (kind === 'diff') {
-    postDiff({ path, oldPath: file.dataset.old || undefined });
+    postDiff(fileRef(file));
     return;
   }
   if (kind === 'open') {
@@ -2954,6 +3127,11 @@ function onDetailsClick(ev: MouseEvent): boolean {
     refreshFileView();
     return true;
   }
+  const cv = t.closest<HTMLElement>('[data-cv]');
+  if (cv && details?.compare) {
+    setCompareView(cv.dataset.cv === 'snapshot' ? 'snapshot' : 'diverge');
+    return true;
+  }
   const fileHit = t.closest<HTMLElement>('.file');
   if (fileHit && details && (ev.ctrlKey || ev.metaKey || ev.shiftKey) && !t.closest('.file-act')) {
     ev.preventDefault();
@@ -2974,7 +3152,7 @@ function onDetailsClick(ev: MouseEvent): boolean {
     const file = t.closest<HTMLElement>('.file');
     if (file) {
       if (name.dataset.open === 'blob') viewFileAtRevision(file);
-      else postDiff({ path: file.dataset.path ?? '', oldPath: file.dataset.old || undefined });
+      else postDiff(fileRef(file));
     }
     return true;
   }
@@ -3239,10 +3417,10 @@ function bind(): void {
     scheduleViewportPaint();
   });
   $('scroll').addEventListener('mousedown', (ev) => {
-    if ((ev.target as HTMLElement).closest('[data-fv], .file-act')) ev.preventDefault();
+    if ((ev.target as HTMLElement).closest('[data-fv], [data-cv], .file-act')) ev.preventDefault();
   });
   $('dock').addEventListener('mousedown', (ev) => {
-    if ((ev.target as HTMLElement).closest('[data-fv], .file-act')) ev.preventDefault();
+    if ((ev.target as HTMLElement).closest('[data-fv], [data-cv], .file-act')) ev.preventDefault();
   });
   $('scroll').addEventListener('click', (ev) => {
     const t = ev.target as HTMLElement;
@@ -3302,6 +3480,8 @@ function bind(): void {
         const base = commitRange.length === 1 ? commitRange[0] : commitRange.length === 0 ? selected : null;
         if (base && base !== UNCOMMITTED) {
           commitRange = [];
+          compareLeftName = undefined;
+          compareRightName = undefined;
           selected = base;
           compare = hash;
           compareAnchor = undefined;
@@ -3516,7 +3696,7 @@ function bind(): void {
     if (file) {
       ev.preventDefault();
       ctxFolder = null;
-      ctxFile = { path: file.dataset.path ?? '', oldPath: file.dataset.old || undefined };
+      ctxFile = fileRef(file);
       openCtx(fileMenu(ctxFile.path), ev.clientX, ev.clientY);
       return;
     }
@@ -4104,8 +4284,9 @@ function onMenu(ev: Event): void {
   if (!snap) return;
   if (id === 'cmp' || id === 'cmp-head') {
     const base = ctxCommit?.hash ?? ctxRef?.hash ?? '';
-    if (id === 'cmp') openCompareDialog(base);
-    else if (snap.head) startCompare(base, snap.head);
+    const baseName = namedBranch(ctxRef);
+    if (id === 'cmp') openCompareDialog(base, baseName);
+    else if (snap.head) startCompare(base, snap.head, { left: baseName, right: snap.currentBranch ?? undefined });
     return;
   }
   const d = snap.config.dialogs;
@@ -4342,7 +4523,10 @@ function onMenu(ev: Event): void {
   if (ctxFile && details) {
     if (id === 'f-diff') postDiff(ctxFile);
     if (id === 'f-open') post({ type: 'openWorkFile', path: ctxFile.path });
-    if (id === 'f-blob') post({ type: 'showBlob', hash: details.hash === '*' ? 'HEAD' : details.hash, path: ctxFile.path });
+    if (id === 'f-blob') {
+      const hash = ctxFile.rev || (details.hash === UNCOMMITTED ? 'HEAD' : details.hash);
+      post({ type: 'showBlob', hash, path: ctxFile.path });
+    }
     if (id === 'f-history') post({ type: 'setHistoryPath', path: ctxFile.path });
     if (id === 'f-blame') post({ type: 'blame', path: ctxFile.path });
     if (id === 'f-copy') {
@@ -4369,6 +4553,8 @@ function showCtrlSelection(hashes: string[]): void {
     selected = hashes[0]!;
     compare = hashes[1]!;
     compareAnchor = undefined;
+    compareLeftName = undefined;
+    compareRightName = undefined;
     post({ type: 'compare', a: hashes[0]!, b: hashes[1]! });
   } else if (hashes.length === 1) {
     selected = hashes[0]!;

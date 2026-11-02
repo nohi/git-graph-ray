@@ -1,6 +1,12 @@
 export type FileNode = {
   name: string;
   path?: string;
+  oldPath?: string;
+  /** Revision this file is diffed against, when the row belongs to one side of a comparison. */
+  rev?: string;
+  /** Which side of a comparison this row belongs to. */
+  tone?: 'base' | 'other';
+  sideLabel?: string;
   status?: string;
   additions?: number;
   deletions?: number;
@@ -8,7 +14,16 @@ export type FileNode = {
 };
 
 export function buildFileTree(
-  paths: Array<{ path: string; oldPath?: string; status: string; additions?: number; deletions?: number }>,
+  paths: Array<{
+    path: string;
+    oldPath?: string;
+    rev?: string;
+    tone?: 'base' | 'other';
+    sideLabel?: string;
+    status: string;
+    additions?: number;
+    deletions?: number;
+  }>,
   compact: boolean,
 ): FileNode[] {
   const root: FileNode[] = [];
@@ -19,18 +34,28 @@ export function buildFileTree(
     parts.forEach((part, i) => {
       const last = i === parts.length - 1;
       const here = dir ? `${dir}/${part}` : part;
-      let node = level.find((n) => n.name === part);
+      if (last) {
+        level.push({
+          name: part,
+          path: file.path,
+          ...(file.oldPath ? { oldPath: file.oldPath } : {}),
+          ...(file.rev ? { rev: file.rev } : {}),
+          ...(file.tone ? { tone: file.tone } : {}),
+          ...(file.sideLabel ? { sideLabel: file.sideLabel } : {}),
+          status: file.status,
+          additions: file.additions,
+          deletions: file.deletions,
+        });
+        return;
+      }
+      let node = level.find((n) => n.name === part && n.children);
       if (!node) {
-        node = last
-          ? { name: part, path: file.path, status: file.status, additions: file.additions, deletions: file.deletions }
-          : { name: part, path: here, children: [] };
+        node = { name: part, path: here, children: [] };
         level.push(node);
       }
-      if (!last) {
-        dir = here;
-        node.children ??= [];
-        level = node.children;
-      }
+      dir = here;
+      node.children ??= [];
+      level = node.children;
     });
   }
   return compact ? compactNodes(root) : root;
