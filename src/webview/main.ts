@@ -4739,7 +4739,7 @@ function openCherryDialog(commit: GraphCommit, at: { x: number; y: number }): vo
   const heading = rows.length === 1 ? 'Cherry-pick this commit?' : `Cherry-pick ${rows.length} commits, oldest first?`;
   gitDialog(
     'Cherry-pick',
-    `<p>${heading}</p>${note}<ul class="dlg-files">${list}</ul><label><input type="checkbox" id="nc" ${d.cherryPickNoCommit ? 'checked' : ''}/> no commit</label>`,
+    `<p>${heading}</p>${note}<ul class="dlg-files dlg-cherry">${list}</ul><label><input type="checkbox" id="nc" ${d.cherryPickNoCommit ? 'checked' : ''}/> no commit</label>`,
     () => {
       commitRange = [];
       rayCatCherryPick(commit.hash);

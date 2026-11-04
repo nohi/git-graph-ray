@@ -11,6 +11,7 @@
 ### Fixes
 
 - Right-click in the commit details copies the selected text. Most of that panel was showing only Apply patch, which also blocked copying the commit message.
+- Widen the Cherry-pick dialog to about 400px, the same width as Add tag. Long commit subjects wrap inside that width.
 
 ## v0.7.1
 
