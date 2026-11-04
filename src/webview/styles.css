@@ -1275,8 +1275,73 @@ dialog button:disabled {
   width: min(400px, calc(100vw - 16px));
 }
 
+/* Reword opens at 400px. The frame then follows the textarea resize handle. */
+#dlg-git:has(#msg) {
+  box-sizing: content-box;
+  width: max-content;
+  height: max-content;
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+}
+
+#dlg-git:has(#msg) > form,
+#dlg-git:has(#msg) #git-body {
+  width: max-content;
+  max-width: none;
+}
+
+#dlg-git:has(#msg) #msg {
+  box-sizing: border-box;
+  min-width: 0;
+  font-size: inherit; /* 1em matches the dialog padding */
+  /* Padding is 1em per side and the border is 1px, so the frame starts at 400px. */
+  width: min(calc(400px - 2em - 2px), calc(100vw - 16px - 2em - 2px));
+  resize: both;
+}
+
+#dlg-git[open]:has(.dlg-cherry) {
+  display: flex;
+  flex-direction: column;
+  resize: both;
+  overflow: hidden;
+  min-width: min(280px, calc(100vw - 16px));
+  min-height: 9.5rem;
+  max-height: calc(100vh - 16px);
+}
+
+#dlg-git:has(.dlg-cherry) > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+}
+
+#dlg-git:has(.dlg-cherry) #git-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#dlg-git:has(.dlg-cherry) .dlg-files {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 1.4rem;
+  max-height: 10rem;
+  padding-bottom: 2px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Dragging the corner writes an inline height. The list then uses that space. */
+#dlg-git:has(.dlg-cherry)[style*="height"] .dlg-files {
+  max-height: none;
+}
+
 #dlg-git:has(.dlg-cherry) .dlg-files li {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 #dlg-git:has(#su) {

@@ -12,6 +12,8 @@
 
 - Right-click in the commit details copies the selected text. Most of that panel was showing only Apply patch, which also blocked copying the commit message.
 - Widen the Cherry-pick dialog to about 400px, the same width as Add tag. Long commit subjects wrap inside that width.
+- A one-line Cherry-pick no longer shows a scrollbar. The list scrolls only after it is taller than about 10rem. Drag the dialog corner to resize it; a larger frame gives the commit list more room. Cancel closes the dialog.
+- Open Reword at about 400px. Dragging the message box resizes the dialog with it.
 
 ## v0.7.1
 

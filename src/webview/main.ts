@@ -2508,6 +2508,8 @@ function clearCursorDialog(dlg: HTMLElement): void {
   dlg.classList.remove('at-cursor');
   dlg.style.left = '';
   dlg.style.top = '';
+  dlg.style.width = '';
+  dlg.style.height = '';
 }
 
 function placeCursorDialog(dlg: HTMLElement, at: { x: number; y: number }): void {
