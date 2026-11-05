@@ -35,7 +35,7 @@
 
 | ID | 仕様 |
 | --- | --- |
-| `git-graph-ray.view` | グラフを開く。`openToTheRepoOfTheActiveTextEditorDocument` ならアクティブ文書のリポジトリ優先 |
+| `git-graph-ray.view` | グラフを開く。`startup.repoOfActiveFile` ならアクティブ文書のリポジトリ優先 |
 | `git-graph-ray.fetch` | グラフを開き全リモート fetch |
 | `git-graph-ray.addGitRepository` | フォルダ選択して手動追加し開く |
 | `git-graph-ray.removeGitRepository` | QuickPick で hidden に追加 |
@@ -44,21 +44,21 @@
 | `git-graph-ray.openFile` | Diff 上の `git-graph-ray-file` から実ファイルを開く |
 
 - ステータスバー「Git Graph Ray」→ view
-- SCM タイトルに view（Inline / More Actions）
+- SCM タイトルに view（`startup.scmButton`: `bar` はタイトルバー、`menu` はオーバーフロー）
 - ピンしたグラフタブは起動時に再オープン・再ピン
-- フェーズ1–7では webview コンテキスト常時保持。`retainContextWhenHidden` はフェーズ8
+- webview を隠しても保持するかは `startup.keepWebview`。変えると開いているグラフタブと Contributors タブを開き直す
 
 ## 4. リポジトリ
 
-- `maxDepthOfRepoSearch` まで探索。worktree パスは独立リポジトリ
+- `startup.searchDepth` まで探索。worktree パスは独立リポジトリ
 - 手動追加・hidden 除外
-- ドロップダウン順: Name / Full Path。Workspace Full Path はフェーズ8
+- ドロップダウン順は `startup.repoOrder`（`workspace` / `name` / `path`）
 - `.git` 変更を約 400ms デバウンスで再読込。アクション直後は静穏
-- per-repo: remotes 表示、Issue Linking、PR、show* 上書き
+- per-repo: 非表示 remote、Issue Linking、PR。remote / stash / tag / worktree / reflog / first parent は、そのリポジトリの値が `history.*` と違うときだけ保存する。同じ値なら `history.*` に戻る
 
 ## 5. グラフデータ
 
-- `git log`（件数 initialLoad / loadMore、順序 date | author-date | topo）
+- `git log`（件数 `history.pageSize` / `history.pageMore`、どちらも 1 以上、順序 `date` | `author` | `topo`）
 - mailmap、ブランチ複数選択または Show All、remote heads、stash/tag/worktree refs
 - 未コミット行と未追跡。他 worktree パスは status から除外
 - 追加読み込み自動可
@@ -70,17 +70,18 @@
 
 - sticky ツールバー: リポジトリ、ブランチ/remote/tag の詮索付きマルチセレクト、Fetch、Jump HEAD、Refresh、Find、Graph Settings（スライダー）、Repo Settings（歯車）、Help
 - 列: Graph と Description は常時。切替可: Author、Author Date、Commit、Committer、Committer Date
-- `date.format` を両日付列に適用。`date.type` なし
+- `when.format` を両日付列に適用。日付の種類を一つに絞る設定はない
 - 初期: Committer と Committer Date のみ非表示。列ヘッダ右クリックで切替。幅ドラッグ、ダブルクリックでリセット
 - 仮想スクロール、行クリックで詳細、再クリックで閉じる、Ctrl/Cmd+クリックで比較
 - テーマ `graph.theme`: `classic` / `Ray` / `Ray Wave` / `Ray Cycle`
 - `graph.lanePriority`: ブランチ glob → 数値。大きいほどその線を左に固定する。第一親で一本のときラベルより上も含む。先端まで左列は空く。同点は上にある線、次に名前。`*` は `/` を含む。リモートは `origin/name` と `remotes/origin/name` も比較し、最大値が勝つ。0 以下は予約しない。未設定は従来の列。Graph Settings で追加・編集・削除する
-- ショートカット: Find F、Refresh R、HEAD H、stash S（Shift で逆）。UNASSIGNED なら無効
+- ショートカット: Find `mod+f`、Refresh `mod+r`、HEAD `mod+h`、stash `mod+s`。空文字ならその操作は無効
+- 開いているグラフは設定変更を受ける。見た目は描き直し、コミットやリポジトリ一覧の条件が変わったときは再読込する。グラフ上の編集は、いま表示に使われているユーザ設定またはワークスペース設定へ書く
 - Escape: ダイアログ → 設定 → メニュー/Find/詳細
 
 ## 7. 詳細と比較
 
-- Inline または Docked to Bottom。高さ自動（min 88、既定上限 300）。sash、ダブルクリックで自動復帰
+- `details.place` は `inline` または `bottom`。高さ自動（min 88、既定上限 300）。sash、ダブルクリックで自動復帰
 - メタ: hash コピー、Parents ナビ、Author/Committer、日付、subject/body、Issue リンク
 - 詳細のメッセージ・メタ・余白の右クリックは Copy（開いた時点の選択範囲）。選択が空なら Copy は無効。ファイル行とフォルダはそれぞれのメニュー。グラフの空白は Apply patch のまま
 - ファイル Tree（compact folders）または List。Diff / リビジョン表示 / パスコピー / 作業ツリーを開く
@@ -88,7 +89,7 @@
 
 ## 8. Git 操作
 
-ダイアログ既定は `dialog.*`。ref 入力のスペース置換あり。
+ダイアログの初期値は `actions`。ref 入力のスペース置換は `actions.nameSpaces`（`keep` / `hyphen` / `underscore`）。
 
 - Worktree: 開く（同/新窓）、削除（メイン以外）、追加
 - Stash: apply/pop/branch/drop、未コミット全体、または詳細で Ctrl/Cmd+クリックしたファイルだけ
@@ -101,10 +102,9 @@
 - ファイル: 未コミットの選択ファイルは stash またはパッチ。コミット上の選択ファイルはパッチ
 - Shift+クリックでグラフ上の範囲を選ぶ。Ctrl/Cmd+クリックで個別に追加・解除でき、連続していなくてもよい。2件のときはその差分を開き、3件以上では詳細を閉じる。右クリックで cherry-pick。マージは除き、古い順
 - 進行中の merge / rebase / cherry-pick / revert / `git am` は衝突ファイル名から VS Code のマージエディタを開く
-- 自動 fetch は `repository.autoFetch`（既定オフ）。間隔は `repository.autoFetchInterval`（既定 180 秒、最小 15）
+- 自動 fetch は `fetch.auto`（既定オフ）。間隔は `fetch.everySeconds`（既定 180 秒、最小 15）
 - Reword: Git >= 2.54 のみ。未満はメニュー非表示。履歴書き換え時は確認
-- 対話 rebase は統合ターミナル。askpass は InputBox
-- `integratedTerminalShell` はフェーズ8
+- 対話 rebase は統合ターミナル。シェルは `terminal.shell`。空なら統合ターミナルの既定。askpass は InputBox
 
 ## 9. Repository Settings
 
@@ -117,31 +117,15 @@
 
 作らない。
 
-## 11. フェーズ1–7で効く設定
+## 11. 設定
 
-`maxDepthOfRepoSearch`、`repositoryDropdownOrder`、`openToTheRepoOfTheActiveTextEditorDocument`、`openNewTabEditorGroup`、`showStatusBarItem`、`sourceCodeProviderIntegrationLocation`、commits の initialLoad/loadMore/loadMoreAutomatically/order、mailmap、showRemoteHeads/Uncommitted/Untracked/RemoteBranches/Stashes/Tags/Worktrees、fetchAndPrune、fetchAvatars、mute、reflogs、firstParent、details location/fileView/compactFolders、graph colours/style/uncommittedChanges/theme、date.format、defaultColumnVisibility、keyboardShortcut.*、customPullRequestProviders、dialog.*
+`startup.searchDepth`、`startup.repoOrder`、`startup.repoOfActiveFile`、`startup.editorColumn`、`startup.statusBar`、`startup.scmButton`、`startup.keepWebview`、`startup.scrollToHead`、`startup.onlyCheckedOut`、`startup.branches`、`history.pageSize` / `pageMore` / `autoPage` / `order`、`history.mailmap`、`history.remoteHeads` / `uncommitted` / `untracked` / `remotes` / `stashes` / `tags` / `worktrees` / `tagOnlyCommits`、`history.muteMerges` / `dimNotOnHead` / `reflog` / `firstParent` / `avatars` / `openCircle`、`fetch.prune` / `pruneTags` / `auto` / `everySeconds` / `tagCacheSeconds`、`details.maxHeight` / `place` / `files` / `foldSingleFolders` / `markdown`、`graph.palette` / `bend` / `theme` / `lanePriority`、`when.format`、`columns`、`keys.find` / `refresh` / `head` / `stash`、`pullRequests`、`actions`、`branches.globs`、`emoji`、`menus`、`labels.layout` / `combine` / `remote` / `colors`（ブランチ・タグ名の glob → ラベル色。`*` は `/` を含む。先勝ち。グラフの右クリックからも編集でき、初期値はその名前）、`sign.commits` / `sign.tags`、`files.encoding`、`terminal.shell`、`refs.branchSort` / `tagSort` / `listLimit`、`rayCat.enabled` / `count`、`undo.preview`
 
-## 12. フェーズ8設定
+一覧の Signature 列は有無と種類のみ。詳細は Committer Date 直下の折りたたみ行で、検証結果（status / signer / key / fingerprint / primary / trust）に加え、SSH は鍵の種類・ハッシュ・名前空間、GPG は署名時刻・公開鍵アルゴリズム・ハッシュ・鍵と署名の有効期限を表示する。
 
-- `commitDetailsView.autoCenter`
-- `enhancedAccessibility`
-- `markdown`
-- `customBranchGlobPatterns`
-- `repository.onLoad.showCheckedOutBranch` / `showSpecificBranches` / `scrollToHead`
-- `referenceLabels.alignment` / `combineLocalAndRemoteBranchLabels` / `remoteBranchPrefix` / `colours`（ブランチ・タグ名の glob → ラベル色。`*` は `/` を含む。先勝ち。グラフの右クリックからも編集でき、初期値はその名前）
-- `repository.showCommitsOnlyReferencedByTags`
-- 一覧の Signature 列は有無と種類のみ。詳細は Committer Date 直下の折りたたみ行で、検証結果（status / signer / key / fingerprint / primary / trust）に加え、SSH は鍵の種類・ハッシュ・名前空間、GPG は署名時刻・公開鍵アルゴリズム・ハッシュ・鍵と署名の有効期限を表示する
-- `repository.sign.commits` / `sign.tags`
-- `fileEncoding`
-- `contextMenuActionsVisibility`
-- `customEmojiShortcodeMappings`
-- `retainContextWhenHidden`
-- `integratedTerminalShell`
-- `repositoryDropdownOrder` の Workspace Full Path
-
-## 13. 決定済み
+## 12. 決定済み
 
 1. Reword は Git 2.54 未満で非表示
-2. 日付は Author Date と Committer Date。`date.format` のみ
+2. 日付は Author Date と Committer Date。`when.format` のみ
 3. テーマは `graph.theme` の1 enum
 4. 初期列は Committer / Committer Date 以外を表示

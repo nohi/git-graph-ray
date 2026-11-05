@@ -74,7 +74,7 @@ describe('withUncommitted', () => {
 
 describe('gitArgs', () => {
   it('adds merge flags', () => {
-    expect(mergeArgs({ kind: 'merge', ref: 'dev', noCommit: true, noFastForward: true, squash: false, squashMessageFormat: 'Default' })).toContain('--no-ff');
+    expect(mergeArgs({ kind: 'merge', ref: 'dev', noCommit: true, noFastForward: true, squash: false, squashMessageFormat: 'subject' })).toContain('--no-ff');
   });
   it('adds rebase ignore-date', () => {
     expect(rebaseArgs({ kind: 'rebase', ref: 'main', ignoreDate: true, interactive: false })).toContain('--committer-date-is-author-date');

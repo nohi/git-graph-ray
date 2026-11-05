@@ -7,12 +7,12 @@ export function createStatusBar(context: vscode.ExtensionContext): vscode.Status
   item.tooltip = 'View Git Graph Ray';
   item.command = 'git-graph-ray.view';
   const refresh = () => {
-    if (cfg('showStatusBarItem', true)) item.show();
+    if (cfg('startup.statusBar', true)) item.show();
     else item.hide();
   };
   refresh();
   context.subscriptions.push(item, vscode.workspace.onDidChangeConfiguration((e) => {
-    if (e.affectsConfiguration('git-graph-ray.showStatusBarItem')) refresh();
+    if (e.affectsConfiguration('git-graph-ray.startup.statusBar')) refresh();
   }));
   return item;
 }

@@ -8,10 +8,29 @@ import {
   estimateDetailsHeight,
   rayStreamGradient,
   scrollNeededToRevealDetails,
+  shortcutLabel,
+  shortcutMatches,
   visibleRowRange,
 } from './graph';
 import { layoutCommits } from './layout';
 import { RAY_COLOURS, type GraphCommit } from './types';
+
+describe('shortcutMatches', () => {
+  const down = { key: 'f', ctrlKey: true, metaKey: false };
+
+  it('matches mod plus a letter when ctrl or meta is held', () => {
+    expect(shortcutMatches('mod+f', down)).toBe(true);
+    expect(shortcutMatches('mod+f', { key: 'F', ctrlKey: false, metaKey: true })).toBe(true);
+    expect(shortcutMatches('mod+r', down)).toBe(false);
+    expect(shortcutMatches('mod+f', { key: 'f', ctrlKey: false, metaKey: false })).toBe(false);
+    expect(shortcutMatches('', down)).toBe(false);
+  });
+
+  it('labels a shortcut for the help list', () => {
+    expect(shortcutLabel('mod+h')).toBe('Ctrl/Cmd+H');
+    expect(shortcutLabel('')).toBe('');
+  });
+});
 
 describe('branchHistoryHashes', () => {
   it('includes the selected tip and its ancestors, not a sibling branch', () => {

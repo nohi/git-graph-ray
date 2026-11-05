@@ -116,7 +116,7 @@ describe('label colour editing', () => {
     expect(labelColourSettingValue(undefined, stored)).toEqual(stored);
     expect(
       isUnregisteredConfigurationMessage(
-        'Unable to write to User Settings because git-graph-ray.referenceLabels.colours is not a registered configuration.',
+        'Unable to write to User Settings because git-graph-ray.labels.colors is not a registered configuration.',
       ),
     ).toBe(true);
     expect(isUnregisteredConfigurationMessage('Unable to write to User Settings because the file is dirty.')).toBe(false);

@@ -21,8 +21,9 @@ import {
   type UndoEntry,
   type UndoStack,
 } from '../../shared/undo';
+import type { RepoSettings } from '../../shared/dialogs';
 import { fillPrUrl } from '../../shared/issueLinks';
-import { cfg, autoFetchIntervalSeconds, getCustomPrProviders, getEmojiMaps, getGlobPatterns, getMenuVisibility, getViewConfig, LABEL_COLOUR_STATE_KEY, saveLabelColours, updateSetting, viewColumn } from '../config';
+import { cfg, autoFetchIntervalSeconds, getCustomPrProviders, getEmojiMaps, getGlobPatterns, getMenuVisibility, getViewConfig, historyPage, LABEL_COLOUR_STATE_KEY, saveLabelColours, updateSetting, viewColumn } from '../config';
 import { parseRefColours, refColoursToSetting } from '../../shared/refColours';
 import { AvatarStore } from '../avatars';
 import { runGitAction } from '../git/actions';
@@ -37,7 +38,9 @@ import { invalidateRemoteTagCache, loadRemoteTagTips } from '../git/remoteTags';
 import { loadRefs } from '../git/refs';
 import { listWorktrees } from '../git/worktree';
 import { discoverRepos, norm } from '../repos/discover';
-import { loadRepoSettings, saveRepoSettings } from '../repoSettings';
+import { loadCleanRepoSettings, loadRepoSettings, saveRepoSettings } from '../repoSettings';
+import { graphSettingReloads, graphSettingRepaints } from '../../shared/graphRefresh';
+import { applyRepoVisibility, dropDefaultVisibility } from '../../shared/repoVisibility';
 import { gitOk, gitMaybe } from '../git/runner';
 import { applyRestorePlan, captureCheckpoint, captureRemoteTips, loadCheckpointCommits, workingTreeHasTrackedChanges } from '../git/undo';
 import { diffUri } from '../diff/provider';
@@ -77,6 +80,7 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
   private disposed = false;
   private openGate: Promise<void> | undefined;
   private holderWaiters: Array<(session: GraphSession | undefined) => void> = [];
+  private retentionSub: vscode.Disposable;
   private restoreTimer: ReturnType<typeof setTimeout> | undefined;
   private restoreSub: vscode.Disposable | undefined;
   private restoreDone: (() => void) | undefined;
@@ -84,7 +88,12 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
   constructor(
     private readonly ctx: vscode.ExtensionContext,
     private readonly avatars: AvatarStore,
-  ) {}
+  ) {
+    this.retentionSub = vscode.workspace.onDidChangeConfiguration((event) => {
+      if (this.disposed || !event.affectsConfiguration('git-graph-ray.startup.keepWebview')) return;
+      this.reopenForRetention();
+    });
+  }
 
   setGit(bin: string, version: string): void {
     this.gitBin = bin;
@@ -102,7 +111,35 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
 
   dispose(): void {
     this.disposed = true;
+    this.retentionSub.dispose();
     this.finishRestoreWait();
+  }
+
+  private reopenForRetention(): void {
+    const session = this.holder;
+    if (!session) return;
+    const repo = session.repoRoot;
+    const column = session.column() ?? vscode.ViewColumn.Active;
+    session.dismiss();
+    if (this.holder === session) {
+      this.sessions.delete(session);
+      this.holder = undefined;
+      this.taken = false;
+    }
+    this.taken = true;
+    try {
+      const panel = vscode.window.createWebviewPanel(
+        GraphEditorProvider.viewType,
+        graphDocumentLabel(repo),
+        { viewColumn: column, preserveFocus: true },
+        this.webviewOpts(),
+      );
+      this.mount(panel, repo, false);
+    } catch (error) {
+      if (!this.holder) this.taken = false;
+      const message = error instanceof Error ? error.message : String(error);
+      void vscode.window.showErrorMessage(message);
+    }
   }
 
   async deserializeWebviewPanel(panel: vscode.WebviewPanel, state: unknown): Promise<void> {
@@ -116,7 +153,7 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
   private webviewOpts(): vscode.WebviewOptions & vscode.WebviewPanelOptions {
     return {
       enableScripts: true,
-      retainContextWhenHidden: cfg('retainContextWhenHidden', true),
+      retainContextWhenHidden: cfg('startup.keepWebview', true),
       localResourceRoots: [vscode.Uri.joinPath(this.ctx.extensionUri, 'dist'), vscode.Uri.joinPath(this.ctx.extensionUri, 'resources')],
     };
   }
@@ -316,7 +353,7 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
     if (await this.reuseOpenPanel(focus, opts?.fetch)) return;
 
     let repo = opts?.repoPath ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
-    if (!opts?.repoPath && cfg('openToTheRepoOfTheActiveTextEditorDocument', false)) {
+    if (!opts?.repoPath && cfg('startup.repoOfActiveFile', false)) {
       const doc = vscode.window.activeTextEditor?.document.uri.fsPath;
       if (doc) {
         try {
@@ -401,12 +438,16 @@ class GraphSession {
     this.panel.webview.onDidReceiveMessage((m: ViewToHost) => void this.onMessage(m));
     this.panel.onDidDispose(() => this.dispose());
     this.configSub = vscode.workspace.onDidChangeConfiguration((event) => {
-      if (this.disposed) return;
-      const autoFetch = event.affectsConfiguration('git-graph-ray.repository.autoFetch') || event.affectsConfiguration('git-graph-ray.repository.autoFetchInterval');
-      const labels = event.affectsConfiguration('git-graph-ray.referenceLabels');
-      if (!autoFetch && !labels) return;
+      if (this.disposed || !event.affectsConfiguration('git-graph-ray')) return;
+      if (event.affectsConfiguration('git-graph-ray.startup.keepWebview')) return;
+      const affects = (key: string) => event.affectsConfiguration(key);
+      const autoFetch = affects('git-graph-ray.fetch.auto') || affects('git-graph-ray.fetch.everySeconds');
       if (autoFetch) this.armAutoFetch();
-      this.post({ type: 'patch', payload: { config: this.viewConfig() } });
+      if (graphSettingReloads(affects)) {
+        void this.reload();
+        return;
+      }
+      if (graphSettingRepaints(affects)) this.postConfig();
     });
     this.armAutoFetch();
     this.watch();
@@ -420,12 +461,39 @@ class GraphSession {
     return getViewConfig(this.gitVer, this.ctx.globalState.get(LABEL_COLOUR_STATE_KEY));
   }
 
+  private effectiveConfig() {
+    const config = this.viewConfig();
+    applyRepoVisibility(config, loadRepoSettings(this.ctx, this.repoPath));
+    return config;
+  }
+
+  private postConfig(): void {
+    this.post({
+      type: 'patch',
+      payload: {
+        config: this.effectiveConfig(),
+        menuVisibility: getMenuVisibility(),
+        emoji: getEmojiMaps(),
+        globPatterns: getGlobPatterns(),
+        customPrProviders: getCustomPrProviders(),
+      },
+    });
+  }
+
+  private async storeRepoSettings(settings: RepoSettings): Promise<void> {
+    await saveRepoSettings(this.ctx, this.repoPath, dropDefaultVisibility(settings, this.viewConfig()));
+  }
+
   owns(panel: vscode.WebviewPanel): boolean {
     return this.panel === panel;
   }
 
   isActive(): boolean {
     return this.panel.active;
+  }
+
+  column(): vscode.ViewColumn | undefined {
+    return this.panel.viewColumn;
   }
 
   dismiss(): void {
@@ -456,8 +524,8 @@ class GraphSession {
     await this.enqueue(() =>
       this.run({
         kind: 'fetchRemote',
-        prune: cfg('repository.fetchAndPrune', false),
-        pruneTags: cfg('repository.fetchAndPruneTags', false),
+        prune: cfg('fetch.prune', false),
+        pruneTags: cfg('fetch.pruneTags', false),
       }),
     );
   }
@@ -472,8 +540,8 @@ class GraphSession {
             await this.enqueue(() =>
               this.run({
                 kind: 'fetchRemote',
-                prune: cfg('repository.fetchAndPrune', false),
-                pruneTags: cfg('repository.fetchAndPruneTags', false),
+                prune: cfg('fetch.prune', false),
+                pruneTags: cfg('fetch.pruneTags', false),
               }),
             );
             return;
@@ -500,8 +568,8 @@ class GraphSession {
           await this.enqueue(() =>
             this.run({
               kind: 'fetchRemote',
-              prune: cfg('repository.fetchAndPrune', false),
-              pruneTags: cfg('repository.fetchAndPruneTags', false),
+              prune: cfg('fetch.prune', false),
+              pruneTags: cfg('fetch.pruneTags', false),
             }),
           );
           return;
@@ -525,12 +593,11 @@ class GraphSession {
           this.selected = msg.branches;
           this.showRemotes = msg.showRemotes;
           const settings = loadRepoSettings(this.ctx, this.repoPath);
-          await saveRepoSettings(this.ctx, this.repoPath, {
+          await this.storeRepoSettings({
             ...settings,
             showRemotes: msg.showRemotes,
             showSameCommitBranches: msg.showSameCommitBranches,
           });
-          await updateSetting('repository.showRemoteBranches', msg.showRemotes);
           await this.reload();
           return;
         }
@@ -540,50 +607,48 @@ class GraphSession {
         case 'setShowRemotes': {
           this.showRemotes = msg.value;
           const settings = loadRepoSettings(this.ctx, this.repoPath);
-          await saveRepoSettings(this.ctx, this.repoPath, { ...settings, showRemotes: msg.value });
-          await updateSetting('repository.showRemoteBranches', msg.value);
+          await this.storeRepoSettings({ ...settings, showRemotes: msg.value });
           await this.reload();
           return;
         }
         case 'setShowTags': {
           const settings = loadRepoSettings(this.ctx, this.repoPath);
-          await saveRepoSettings(this.ctx, this.repoPath, { ...settings, showTags: msg.value });
-          await updateSetting('repository.showTags', msg.value);
+          await this.storeRepoSettings({ ...settings, showTags: msg.value });
           await this.reload();
           return;
         }
         case 'setTheme':
           await updateSetting('graph.theme', msg.value);
-          this.post({ type: 'patch', payload: { config: this.viewConfig() } });
+          this.postConfig();
           return;
         case 'setRayCat':
           await updateSetting('rayCat.enabled', msg.enabled);
           await updateSetting('rayCat.count', Math.max(1, Math.min(10, Math.round(msg.count))));
-          this.post({ type: 'patch', payload: { config: this.viewConfig() } });
+          this.postConfig();
           return;
         case 'setFetchPrune':
-          await updateSetting('repository.fetchAndPrune', msg.prune);
-          await updateSetting('repository.fetchAndPruneTags', msg.pruneTags);
-          this.post({ type: 'patch', payload: { config: this.viewConfig() } });
+          await updateSetting('fetch.prune', msg.prune);
+          await updateSetting('fetch.pruneTags', msg.pruneTags);
+          this.postConfig();
           return;
         case 'setUndoPreview':
           await updateSetting('undo.preview', msg.value);
-          this.post({ type: 'patch', payload: { config: this.viewConfig() } });
+          this.postConfig();
           return;
         case 'openSettings':
           await vscode.commands.executeCommand('workbench.action.openSettings', 'git-graph-ray');
           return;
         case 'setLabelColours':
           await saveLabelColours(this.ctx, refColoursToSetting(parseRefColours(msg.colours)));
-          this.post({ type: 'patch', payload: { config: this.viewConfig() } });
+          this.postConfig();
           return;
         case 'setLanePriority':
           await updateSetting('graph.lanePriority', msg.priorities);
-          this.post({ type: 'patch', payload: { config: this.viewConfig() } });
+          this.postConfig();
           return;
         case 'setColumns':
-          await updateSetting('defaultColumnVisibility', msg.value);
-          this.post({ type: 'patch', payload: { config: this.viewConfig() } });
+          await updateSetting('columns', msg.value);
+          this.postConfig();
           return;
         case 'openRow':
           if (!msg.hash) {
@@ -611,7 +676,7 @@ class GraphSession {
           await this.openBlob(msg.hash, msg.path);
           return;
         case 'setFileView':
-          await updateSetting('commitDetailsView.fileView.type', msg.value);
+          await updateSetting('details.files', msg.value);
           return;
         case 'copy':
           await vscode.env.clipboard.writeText(msg.text);
@@ -629,7 +694,7 @@ class GraphSession {
           await this.enqueue(() => this.applyUndo(msg.direction, msg.steps ?? 1));
           return;
         case 'saveRepoSettings':
-          await saveRepoSettings(this.ctx, this.repoPath, msg.settings);
+          await this.storeRepoSettings(msg.settings);
           await this.reload();
           return;
         case 'addRemote':
@@ -724,8 +789,8 @@ class GraphSession {
           return;
         }
         case 'setAutoFetch':
-          await updateSetting('repository.autoFetch', msg.enabled);
-          await updateSetting('repository.autoFetchInterval', autoFetchIntervalSeconds(msg.interval));
+          await updateSetting('fetch.auto', msg.enabled);
+          await updateSetting('fetch.everySeconds', autoFetchIntervalSeconds(msg.interval));
           return;
         case 'faces':
           await this.sendFaces(msg.emails);
@@ -741,26 +806,21 @@ class GraphSession {
   }
 
   private initialBranches(): string[] | 'all' {
-    const specific = cfg<string[]>('repository.onLoad.showSpecificBranches', []);
+    const specific = cfg<string[]>('startup.branches', []);
     if (specific.length) return specific;
-    if (cfg('repository.onLoad.showCheckedOutBranch', false)) return [];
+    if (cfg('startup.onlyCheckedOut', false)) return [];
     return 'all';
   }
 
   private async snapshot(): Promise<GraphSnapshot> {
     const extra = this.ctx.workspaceState.get<string[]>('ggr.extraRepos', []);
     const hidden = this.ctx.workspaceState.get<string[]>('ggr.hiddenRepos', []);
-    const repos = await discoverRepos(this.git(), extra, hidden, cfg('maxDepthOfRepoSearch', 0));
+    const repos = await discoverRepos(this.git(), extra, hidden, cfg('startup.searchDepth', 0));
     this.sortRepos(repos);
     if (!this.repoPath || !repos.some((r) => r.path === this.repoPath)) this.repoPath = repos[0]?.path ?? this.repoPath;
-    const settings = loadRepoSettings(this.ctx, this.repoPath);
     const config = this.viewConfig();
-    if (settings.showRemotes != null) config.showRemoteBranches = settings.showRemotes;
-    if (settings.showStashes != null) config.showStashes = settings.showStashes;
-    if (settings.showTags != null) config.showTags = settings.showTags;
-    if (settings.showWorktrees != null) config.showWorktrees = settings.showWorktrees;
-    if (settings.showReflogs != null) config.includeCommitsMentionedByReflogs = settings.showReflogs;
-    if (settings.firstParent != null) config.onlyFollowFirstParent = settings.firstParent;
+    const settings = await loadCleanRepoSettings(this.ctx, this.repoPath, config);
+    applyRepoVisibility(config, settings);
     this.showRemotes = config.showRemoteBranches;
 
     const { refs, branches, head, currentBranch } = await loadRefs(this.git(), this.repoPath, config.showRemoteHeads).catch(() => ({
@@ -792,7 +852,7 @@ class GraphSession {
     this.visibleRefs = visibleRefs;
 
     this.skip = 0;
-    const page = cfg('repository.commits.initialLoad', 300);
+    const page = historyPage('history.pageSize', 300);
     const loaded = await loadCommits(this.commitLoad(page, 0)).catch(() => ({ commits: [], hasMore: false }));
     const untracked = config.showUntrackedFiles ? '-unormal' : '-uno';
     const porcelain = this.repoPath
@@ -834,22 +894,19 @@ class GraphSession {
   private commitLoad(maxCount: number, skip: number) {
     const config = this.viewConfig();
     const settings = loadRepoSettings(this.ctx, this.repoPath);
-    if (settings.showStashes != null) config.showStashes = settings.showStashes;
-    if (settings.showTags != null) config.showTags = settings.showTags;
-    if (settings.firstParent != null) config.onlyFollowFirstParent = settings.firstParent;
-    if (settings.showReflogs != null) config.includeCommitsMentionedByReflogs = settings.showReflogs;
+    applyRepoVisibility(config, settings);
     return {
       git: this.git(),
       cwd: this.repoPath,
       maxCount,
       skip,
-      order: cfg('repository.commits.order', 'date') as 'date' | 'author-date' | 'topo',
-      showRemote: this.showRemotes,
+      order: config.commitOrder,
+      showRemote: config.showRemoteBranches,
       showStashes: config.showStashes,
       showTags: config.showTags,
       firstParent: config.onlyFollowFirstParent,
       reflog: config.includeCommitsMentionedByReflogs,
-      mailmap: cfg('repository.useMailmap', false),
+      mailmap: cfg('history.mailmap', false),
       branches: this.selected === 'all' ? ('all' as const) : this.selected,
       includeTagOnly: config.showCommitsOnlyReferencedByTags,
       includeHead: this.includeHead,
@@ -876,10 +933,10 @@ class GraphSession {
   }
 
   private sortRepos(repos: GraphSnapshot['repos']): void {
-    const order = cfg<string>('repositoryDropdownOrder', 'Workspace Full Path');
+    const order = cfg<string>('startup.repoOrder', 'workspace');
     repos.sort((a, b) => {
-      if (order === 'Name') return a.name.localeCompare(b.name);
-      if (order === 'Workspace Full Path') {
+      if (order === 'name') return a.name.localeCompare(b.name);
+      if (order === 'workspace') {
         if (a.workspaceIndex !== b.workspaceIndex) return a.workspaceIndex - b.workspaceIndex;
       }
       return a.path.localeCompare(b.path);
@@ -903,7 +960,7 @@ class GraphSession {
       else await this.noteExternalCommit();
       if (this.scrollHeadOnLoad) {
         this.scrollHeadOnLoad = false;
-        if (cfg('repository.onLoad.scrollToHead', false) && payload.head) {
+        if (cfg('startup.scrollToHead', false) && payload.head) {
           this.post({ type: 'jump', selected: payload.head });
         }
       }
@@ -919,8 +976,8 @@ class GraphSession {
 
   private async loadMore(): Promise<void> {
     const gen = this.loadGen;
-    const n = cfg('repository.commits.loadMore', 100);
-    this.skip += cfg('repository.commits.initialLoad', 300);
+    const n = historyPage('history.pageMore', 100);
+    this.skip += historyPage('history.pageSize', 300);
     const skip = this.commits.filter((c) => c.hash !== UNCOMMITTED).length;
     const extra = await loadCommits(this.commitLoad(n, skip));
     if (this.disposed || gen !== this.loadGen) return;
@@ -997,7 +1054,7 @@ class GraphSession {
   }
 
   private async sendDetails(hash: string, compare?: string): Promise<void> {
-    const encoding = vscode.workspace.getConfiguration('git-graph-ray', vscode.Uri.file(this.repoPath)).get('fileEncoding', 'utf8');
+    const encoding = vscode.workspace.getConfiguration('git-graph-ray', vscode.Uri.file(this.repoPath)).get('files.encoding', 'utf8');
     const details = await loadDetails(this.git(), this.repoPath, hash, compare, encoding);
     this.post({ type: 'info', payload: details });
   }
@@ -1058,9 +1115,9 @@ class GraphSession {
         return;
       }
       const result = await runGitAction(this.git(), this.repoPath, action, {
-        signCommits: cfg('repository.sign.commits', false),
-        signTags: cfg('repository.sign.tags', false),
-        shellPath: cfg('integratedTerminalShell', '') || undefined,
+        signCommits: cfg('sign.commits', false),
+        signTags: cfg('sign.tags', false),
+        shellPath: cfg('terminal.shell', '') || undefined,
       });
       if (result) report = result;
       this.forgetRemoteTags(action);
@@ -1257,9 +1314,9 @@ class GraphSession {
       checkpoint,
       loaded.refs.filter((ref) => ref.kind === 'remote'),
       {
-        maxCount: cfg('repository.commits.initialLoad', 300),
+        maxCount: historyPage('history.pageSize', 300),
         order: config.commitOrder,
-        mailmap: cfg('repository.useMailmap', false),
+        mailmap: cfg('history.mailmap', false),
         firstParent: false,
       },
     );
@@ -1323,7 +1380,7 @@ class GraphSession {
   }
 
   private async sendFaces(emails: string[]): Promise<void> {
-    if (!cfg('repository.commits.fetchAvatars', false)) return;
+    if (!cfg('history.avatars', false)) return;
     for (const email of emails) {
       const uri = await this.avatars.resolve(this.git(), this.repoPath, email);
       if (uri) this.post({ type: 'face', email, dataUri: uri });
@@ -1365,7 +1422,7 @@ class GraphSession {
   private armAutoFetch(): void {
     clearInterval(this.autoFetchTimer);
     this.autoFetchTimer = undefined;
-    if (this.disposed || !cfg('repository.autoFetch', false)) return;
+    if (this.disposed || !cfg('fetch.auto', false)) return;
     const seconds = autoFetchIntervalSeconds();
     this.autoFetchTimer = setInterval(() => {
       if (this.disposed || this.acting) return;
@@ -1373,8 +1430,8 @@ class GraphSession {
         this.run(
           {
             kind: 'fetchRemote',
-            prune: cfg('repository.fetchAndPrune', false),
-            pruneTags: cfg('repository.fetchAndPruneTags', false),
+            prune: cfg('fetch.prune', false),
+            pruneTags: cfg('fetch.pruneTags', false),
           },
           { quiet: true },
         ),
@@ -1393,7 +1450,7 @@ export function prUrl(
 }
 
 function remoteTagCacheMs(): number {
-  const seconds = cfg<number>('repository.remoteTags.cacheSeconds', 300);
+  const seconds = cfg<number>('fetch.tagCacheSeconds', 300);
   if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) return 0;
   return seconds * 1000;
 }

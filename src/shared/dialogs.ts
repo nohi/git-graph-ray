@@ -28,9 +28,9 @@ export function defaultRepoSettings(): RepoSettings {
   return { hideRemotes: [], issueLinking: null, pullRequest: null };
 }
 
-export function applySpaceSubstitution(value: string, mode: 'None' | 'Hyphen' | 'Underscore'): string {
-  if (mode === 'Hyphen') return value.replaceAll(' ', '-');
-  if (mode === 'Underscore') return value.replaceAll(' ', '_');
+export function applySpaceSubstitution(value: string, mode: 'keep' | 'hyphen' | 'underscore'): string {
+  if (mode === 'hyphen') return value.replaceAll(' ', '-');
+  if (mode === 'underscore') return value.replaceAll(' ', '_');
   return value;
 }
 
@@ -44,22 +44,20 @@ export function defaultDialogs() {
     createBranchCheckOut: false,
     deleteBranchForce: false,
     fetchIntoLocalForce: false,
-    fetchRemotePrune: false,
-    fetchRemotePruneTags: false,
-    spaceSubstitution: 'None' as const,
+    spaceSubstitution: 'keep' as const,
     mergeNoCommit: false,
     mergeNoFastForward: true,
     mergeSquash: false,
-    mergeSquashMessageFormat: 'Default' as const,
+    mergeSquashMessageFormat: 'subject' as const,
     popStashReinstateIndex: false,
     pullNoFastForward: false,
     pullRebase: false,
     pullSquash: false,
-    pullSquashMessageFormat: 'Default' as const,
+    pullSquashMessageFormat: 'subject' as const,
     rebaseIgnoreDate: false,
     rebaseInteractive: false,
-    resetBranchMode: 'Mixed' as const,
-    resetUncommittedMode: 'Mixed' as const,
+    resetBranchMode: 'mixed' as const,
+    resetUncommittedMode: 'mixed' as const,
     stashIncludeUntracked: true,
   };
 }

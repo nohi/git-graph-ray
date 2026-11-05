@@ -77,13 +77,13 @@ describe('undoPolicy', () => {
   it('records local history and warns when a remote was also touched', () => {
     expect(undoPolicy({ kind: 'reset', hash: A, mode: 'hard' })).toEqual({ record: true, warning: null });
     expect(undoPolicy({ kind: 'rebase', ref: 'main', ignoreDate: false, interactive: false }).record).toBe(true);
-    expect(undoPolicy({ kind: 'pullBranch', remote: 'origin', branch: 'main', rebase: false, noFastForward: false, squash: false, squashMessageFormat: 'Default' }).warning).toMatch(/remote-tracking/);
+    expect(undoPolicy({ kind: 'pullBranch', remote: 'origin', branch: 'main', rebase: false, noFastForward: false, squash: false, squashMessageFormat: 'subject' }).warning).toMatch(/remote-tracking/);
     expect(undoPolicy({ kind: 'fetchIntoLocal', local: 'main', remoteRef: 'origin/main', force: false }).warning).toMatch(/local branch/);
     expect(
       undoPolicy({
         kind: 'checkoutBranch',
         name: 'main',
-        pullAfterwards: { remote: 'origin', branch: 'main', rebase: false, noFastForward: false, squash: false, squashMessageFormat: 'Default' },
+        pullAfterwards: { remote: 'origin', branch: 'main', rebase: false, noFastForward: false, squash: false, squashMessageFormat: 'subject' },
       }).warning,
     ).toMatch(/pulled/);
     expect(undoPolicy({ kind: 'deleteBranch', name: 'feature', force: false, deleteOnRemote: 'origin' }).warning).toMatch(/remote branch/);
@@ -97,8 +97,8 @@ describe('undoPolicy', () => {
 
 describe('undoLabel', () => {
   it('names the local operation', () => {
-    expect(undoLabel({ kind: 'merge', ref: 'feature', noCommit: false, noFastForward: false, squash: false, squashMessageFormat: 'Default' })).toBe('Merge feature');
-    expect(undoLabel({ kind: 'merge', ref: 'refs/remotes/origin/feature', noCommit: false, noFastForward: false, squash: false, squashMessageFormat: 'Default' })).toBe('Merge origin/feature');
+    expect(undoLabel({ kind: 'merge', ref: 'feature', noCommit: false, noFastForward: false, squash: false, squashMessageFormat: 'subject' })).toBe('Merge feature');
+    expect(undoLabel({ kind: 'merge', ref: 'refs/remotes/origin/feature', noCommit: false, noFastForward: false, squash: false, squashMessageFormat: 'subject' })).toBe('Merge origin/feature');
     expect(
       undoLabel({ kind: 'rebaseBranches', onto: 'main', branches: ['a', 'b'], ignoreDate: false, checkout: 'restore', onFailure: 'skip' }),
     ).toBe('Rebase 2 branches onto main');

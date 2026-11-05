@@ -31,7 +31,7 @@ export async function loadCommits(options: {
   cwd: string;
   maxCount: number;
   skip: number;
-  order: 'date' | 'author-date' | 'topo';
+  order: 'date' | 'author' | 'topo';
   showRemote: boolean;
   showStashes: boolean;
   showTags: boolean;
@@ -154,7 +154,7 @@ export async function loadCommitsFromTips(options: {
   cwd: string;
   tips: string[];
   maxCount: number;
-  order: 'date' | 'author-date' | 'topo';
+  order: 'date' | 'author' | 'topo';
   mailmap: boolean;
   firstParent: boolean;
   refs: GraphRef[];
@@ -167,7 +167,7 @@ export async function loadCommitsFromTips(options: {
     `--format=${LOG_FORMAT}`,
     '--no-show-signature',
   ];
-  if (options.order === 'author-date') args.push('--author-date-order');
+  if (options.order === 'author') args.push('--author-date-order');
   else if (options.order === 'topo') args.push('--topo-order');
   else args.push('--date-order');
   if (options.firstParent) args.push('--first-parent');

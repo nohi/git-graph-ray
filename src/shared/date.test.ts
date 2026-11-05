@@ -3,8 +3,8 @@ import { firstCommitIndexForDate, formatDate } from './date';
 
 describe('formatDate', () => {
   it('formats iso date', () => {
-    expect(formatDate(0, 'ISO Date Only')).toBe('');
-    expect(formatDate(1700000000, 'ISO Date Only')).toBe('2023-11-14');
+    expect(formatDate(0, 'isoDate')).toBe('');
+    expect(formatDate(1700000000, 'isoDate')).toBe('2023-11-14');
   });
 });
 

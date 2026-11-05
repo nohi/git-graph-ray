@@ -73,13 +73,13 @@ describe('refDisplayName', () => {
 
 describe('remoteChipText', () => {
   it('replaces remotes/ with a slash the cloud sits in front of', () => {
-    expect(remoteChipText('origin/main', 'Icon')).toBe('/origin/main');
-    expect(remoteChipText('remotes/origin/main', 'Icon')).toBe('/origin/main');
+    expect(remoteChipText('origin/main', 'icon')).toBe('/origin/main');
+    expect(remoteChipText('remotes/origin/main', 'icon')).toBe('/origin/main');
   });
 
   it('keeps the remotes/ word when the prefix is text', () => {
-    expect(remoteChipText('origin/main', 'Text')).toBe('remotes/origin/main');
-    expect(remoteChipText('remotes/origin/main', 'Text')).toBe('remotes/origin/main');
+    expect(remoteChipText('origin/main', 'text')).toBe('remotes/origin/main');
+    expect(remoteChipText('remotes/origin/main', 'text')).toBe('remotes/origin/main');
   });
 });
 

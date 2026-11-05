@@ -1,6 +1,6 @@
 import { firstCommitIndexForDate, formatDate, localDayBounds } from '../shared/date';
 import { applyEmoji, fillPrUrl, formatCommitMessageHtml } from '../shared/issueLinks';
-import { ancestorHashes, branchHistoryHashes, colourForLane, DETAILS_MAX, DETAILS_MIN, edgeCurveAt, edgePath, estimateDetailsHeight, gitAtLeast, graphWidth, laneX, rayStreamGradient, RAY_STREAM_PERIOD, ROW, rowTop, rowY, scrollNeededToRevealDetails, shortcutMatches, visibleRowRange } from '../shared/graph';
+import { ancestorHashes, branchHistoryHashes, colourForLane, DETAILS_MAX, DETAILS_MIN, edgeCurveAt, edgePath, estimateDetailsHeight, gitAtLeast, graphWidth, laneX, rayStreamGradient, RAY_STREAM_PERIOD, ROW, rowTop, rowY, scrollNeededToRevealDetails, shortcutLabel, shortcutMatches, visibleRowRange } from '../shared/graph';
 import {
   commitHidden,
   copyDateFilter,
@@ -271,10 +271,22 @@ function sendReady(): void {
   post({ type: 'ready' });
 }
 
+let pendingPatch: Partial<GraphSnapshot> | null = null;
+
 window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
   if (document.body.dataset.page === 'contributors') return;
   const m = ev.data;
+  if (m.type === 'patch' && !snap) {
+    const { loading: _loading, ...rest } = m.payload;
+    if (Object.keys(rest).length) pendingPatch = { ...(pendingPatch ?? {}), ...rest };
+    return;
+  }
   if (m.type === 'snapshot') {
+    if (pendingPatch) {
+      const extra = pendingPatch;
+      pendingPatch = null;
+      m.payload = { ...m.payload, ...extra, config: extra.config ?? m.payload.config };
+    }
     setGitBusy(false);
     if (snap && m.payload.repoPath !== snap.repoPath) {
       dateFilter = emptyDateFilter();
@@ -838,7 +850,7 @@ function scheduleFitDetails(): void {
 }
 
 function ensureDetailsVisible(): void {
-  if (!snap || !details || snap.config.detailsLocation === 'Docked to Bottom') return;
+  if (!snap || !details || snap.config.detailsLocation === 'bottom') return;
   const anchor = detailsAnchor();
   if (!anchor) return;
   const idx = displayIndexForHash(anchor);
@@ -907,7 +919,7 @@ function displayIndexForHash(hash: string): number {
 }
 
 function detailsGap(rows: number[]): { after: number; height: number } | null {
-  if (!snap || !details || snap.config.detailsLocation !== 'Inline') return null;
+  if (!snap || !details || snap.config.detailsLocation !== 'inline') return null;
   const anchor = detailsAnchor();
   if (!anchor) return null;
   const commitIndex = snap.commits.findIndex((commit) => commit.hash === anchor);
@@ -1078,8 +1090,8 @@ function paintGraph(
     const commit = snap.commits[commitIndex];
     const colour = colourForLane(vertex.lane, snap.config.graphColours, snap.config.theme);
     const open =
-      (commit?.hash === UNCOMMITTED && snap.config.uncommittedChanges.startsWith('Open Circle at the Uncommitted')) ||
-      (commit?.hash === snap.head && (snap.config.uncommittedChanges.includes('Checked Out') || !snap.currentBranch));
+      (commit?.hash === UNCOMMITTED && snap.config.uncommittedChanges !== 'head') ||
+      (commit?.hash === snap.head && (snap.config.uncommittedChanges === 'head' || !snap.currentBranch));
     const isHead = commit?.hash === snap.head && commit.hash !== UNCOMMITTED;
     const onHistory = !history || (!!commit && history.has(commit.hash));
     const node: DrawnNode = {
@@ -1291,7 +1303,7 @@ function chips(c: GraphCommit): string {
     const k = g.kind === 'bundle' ? g.local.kind : g.ref.kind;
     return k === 'head' || k === 'remote' || k === 'stash' || k === 'worktree';
   });
-  if (align.includes('Tags (on the right)')) return `<span class="refs">${left.map(html).join('')}</span>`;
+  if (align === 'split') return `<span class="refs">${left.map(html).join('')}</span>`;
   return `<span class="refs">${groups.map(html).join('')}</span>`;
 }
 
@@ -1323,7 +1335,7 @@ function renderDetails(): void {
   if (!snap) return;
   const key = detailsContentKey();
   const rebuild = key !== detailsKey;
-  if (snap.config.detailsLocation === 'Docked to Bottom') {
+  if (snap.config.detailsLocation === 'bottom') {
     inline.hidden = true;
     if (rebuild) inline.innerHTML = '';
     dock.hidden = !details;
@@ -1366,7 +1378,7 @@ function detailsHtml(d: CommitDetails): string {
   if (!snap) return '';
   const issue = snap.repoSettings.issueLinking;
   const body = formatCommitMessageHtml(applyEmoji(commitMessageText(d), emojiMaps()), snap.config.markdown, issue);
-  const tree = snap.config.fileViewType !== 'File List';
+  const tree = snap.config.fileViewType !== 'list';
   const rows = detailsMetaRows(d, {
     author: formatDate(d.authorDate, snap.config.dateFormat),
     committer: formatDate(d.committerDate, snap.config.dateFormat),
@@ -1378,8 +1390,8 @@ function detailsHtml(d: CommitDetails): string {
   </div><div class="sash" id="sash-x"></div><div class="files-pane">
     <div class="files-toolbar">
       ${modes}${gap}
-      <button type="button" class="fv-btn" data-fv="File Tree" aria-pressed="${tree}">Tree</button>
-      <button type="button" class="fv-btn" data-fv="File List" aria-pressed="${!tree}">List</button>
+      <button type="button" class="fv-btn" data-fv="tree" aria-pressed="${tree}">Tree</button>
+      <button type="button" class="fv-btn" data-fv="list" aria-pressed="${!tree}">List</button>
     </div>
     <div class="files">${filesPaneHtml(d)}</div>
   </div>`;
@@ -1417,7 +1429,7 @@ function compareModeButtons(d: CommitDetails): string {
 
 function filesPaneHtml(d: CommitDetails): string {
   if (!snap) return '';
-  const tree = snap.config.fileViewType !== 'File List';
+  const tree = snap.config.fileViewType !== 'list';
   if (d.compare && activeCompareView(d) === 'diverge' && d.compareSplit) return divergeFilesHtml(d, tree);
   const body = tree ? treeHtml(buildFileTree(d.files, snap.config.compactFolders)) : fileListHtml(d.files);
   if (d.compare && !d.compareSplit && d.compareNote) return `<p class="cmp-note">${esc(d.compareNote)}</p>${body}`;
@@ -1558,7 +1570,7 @@ function toggleSignaturePane(): void {
 }
 
 function signatureRows(sig: CommitDetails['signature']): SignatureInfoRow[] {
-  const format = snap?.config.dateFormat ?? 'ISO Date & Time';
+  const format = snap?.config.dateFormat ?? 'iso';
   return signatureInfoRows(sig, (unix) => formatDate(unix, format));
 }
 
@@ -1735,10 +1747,10 @@ function paintDetails(): void {
 
 function refreshFileView(): void {
   if (!snap || !details) return;
-  const tree = snap.config.fileViewType !== 'File List';
+  const tree = snap.config.fileViewType !== 'list';
   for (const btn of document.querySelectorAll<HTMLElement>('.fv-btn')) {
     if (!btn.dataset.fv) continue;
-    btn.setAttribute('aria-pressed', String(btn.dataset.fv === (tree ? 'File Tree' : 'File List')));
+    btn.setAttribute('aria-pressed', String(btn.dataset.fv === (tree ? 'tree' : 'list')));
   }
   const files = document.querySelector('.files');
   if (files) files.innerHTML = filesPaneHtml(details);
@@ -2083,20 +2095,20 @@ function undoGraph(commits: GraphCommit[], head: string | null): { svg: string; 
 
 function fillHelp(): void {
   const k = snap?.config.keyboard ?? {
-    find: 'CTRL/CMD + F',
-    refresh: 'CTRL/CMD + R',
-    scrollToHead: 'CTRL/CMD + H',
-    scrollToStash: 'CTRL/CMD + S',
+    find: 'mod+f',
+    refresh: 'mod+r',
+    scrollToHead: 'mod+h',
+    scrollToStash: 'mod+s',
   };
   const rows: Array<[string, string]> = [
-    ['Undo', 'CTRL/CMD + Z'],
-    ['Redo', 'CTRL/CMD + Shift + Z'],
-    ['Find', k.find],
+    ['Undo', 'Ctrl/Cmd+Z'],
+    ['Redo', 'Ctrl/Cmd+Shift+Z'],
+    ['Find', shortcutLabel(k.find)],
     ['Find next', 'F3'],
     ['Find previous', 'Shift+F3'],
-    ['Refresh', k.refresh],
-    ['Jump to HEAD', k.scrollToHead],
-    ['Jump to stash', k.scrollToStash],
+    ['Refresh', shortcutLabel(k.refresh)],
+    ['Jump to HEAD', shortcutLabel(k.scrollToHead)],
+    ['Jump to stash', shortcutLabel(k.scrollToStash)],
   ];
   $('help-keys').innerHTML = rows.map(([l, v]) => `<dt>${esc(l)}</dt><dd><kbd>${esc(v)}</kbd></dd>`).join('');
 }
@@ -2477,9 +2489,9 @@ function refRowColourAttrs(ref: { kind: string; name: string; remote?: string })
 
 function chipFace(r: GraphRef, short: boolean, iconOnly: boolean): { extra: string; icon: string; label: string; title: string } {
   const remoteShort = short && r.kind === 'remote';
-  const remoteIcon = !remoteShort && r.kind === 'remote' && snap!.config.remoteBranchPrefix !== 'Text';
+  const remoteIcon = !remoteShort && r.kind === 'remote' && snap!.config.remoteBranchPrefix !== 'text';
   const icon = remoteShort || remoteIcon ? REMOTE_CHIP_ICON : chipIcon(r.kind);
-  const label = remoteShort ? remoteShortName(r) : remoteIcon ? remoteChipText(r.name, 'Icon') : refDisplayName(r);
+  const label = remoteShort ? remoteShortName(r) : remoteIcon ? remoteChipText(r.name, 'icon') : refDisplayName(r);
   const extra = `${remoteShort ? ' short' : ''}${remoteIcon ? ' prefix' : ''}${iconOnly ? ' icon-only' : ''}`;
   const title = iconOnly
     ? ` title="${esc(label)}" aria-label="${esc(`${label}, show remotes`)}"`
@@ -2591,7 +2603,7 @@ function tagMarkName(): string {
   if (!tagMark) return '';
   if (tagMark.name != null) return tagMark.name;
   const raw = (document.getElementById('tn') as HTMLInputElement | null)?.value ?? '';
-  return applySpaceSubstitution(raw, snap?.config.dialogs.spaceSubstitution ?? 'None');
+  return applySpaceSubstitution(raw, snap?.config.dialogs.spaceSubstitution ?? 'keep');
 }
 
 function paintRemoteTagError(errors: readonly RemoteTagError[]): void {
@@ -3033,7 +3045,7 @@ function chooseCompare(index: number): void {
 }
 
 function sub(mode: string): string {
-  return applySpaceSubstitution(($('git-body').querySelector('input,textarea') as HTMLInputElement | null)?.value ?? '', mode as 'None');
+  return applySpaceSubstitution(($('git-body').querySelector('input,textarea') as HTMLInputElement | null)?.value ?? '', mode as 'keep');
 }
 
 function postDiff(file: { path: string; oldPath?: string; rev?: string }): void {
@@ -3135,7 +3147,7 @@ function onDetailsClick(ev: MouseEvent): boolean {
   }
   const fv = t.closest<HTMLElement>('[data-fv]');
   if (fv && snap && details) {
-    const value = fv.dataset.fv as 'File Tree' | 'File List';
+    const value = fv.dataset.fv as 'tree' | 'list';
     snap.config.fileViewType = value;
     post({ type: 'setFileView', value });
     refreshFileView();
@@ -4464,7 +4476,7 @@ function onMenu(ev: Event): void {
     }
     if (id === 'u-st') act({ kind: 'stash', includeUntracked: d.stashIncludeUntracked });
     if (id === 'u-patch') void saveWorktreePatch();
-    if (id === 'u-rs') act({ kind: 'reset', hash: 'HEAD', mode: d.resetUncommittedMode.toLowerCase() as 'mixed' | 'hard' });
+    if (id === 'u-rs') act({ kind: 'reset', hash: 'HEAD', mode: d.resetUncommittedMode });
     if (id === 'u-cl') {
       const p = clickPoint(ev);
       showConfirmTip('Delete untracked files?', () => act({ kind: 'cleanUntracked', directories: true }), p.x, p.y);
@@ -4515,7 +4527,7 @@ function onMenu(ev: Event): void {
       gitDialog('Merge', mergeBody(c.hash.slice(0, 7)), () => act({ kind: 'merge', ref: c.hash, noCommit: val('nc'), noFastForward: val('nff'), squash: val('sq'), squashMessageFormat: d.mergeSquashMessageFormat }), p);
     }
     if (id === 'c-rb') gitDialog('Rebase', rebaseBody(c.hash.slice(0, 7)), () => act({ kind: 'rebase', ref: c.hash, ignoreDate: (document.getElementById('id') as HTMLInputElement).checked, interactive: false }), clickPoint(ev));
-    if (id === 'c-rs') gitDialog('Reset', 'Reset current branch?', () => act({ kind: 'reset', hash: c.hash, mode: d.resetBranchMode.toLowerCase() as 'soft' | 'mixed' | 'hard' }), clickPoint(ev));
+    if (id === 'c-rs') gitDialog('Reset', 'Reset current branch?', () => act({ kind: 'reset', hash: c.hash, mode: d.resetBranchMode }), clickPoint(ev));
     if (id === 'c-wt') {
       const main = snap.mainWorktreePath || snap.repoPath;
       const rid = 'p' + Date.now();

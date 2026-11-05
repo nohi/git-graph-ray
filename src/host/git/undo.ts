@@ -44,7 +44,7 @@ export async function loadCheckpointCommits(
   cwd: string,
   checkpoint: LocalCheckpoint,
   remoteRefs: GraphRef[],
-  options: { maxCount: number; order: 'date' | 'author-date' | 'topo'; mailmap: boolean; firstParent: boolean },
+  options: { maxCount: number; order: 'date' | 'author' | 'topo'; mailmap: boolean; firstParent: boolean },
 ): Promise<GraphCommit[]> {
   const refs = checkpointRefs(checkpoint, remoteRefs);
   return loadCommitsFromTips({

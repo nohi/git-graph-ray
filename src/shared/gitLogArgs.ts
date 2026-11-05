@@ -9,12 +9,12 @@ export type LogRevisionOptions = {
   /** Limit `git log` to this path. `follow` tracks renames of a single file. */
   path?: string;
   follow?: boolean;
-  order?: 'date' | 'author-date' | 'topo';
+  order?: 'date' | 'author' | 'topo';
 };
 
 export function logRevisionArgs(options: LogRevisionOptions): string[] {
   const args: string[] = [];
-  if (options.order === 'author-date') args.push('--author-date-order');
+  if (options.order === 'author') args.push('--author-date-order');
   else if (options.order === 'topo') args.push('--topo-order');
   else if (options.order === 'date') args.push('--date-order');
   if (options.branches === 'all') {

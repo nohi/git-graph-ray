@@ -259,7 +259,7 @@ async function continueOperation(git: string, cwd: string, operation: 'merge' | 
 async function pull(
   git: string,
   cwd: string,
-  action: { remote: string; branch: string; rebase: boolean; noFastForward: boolean; squash: boolean; squashMessageFormat: 'Default' | 'Git SQUASH_MSG' },
+  action: { remote: string; branch: string; rebase: boolean; noFastForward: boolean; squash: boolean; squashMessageFormat: 'subject' | 'file' },
   sign: boolean,
 ): Promise<void> {
   await gitOk(git, cwd, pullArgs(action));
@@ -269,8 +269,8 @@ async function pull(
   }
 }
 
-async function squashMessage(git: string, cwd: string, format: 'Default' | 'Git SQUASH_MSG'): Promise<string> {
-  if (format === 'Git SQUASH_MSG') {
+async function squashMessage(git: string, cwd: string, format: 'subject' | 'file'): Promise<string> {
+  if (format === 'file') {
     try {
       return await gitOk(git, cwd, ['rev-parse', '--git-path', 'SQUASH_MSG']).then(async (p) => {
         const fs = await import('node:fs/promises');

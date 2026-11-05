@@ -17,10 +17,24 @@ export class ContributorsPanel implements vscode.WebviewPanelSerializer {
   private period: ActivityPeriod = { kind: 'all' };
   private loadGen = 0;
 
+  private retentionSub: vscode.Disposable;
+
   constructor(
     private readonly ctx: vscode.ExtensionContext,
     private readonly git: () => string,
-  ) {}
+  ) {
+    this.retentionSub = vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration('git-graph-ray.startup.keepWebview')) {
+        this.reopenForRetention();
+        return;
+      }
+      if (event.affectsConfiguration('git-graph-ray.history.mailmap')) void this.load();
+    });
+  }
+
+  dispose(): void {
+    this.retentionSub.dispose();
+  }
 
   async deserializeWebviewPanel(panel: vscode.WebviewPanel, state: unknown): Promise<void> {
     const fromState =
@@ -48,12 +62,36 @@ export class ContributorsPanel implements vscode.WebviewPanelSerializer {
       await this.load();
       return;
     }
-    const panel = vscode.window.createWebviewPanel(ContributorsPanel.viewType, 'Contributors', viewColumn(), {
-      enableScripts: true,
-      retainContextWhenHidden: cfg('retainContextWhenHidden', true),
-      localResourceRoots: [vscode.Uri.joinPath(this.ctx.extensionUri, 'dist'), vscode.Uri.joinPath(this.ctx.extensionUri, 'resources')],
-    });
+    const panel = vscode.window.createWebviewPanel(ContributorsPanel.viewType, 'Contributors', viewColumn(), this.panelOptions());
     this.bind(panel, repo);
+  }
+
+  private panelOptions(): vscode.WebviewOptions & vscode.WebviewPanelOptions {
+    return {
+      enableScripts: true,
+      retainContextWhenHidden: cfg('startup.keepWebview', true),
+      localResourceRoots: [vscode.Uri.joinPath(this.ctx.extensionUri, 'dist'), vscode.Uri.joinPath(this.ctx.extensionUri, 'resources')],
+    };
+  }
+
+  private reopenForRetention(): void {
+    const current = this.panel;
+    const repo = this.repoPath;
+    if (!current || !repo) return;
+    const column = current.viewColumn ?? viewColumn();
+    current.dispose();
+    try {
+      const panel = vscode.window.createWebviewPanel(
+        ContributorsPanel.viewType,
+        'Contributors',
+        { viewColumn: column, preserveFocus: true },
+        this.panelOptions(),
+      );
+      this.bind(panel, repo);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      void vscode.window.showErrorMessage(message);
+    }
   }
 
   private bind(panel: vscode.WebviewPanel, repo: string): void {
@@ -93,7 +131,7 @@ export class ContributorsPanel implements vscode.WebviewPanelSerializer {
     const gen = ++this.loadGen;
     this.post({ type: 'busy', on: true, repoPath: repo, repoName: path.basename(repo) });
     try {
-      const stats = await loadContributors(this.git(), repo, cfg('repository.useMailmap', false), activityRange(this.period));
+      const stats = await loadContributors(this.git(), repo, cfg('history.mailmap', false), activityRange(this.period));
       if (gen !== this.loadGen || this.panel !== panel || this.repoPath !== repo) return;
       this.post({
         type: 'report',
@@ -112,7 +150,7 @@ export class ContributorsPanel implements vscode.WebviewPanelSerializer {
 
 async function resolveOpenRepo(git: string): Promise<string> {
   let repo = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
-  if (cfg('openToTheRepoOfTheActiveTextEditorDocument', false)) {
+  if (cfg('startup.repoOfActiveFile', false)) {
     const doc = vscode.window.activeTextEditor?.document.uri.fsPath;
     if (doc) {
       try {

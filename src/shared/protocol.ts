@@ -108,7 +108,7 @@ export type ViewToHost =
   | { type: 'openWorkFile'; path: string }
   | { type: 'openFolder'; path: string }
   | { type: 'showBlob'; hash: string; path: string }
-  | { type: 'setFileView'; value: 'File Tree' | 'File List' }
+  | { type: 'setFileView'; value: 'tree' | 'list' }
   | { type: 'copy'; text: string }
   | { type: 'git'; action: GitAction }
   | { type: 'undo'; steps?: number }
@@ -130,7 +130,7 @@ export type ViewToHost =
   | { type: 'faces'; emails: string[] }
   | { type: 'openContributors' };
 
-export type SquashMessageFormat = 'Default' | 'Git SQUASH_MSG';
+export type SquashMessageFormat = 'subject' | 'file';
 
 export type PushMode = 'normal' | 'force-with-lease' | 'force';
 

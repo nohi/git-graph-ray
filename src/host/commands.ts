@@ -29,7 +29,7 @@ export function registerCommands(
     vscode.commands.registerCommand('git-graph-ray.removeGitRepository', async () => {
       const extra = ctx.workspaceState.get<string[]>('ggr.extraRepos', []);
       const hidden = ctx.workspaceState.get<string[]>('ggr.hiddenRepos', []);
-      const repos = await discoverRepos(git(), extra, hidden, cfg('maxDepthOfRepoSearch', 0));
+      const repos = await discoverRepos(git(), extra, hidden, cfg('startup.searchDepth', 0));
       const item = await vscode.window.showQuickPick(
         repos.map((r) => ({ label: r.name, description: r.path, path: r.path })),
       );

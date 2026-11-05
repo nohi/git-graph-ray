@@ -1,7 +1,7 @@
 import { escapeAttr } from './issueLinks';
 import { remoteBranchName } from './refsList';
 
-/** One `referenceLabels.colours` entry. Patterns are globs, in settings order. */
+/** One `labels.colors` entry. Patterns are globs, in settings order. */
 export type RefColourRule = {
   pattern: string;
   colour: string;

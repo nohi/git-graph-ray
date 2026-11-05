@@ -11,24 +11,24 @@ export const DETAILS_MAX = 300;
 export function defaultViewConfig(): ViewConfig {
   return {
     graphColours: [
-      '#0085d9',
-      '#d9008f',
-      '#00d90a',
-      '#d98500',
-      '#a300d9',
-      '#ff0000',
-      '#00d9cc',
-      '#e138e8',
-      '#85d900',
-      '#dc5b23',
-      '#6f24d6',
-      '#ffcc00',
+      '#3b6cff',
+      '#e23b8c',
+      '#12a36a',
+      '#e07a12',
+      '#7a45d6',
+      '#d23b3b',
+      '#128f9a',
+      '#c44ad4',
+      '#8aaa14',
+      '#b56432',
+      '#3a4ad0',
+      '#d4a012',
     ],
     graphStyle: 'rounded',
     lanePriority: [],
-    uncommittedChanges: 'Open Circle at the Uncommitted Changes',
+    uncommittedChanges: 'changes',
     theme: 'classic',
-    dateFormat: 'Date & Time',
+    dateFormat: 'datetime',
     columnVisibility: {
       Author: true,
       AuthorDate: true,
@@ -50,15 +50,13 @@ export function defaultViewConfig(): ViewConfig {
     showUntrackedFiles: true,
     showCommitsOnlyReferencedByTags: true,
     combineLocalAndRemote: true,
-    referenceLabelAlignment: 'Normal',
-    remoteBranchPrefix: 'Icon',
+    referenceLabelAlignment: 'together',
+    remoteBranchPrefix: 'icon',
     referenceLabelColours: [],
     markdown: true,
-    enhancedAccessibility: false,
-    autoCenter: false,
     detailsMaxHeight: 300,
-    detailsLocation: 'Inline',
-    fileViewType: 'File Tree',
+    detailsLocation: 'inline',
+    fileViewType: 'tree',
     compactFolders: true,
     fetchAvatars: false,
     loadMoreAutomatically: true,
@@ -68,10 +66,10 @@ export function defaultViewConfig(): ViewConfig {
     refsListLimit: 200,
     dialogs: defaultDialogs(),
     keyboard: {
-      find: 'CTRL/CMD + F',
-      refresh: 'CTRL/CMD + R',
-      scrollToHead: 'CTRL/CMD + H',
-      scrollToStash: 'CTRL/CMD + S',
+      find: 'mod+f',
+      refresh: 'mod+r',
+      scrollToHead: 'mod+h',
+      scrollToStash: 'mod+s',
     },
     gitVersion: '',
     gitMajorMinor: [0, 0],
@@ -88,7 +86,7 @@ export function defaultViewConfig(): ViewConfig {
 export function colourForLane(lane: number, colours: string[], theme: ViewConfig['theme']): string {
   if (theme === 'Ray Stream') return 'url(#ray-stream)';
   const palette = theme === 'classic' ? colours : RAY_COLOURS;
-  if (palette.length === 0) return '#0085d9';
+  if (palette.length === 0) return '#3b6cff';
   return palette[((lane % palette.length) + palette.length) % palette.length] ?? palette[0]!;
 }
 
@@ -276,11 +274,15 @@ export function branchHistoryHashes(
 }
 
 export function shortcutMatches(setting: string, event: { key: string; ctrlKey: boolean; metaKey: boolean }): boolean {
-  if (setting === 'UNASSIGNED') return false;
-  const m = setting.match(/^CTRL\/CMD \+ ([A-Z])$/);
+  const m = setting.match(/^mod\+([a-z])$/);
   if (!m) return false;
-  const want = m[1]!.toLowerCase();
-  return (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === want;
+  return (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === m[1];
+}
+
+/** Help text for a `keys.*` value. Empty and anything else stay blank. */
+export function shortcutLabel(setting: string): string {
+  const m = setting.match(/^mod\+([a-z])$/);
+  return m ? `Ctrl/Cmd+${m[1]!.toUpperCase()}` : '';
 }
 
 export function gitAtLeast(version: [number, number], major: number, minor: number): boolean {

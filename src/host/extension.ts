@@ -31,7 +31,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       'git-graph-ray-file',
       new DiffFiles(
         () => git,
-        (uri) => vscode.workspace.getConfiguration('git-graph-ray', uri).get('fileEncoding', 'utf8'),
+        (uri) => vscode.workspace.getConfiguration('git-graph-ray', uri).get('files.encoding', 'utf8'),
       ),
     ),
     vscode.window.registerWebviewPanelSerializer(GraphEditorProvider.viewType, provider),
@@ -40,7 +40,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   registerCommands(context, () => git, provider, avatars, contributors);
   createStatusBar(context);
-  context.subscriptions.push({ dispose: () => provider.dispose() });
+  context.subscriptions.push({ dispose: () => provider.dispose() }, { dispose: () => contributors.dispose() });
   void provider.restorePins();
 }
 

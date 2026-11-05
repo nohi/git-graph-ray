@@ -3,11 +3,11 @@ import type { DateFormat } from './types';
 export function formatDate(unix: number, format: DateFormat, now = Date.now()): string {
   if (!unix) return '';
   const d = new Date(unix * 1000);
-  if (format === 'Relative') return relative(unix, now);
-  if (format === 'ISO Date Only') return d.toISOString().slice(0, 10);
-  if (format === 'ISO Date & Time') return d.toISOString().replace('T', ' ').slice(0, 19);
+  if (format === 'relative') return relative(unix, now);
+  if (format === 'isoDate') return d.toISOString().slice(0, 10);
+  if (format === 'iso') return d.toISOString().replace('T', ' ').slice(0, 19);
   const date = d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
-  if (format === 'Date Only') return date;
+  if (format === 'date') return date;
   const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   return `${date} ${time}`;
 }

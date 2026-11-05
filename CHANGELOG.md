@@ -8,8 +8,24 @@
 - Compare two commits from their common parent. The file list splits into changes only on each side and files changed on both. Each section can be collapsed. In Tree view, files changed on both use the same folder tree, with one row for each side. Opening a file shows that side's diff from the common parent, so the other side's work is not shown as deletions. Snapshot switches back to the direct diff. A comparison with no common parent stays on the direct diff.
 - Tint each compare section so the two sides and the files changed on both are easier to tell apart. When the comparison is a branch, the heading shows that branch name instead of the short hash.
 
+### Changes
+
+- Settings use a new set of keys. Values saved under the previous keys are ignored, because those keys are no longer registered. Delete the old entries and set the new ones.
+- History, startup, fetch, labels, details, columns, dates, shortcuts, and dialog defaults now live under `history`, `startup`, `fetch`, `labels`, `details`, `columns`, `when.format`, `keys`, and `actions`.
+- `graph.palette` replaces the previous classic colour list. `graph.bend` is `curve` or `corner`.
+- Shortcuts such as Find are strings like `mod+f`. An empty string turns that shortcut off.
+- Label layout is `together` or `split`.
+- Commit details no longer have an auto-center setting, and there is no enhanced-accessibility setting. Fetch prune is only `fetch.prune` and `fetch.pruneTags`.
+- `graph.lanePriority`, `graph.theme`, `rayCat.enabled`, `rayCat.count`, and `undo.preview` keep their keys.
+
 ### Fixes
 
+- An open graph follows Settings changes. Appearance is redrawn. Commit and repository load settings reload the graph.
+- Controls in the graph write the user or workspace value that is currently in effect.
+- Remote, tag, stash, worktree, reflog, and first-parent choices in the graph are kept for that repository only when they differ from `history.*`.
+- `history.pageSize` and `history.pageMore` are at least 1.
+- `menus` lists the action ids. Copy stays available.
+- Changing `startup.keepWebview` reopens an open graph tab and the Contributors tab.
 - Right-click in the commit details copies the selected text. Most of that panel was showing only Apply patch, which also blocked copying the commit message.
 - Widen the Cherry-pick dialog to about 400px, the same width as Add tag. Long commit subjects wrap inside that width.
 - A one-line Cherry-pick no longer shows a scrollbar. The list scrolls only after it is taller than about 10rem. Drag the dialog corner to resize it; a larger frame gives the commit list more room. Cancel closes the dialog.

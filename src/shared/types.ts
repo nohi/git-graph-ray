@@ -76,7 +76,15 @@ export type ColumnVisibility = {
 
 export type GraphTheme = 'classic' | 'Ray' | 'Ray Wave' | 'Ray Cycle' | 'Ray Stream';
 
-export type DateFormat = 'Date & Time' | 'Date Only' | 'ISO Date & Time' | 'ISO Date Only' | 'Relative';
+export type DateFormat = 'datetime' | 'date' | 'iso' | 'isoDate' | 'relative';
+
+export type CommitOrder = 'date' | 'author' | 'topo';
+
+export type SquashMessage = 'subject' | 'file';
+
+export type SpaceMode = 'keep' | 'hyphen' | 'underscore';
+
+export type ResetMode = 'soft' | 'mixed' | 'hard';
 
 export type FileChange = {
   path: string;
@@ -136,29 +144,27 @@ export type DialogDefaults = {
   createBranchCheckOut: boolean;
   deleteBranchForce: boolean;
   fetchIntoLocalForce: boolean;
-  fetchRemotePrune: boolean;
-  fetchRemotePruneTags: boolean;
-  spaceSubstitution: 'None' | 'Hyphen' | 'Underscore';
+  spaceSubstitution: SpaceMode;
   mergeNoCommit: boolean;
   mergeNoFastForward: boolean;
   mergeSquash: boolean;
-  mergeSquashMessageFormat: 'Default' | 'Git SQUASH_MSG';
+  mergeSquashMessageFormat: SquashMessage;
   popStashReinstateIndex: boolean;
   pullNoFastForward: boolean;
   pullRebase: boolean;
   pullSquash: boolean;
-  pullSquashMessageFormat: 'Default' | 'Git SQUASH_MSG';
+  pullSquashMessageFormat: SquashMessage;
   rebaseIgnoreDate: boolean;
   rebaseInteractive: boolean;
-  resetBranchMode: 'Soft' | 'Mixed' | 'Hard';
-  resetUncommittedMode: 'Mixed' | 'Hard';
+  resetBranchMode: ResetMode;
+  resetUncommittedMode: 'mixed' | 'hard';
   stashIncludeUntracked: boolean;
 };
 
 export type ViewConfig = {
   graphColours: string[];
   graphStyle: 'rounded' | 'angular';
-  uncommittedChanges: string;
+  uncommittedChanges: 'changes' | 'head';
   theme: GraphTheme;
   dateFormat: DateFormat;
   columnVisibility: ColumnVisibility;
@@ -175,24 +181,22 @@ export type ViewConfig = {
   showUntrackedFiles: boolean;
   showCommitsOnlyReferencedByTags: boolean;
   combineLocalAndRemote: boolean;
-  referenceLabelAlignment: string;
-  /** `referenceLabels.remoteBranchPrefix`. Icon draws a cloud instead of the `remotes/` word. */
-  remoteBranchPrefix: 'Icon' | 'Text';
-  /** `referenceLabels.colours`. Glob to hex, first match wins. */
+  referenceLabelAlignment: 'together' | 'split';
+  /** `labels.remote`. icon draws a cloud instead of the `remotes/` word. */
+  remoteBranchPrefix: 'icon' | 'text';
+  /** `labels.colors`. Glob to hex, first match wins. */
   referenceLabelColours: RefColourRule[];
   /** `graph.lanePriority`. Glob to priority. A larger number is further left. The highest match wins. */
   lanePriority: LanePriorityRule[];
   markdown: boolean;
-  enhancedAccessibility: boolean;
-  autoCenter: boolean;
   detailsMaxHeight: number;
-  detailsLocation: 'Inline' | 'Docked to Bottom';
-  fileViewType: 'File Tree' | 'File List';
+  detailsLocation: 'inline' | 'bottom';
+  fileViewType: 'tree' | 'list';
   compactFolders: boolean;
   fetchAvatars: boolean;
   loadMoreAutomatically: boolean;
-  /** `repository.commits.order`. */
-  commitOrder: 'date' | 'author-date' | 'topo';
+  /** `history.order`. */
+  commitOrder: CommitOrder;
   branchSort: RefSort;
   tagSort: RefSort;
   refsListLimit: number;
