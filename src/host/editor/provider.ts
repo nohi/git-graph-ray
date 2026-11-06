@@ -386,6 +386,12 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
   broadcastFacesCleared(): void {
     for (const s of this.sessions) s.post({ type: 'facesReset' });
   }
+
+  postShortcut(action: 'refresh' | 'stash', previous = false): void {
+    const session = this.holder;
+    if (!session?.isActive()) return;
+    session.post(action === 'stash' ? { type: 'shortcut', action, previous } : { type: 'shortcut', action });
+  }
 }
 
 class GraphSession {

@@ -53,7 +53,8 @@ export type HostToView =
       steps: number;
       changes: Array<{ kind: 'branch' | 'tag' | 'head' | 'stash'; name: string; from: string | null; to: string | null }>;
       commands: string[];
-    };
+    }
+  | { type: 'shortcut'; action: 'refresh' | 'stash'; previous?: boolean };
 
 export type GraphSnapshot = {
   repos: RepoInfo[];

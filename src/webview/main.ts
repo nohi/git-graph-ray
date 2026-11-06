@@ -400,6 +400,9 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
     closeHistoryMenus();
   } else if (m.type === 'undoPreview') {
     showUndoPreview(m);
+  } else if (m.type === 'shortcut') {
+    if (m.action === 'refresh') refreshGraph();
+    else jumpToStash(m.previous === true);
   }
 });
 
@@ -3944,6 +3947,20 @@ function runFind(dir: number): void {
   showFindPosition(dir);
 }
 
+function refreshGraph(): void {
+  if (!snap) return;
+  setGitBusy(true);
+  post({ type: 'reload' });
+}
+
+function jumpToStash(previous: boolean): void {
+  if (!snap) return;
+  const idxs = snap.commits.map((c, i) => (c.refs.some((r) => r.kind === 'stash') ? i : -1)).filter((i) => i >= 0);
+  if (!idxs.length) return;
+  stashI = previous ? (stashI - 1 + idxs.length) % idxs.length : (stashI + 1) % idxs.length;
+  scrollToHash(snap.commits[idxs[stashI]!]!.hash);
+}
+
 function onKey(ev: KeyboardEvent): void {
   if (!snap) return;
   if (ev.key === 'Escape') {
@@ -4037,8 +4054,7 @@ function onKey(ev: KeyboardEvent): void {
   }
   if (shortcutMatches(snap.config.keyboard.refresh, ev)) {
     ev.preventDefault();
-    setGitBusy(true);
-    post({ type: 'reload' });
+    refreshGraph();
   }
   if (shortcutMatches(snap.config.keyboard.scrollToHead, ev) && snap.head) {
     ev.preventDefault();
@@ -4046,10 +4062,7 @@ function onKey(ev: KeyboardEvent): void {
   }
   if (shortcutMatches(snap.config.keyboard.scrollToStash, ev)) {
     ev.preventDefault();
-    const idxs = snap.commits.map((c, i) => (c.refs.some((r) => r.kind === 'stash') ? i : -1)).filter((i) => i >= 0);
-    if (!idxs.length) return;
-    stashI = ev.shiftKey ? (stashI - 1 + idxs.length) % idxs.length : (stashI + 1) % idxs.length;
-    scrollToHash(snap.commits[idxs[stashI]!]!.hash);
+    jumpToStash(ev.shiftKey);
   }
 }
 

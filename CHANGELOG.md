@@ -30,6 +30,7 @@
 - Widen the Cherry-pick dialog to about 400px, the same width as Add tag. Long commit subjects wrap inside that width.
 - A one-line Cherry-pick no longer shows a scrollbar. The list scrolls only after it is taller than about 10rem. Drag the dialog corner to resize it; a larger frame gives the commit list more room. Cancel closes the dialog.
 - Open Reword at about 400px. Dragging the message box resizes the dialog with it.
+- While the graph is focused, Ctrl/Cmd+R refreshes and Ctrl/Cmd+S jumps to the stash. Those keys no longer run Open Recent, Reload Window, or Save. Ctrl/Cmd+Shift+S jumps to the previous stash.
 
 ## v0.7.1
 

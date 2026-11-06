@@ -75,6 +75,16 @@
         "category": "Git Graph Ray",
         "icon": "$(go-to-file)",
         "enablement": "isInDiffEditor && resourceScheme == git-graph-ray-file"
+      },
+      {
+        "command": "git-graph-ray.graph.refresh",
+        "title": "Refresh",
+        "category": "Git Graph Ray"
+      },
+      {
+        "command": "git-graph-ray.graph.scrollToStash",
+        "title": "Jump to Stash",
+        "category": "Git Graph Ray"
       }
     ],
     "menus": {
@@ -82,6 +92,14 @@
         {
           "command": "git-graph-ray.openFile",
           "when": "isInDiffEditor && resourceScheme == git-graph-ray-file"
+        },
+        {
+          "command": "git-graph-ray.graph.refresh",
+          "when": "false"
+        },
+        {
+          "command": "git-graph-ray.graph.scrollToStash",
+          "when": "false"
         }
       ],
       "editor/title": [
@@ -104,6 +122,29 @@
         }
       ]
     },
+    "keybindings": [
+      {
+        "command": "git-graph-ray.graph.refresh",
+        "key": "ctrl+r",
+        "mac": "cmd+r",
+        "when": "activeWebviewPanelId == 'git-graph-ray.graph' && config.git-graph-ray.keys.refresh == 'mod+r'"
+      },
+      {
+        "command": "git-graph-ray.graph.scrollToStash",
+        "key": "ctrl+s",
+        "mac": "cmd+s",
+        "when": "activeWebviewPanelId == 'git-graph-ray.graph' && config.git-graph-ray.keys.stash == 'mod+s'"
+      },
+      {
+        "command": "git-graph-ray.graph.scrollToStash",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s",
+        "when": "activeWebviewPanelId == 'git-graph-ray.graph' && config.git-graph-ray.keys.stash == 'mod+s'",
+        "args": {
+          "previous": true
+        }
+      }
+    ],
     "resourceLabelFormatters": [
       {
         "scheme": "git-graph-ray-file",
@@ -605,7 +646,7 @@
           "type": "string",
           "default": "mod+r",
           "pattern": "^$|^mod\\+[a-z]$",
-          "description": "Shortcut for Refresh. Empty turns it off."
+          "description": "Shortcut for Refresh. Empty turns it off. While the graph is focused, the default Ctrl/Cmd+R overrides Open Recent and Reload Window."
         },
         "git-graph-ray.keys.head": {
           "type": "string",
@@ -617,7 +658,7 @@
           "type": "string",
           "default": "mod+s",
           "pattern": "^$|^mod\\+[a-z]$",
-          "description": "Shortcut for Jump to stash. Empty turns it off."
+          "description": "Shortcut for Jump to stash. Empty turns it off. While the graph is focused, the default Ctrl/Cmd+S overrides Save, and Ctrl/Cmd+Shift+S overrides Save As."
         },
         "git-graph-ray.labels.layout": {
           "type": "string",

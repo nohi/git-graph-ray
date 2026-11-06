@@ -46,6 +46,12 @@ export function registerCommands(
       const choice = await vscode.window.showInformationMessage(versionInformationDisplay(ver, gitVer), 'Copy');
       if (choice === 'Copy') await vscode.env.clipboard.writeText(versionInformationText(ver, gitVer));
     }),
+    vscode.commands.registerCommand('git-graph-ray.graph.refresh', () => {
+      provider.postShortcut('refresh');
+    }),
+    vscode.commands.registerCommand('git-graph-ray.graph.scrollToStash', (arg?: { previous?: boolean }) => {
+      provider.postShortcut('stash', arg?.previous === true);
+    }),
     vscode.commands.registerCommand('git-graph-ray.openFile', async () => {
       const uri = vscode.window.activeTextEditor?.document.uri;
       if (!uri || uri.scheme !== 'git-graph-ray-file') return;
