@@ -104,7 +104,7 @@
 - 進行中の merge / rebase / cherry-pick / revert / `git am` は衝突ファイル名から VS Code のマージエディタを開く
 - 自動 fetch は `fetch.auto`（既定オフ）。間隔は `fetch.everySeconds`（既定 180 秒、最小 15）
 - Reword: Git >= 2.54 のみ。未満はメニュー非表示。履歴書き換え時は確認
-- 対話 rebase は統合ターミナル。シェルは `terminal.shell`。空なら統合ターミナルの既定。askpass は InputBox
+- 対話 rebase は統合ターミナル。シェルは `terminal.shell`。空なら統合ターミナルの既定。rebase が成功したらそのターミナルを閉じる。止まったときは開いたまま。askpass は InputBox
 
 ## 9. Repository Settings
 

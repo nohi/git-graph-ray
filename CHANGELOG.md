@@ -21,6 +21,7 @@
 
 ### Fixes
 
+- Interactive rebase closes its terminal when the rebase succeeds. A rebase that stops stays open.
 - An open graph follows Settings changes. Appearance is redrawn. Commit and repository load settings reload the graph.
 - Controls in the graph write the user or workspace value that is currently in effect.
 - Remote, tag, stash, worktree, reflog, and first-parent choices in the graph are kept for that repository only when they differ from `history.*`.

@@ -1,17 +1,18 @@
 import * as vscode from 'vscode';
-import { gitOk } from './runner';
+import { exitShellOnSuccess, interactiveRebaseCommand } from './terminalCommand';
 
-export async function runInteractiveRebase(cwd: string, ref: string, shellPath?: string): Promise<void> {
+/**
+ * Runs `git rebase --interactive` in the integrated terminal and returns immediately.
+ * The shell exits only when the rebase exits 0. VS Code then closes that terminal.
+ * A rebase that stops leaves the shell running so its output stays visible.
+ */
+export function runInteractiveRebase(cwd: string, ref: string, shellPath?: string): void {
   const term = vscode.window.createTerminal({
     name: 'Git Graph Ray Rebase',
     cwd,
     shellPath: shellPath || undefined,
   });
   term.show();
-  term.sendText(`git rebase --interactive ${shellQuote(ref)}`);
-}
-
-function shellQuote(value: string): string {
-  if (!/[\s"]/.test(value)) return value;
-  return `"${value.replaceAll('"', '\\"')}"`;
+  const shell = shellPath || vscode.env.shell;
+  term.sendText(exitShellOnSuccess(shell, interactiveRebaseCommand(ref)));
 }
