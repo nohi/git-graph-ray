@@ -300,24 +300,38 @@ option {
   color: var(--vscode-dropdown-foreground, var(--fg));
 }
 
-html {
-  &.vscode-dark {
+/* Auto follows the editor theme. The class is on body, and color-scheme: light dark
+   follows the OS, so macOS Light would paint the cream palette inside a dark editor.
+   High-contrast light also carries vscode-high-contrast.
+   Kept un-nested: a nested & uses the strongest selector in the list and would
+   outrank the Background color rules below. */
+:root:is(.vscode-light, .vscode-high-contrast-light),
+:root:has(body.vscode-light, body.vscode-high-contrast-light),
+:root:is(.vscode-light, .vscode-high-contrast-light) :is(select, option),
+:root:has(body.vscode-light, body.vscode-high-contrast-light) :is(select, option) {
+  color-scheme: light;
+}
 
-    &,
-    select,
-    option {
-      color-scheme: dark;
-    }
-  }
+:root:is(.vscode-dark),
+:root:has(body.vscode-dark),
+:root:is(.vscode-high-contrast):not(.vscode-high-contrast-light),
+:root:has(body.vscode-high-contrast:not(.vscode-high-contrast-light)),
+:root:is(.vscode-dark) :is(select, option),
+:root:has(body.vscode-dark) :is(select, option),
+:root:is(.vscode-high-contrast):not(.vscode-high-contrast-light) :is(select, option),
+:root:has(body.vscode-high-contrast:not(.vscode-high-contrast-light)) :is(select, option) {
+  color-scheme: dark;
+}
 
-  &.vscode-light {
+/* Graph Settings background. auto matches neither rule and leaves the editor theme. */
+:root:has(body[data-bg="light"]),
+:root:has(body[data-bg="light"]) :is(select, option) {
+  color-scheme: light;
+}
 
-    &,
-    select,
-    option {
-      color-scheme: light;
-    }
-  }
+:root:has(body[data-bg="dark"]),
+:root:has(body[data-bg="dark"]) :is(select, option) {
+  color-scheme: dark;
 }
 
 .sr-only {

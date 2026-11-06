@@ -131,6 +131,7 @@ export function getViewConfig(gitVersion = '', storedLabelColours?: unknown): Vi
     lanePriority: parseLanePriority(c.get('graph.lanePriority')),
     uncommittedChanges: pick(c.get('history.openCircle'), ['changes', 'head'], defaults.uncommittedChanges),
     theme: c.get('graph.theme') ?? 'classic',
+    background: pick(c.get('graph.background'), ['auto', 'dark', 'light'], 'dark'),
     dateFormat: pick(c.get('when.format'), ['datetime', 'date', 'iso', 'isoDate', 'relative'], defaults.dateFormat),
     columnVisibility: {
       Author: columns.Author ?? true,

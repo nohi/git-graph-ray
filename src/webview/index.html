@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body data-theme="classic" style="margin:0;padding:0;width:100%">
+  <body data-theme="classic" data-bg="dark" style="margin:0;padding:0;width:100%">
     <header class="bar">
       <label class="sr-only" for="repo">Repository</label>
       <select id="repo"></select>
@@ -220,6 +220,13 @@
             <option value="Ray Wave">Ray Wave</option>
             <option value="Ray Cycle">Ray Cycle</option>
             <option value="Ray Stream">Ray Stream</option>
+          </select>
+        </label>
+        <label class="settings-row">Background color
+          <select id="s-bg">
+            <option value="auto">auto</option>
+            <option value="dark" selected>dark</option>
+            <option value="light">light</option>
           </select>
         </label>
         <label class="settings-row"><input type="checkbox" id="s-raycat" /> Show Ray Cat</label>

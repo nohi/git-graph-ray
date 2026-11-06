@@ -76,6 +76,9 @@ export type ColumnVisibility = {
 
 export type GraphTheme = 'classic' | 'Ray' | 'Ray Wave' | 'Ray Cycle' | 'Ray Stream';
 
+/** Graph surface. `auto` follows the VS Code theme, then the operating system. */
+export type GraphBackground = 'auto' | 'dark' | 'light';
+
 export type DateFormat = 'datetime' | 'date' | 'iso' | 'isoDate' | 'relative';
 
 export type CommitOrder = 'date' | 'author' | 'topo';
@@ -166,6 +169,7 @@ export type ViewConfig = {
   graphStyle: 'rounded' | 'angular';
   uncommittedChanges: 'changes' | 'head';
   theme: GraphTheme;
+  background: GraphBackground;
   dateFormat: DateFormat;
   columnVisibility: ColumnVisibility;
   muteMergeCommits: boolean;

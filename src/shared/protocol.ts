@@ -97,6 +97,7 @@ export type ViewToHost =
   | { type: 'setShowRemotes'; value: boolean }
   | { type: 'setShowTags'; value: boolean }
   | { type: 'setTheme'; value: ViewConfig['theme'] }
+  | { type: 'setBackground'; value: ViewConfig['background'] }
   | { type: 'setRayCat'; enabled: boolean; count: number }
   | { type: 'setFetchPrune'; prune: boolean; pruneTags: boolean }
   | { type: 'openSettings' }

@@ -23,6 +23,7 @@ export const GRAPH_REPAINT_KEYS = [
   'graph.palette',
   'graph.bend',
   'graph.theme',
+  'graph.background',
   'graph.lanePriority',
   'when.format',
   'columns',

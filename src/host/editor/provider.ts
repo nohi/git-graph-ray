@@ -627,6 +627,10 @@ class GraphSession {
           await updateSetting('graph.theme', msg.value);
           this.postConfig();
           return;
+        case 'setBackground':
+          await updateSetting('graph.background', msg.value);
+          this.postConfig();
+          return;
         case 'setRayCat':
           await updateSetting('rayCat.enabled', msg.enabled);
           await updateSetting('rayCat.count', Math.max(1, Math.min(10, Math.round(msg.count))));

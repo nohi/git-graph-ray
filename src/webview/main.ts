@@ -470,6 +470,7 @@ function applySnap(): void {
     viewRestored = true;
   }
   document.body.dataset.theme = snap.config.theme;
+  document.body.dataset.bg = snap.config.background;
   document.body.classList.toggle('hide-Author', !snap.config.columnVisibility.Author);
   document.body.classList.toggle('hide-AuthorDate', !snap.config.columnVisibility.AuthorDate);
   document.body.classList.toggle('hide-Commit', !snap.config.columnVisibility.Commit);
@@ -477,6 +478,7 @@ function applySnap(): void {
   document.body.classList.toggle('hide-CommitterDate', !snap.config.columnVisibility.CommitterDate);
   document.body.classList.toggle('hide-Signature', !snap.config.columnVisibility.Signature);
   $('s-theme').value = snap.config.theme;
+  $('s-bg').value = snap.config.background;
   $('s-raycat').checked = snap.config.rayCatEnabled;
   $('s-raycat-count').value = String(snap.config.rayCatCount);
   $('s-raycat-count').disabled = !snap.config.rayCatEnabled;
@@ -3229,6 +3231,7 @@ function bind(): void {
   document.addEventListener('pointerdown', trackPointer, { passive: true });
   $('repo').addEventListener('change', (e) => post({ type: 'pickRepo', path: (e.target as HTMLSelectElement).value }));
   $('s-theme').addEventListener('change', (e) => post({ type: 'setTheme', value: (e.target as HTMLSelectElement).value as GraphSnapshot['config']['theme'] }));
+  $('s-bg').addEventListener('change', (e) => post({ type: 'setBackground', value: (e.target as HTMLSelectElement).value as GraphSnapshot['config']['background'] }));
   $('s-raycat').addEventListener('change', postRayCat);
   $('s-raycat-count').addEventListener('change', postRayCat);
   $('btn-head').addEventListener('click', () => snap?.head && scrollToHash(snap.head));

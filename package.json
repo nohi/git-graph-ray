@@ -523,6 +523,21 @@
           ],
           "default": "classic"
         },
+        "git-graph-ray.graph.background": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "dark",
+            "light"
+          ],
+          "enumDescriptions": [
+            "Follow the VS Code theme.",
+            "Dark background. Ignores the VS Code theme and the operating system.",
+            "Light background. Ignores the VS Code theme and the operating system."
+          ],
+          "default": "dark",
+          "description": "Background of the graph. Dark and light stay fixed. Auto follows the VS Code theme."
+        },
         "git-graph-ray.history.pageSize": {
           "type": "number",
           "default": 300,

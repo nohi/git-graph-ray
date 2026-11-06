@@ -7,6 +7,7 @@
 - Get Version Information shows the extension version and the Git version on separate lines, with a Copy button.
 - Compare two commits from their common parent. The file list splits into changes only on each side and files changed on both. Each section can be collapsed. In Tree view, files changed on both use the same folder tree, with one row for each side. Opening a file shows that side's diff from the common parent, so the other side's work is not shown as deletions. Snapshot switches back to the direct diff. A comparison with no common parent stays on the direct diff.
 - Tint each compare section so the two sides and the files changed on both are easier to tell apart. When the comparison is a branch, the heading shows that branch name instead of the short hash.
+- Choose the graph background in Graph Settings: auto, dark, or light (`git-graph-ray.graph.background`). Dark is the default. Dark and light stay fixed. Auto follows the VS Code theme.
 
 ### Changes
 
@@ -31,6 +32,7 @@
 - A one-line Cherry-pick no longer shows a scrollbar. The list scrolls only after it is taller than about 10rem. Drag the dialog corner to resize it; a larger frame gives the commit list more room. Cancel closes the dialog.
 - Open Reword at about 400px. Dragging the message box resizes the dialog with it.
 - While the graph is focused, Ctrl/Cmd+R refreshes and Ctrl/Cmd+S jumps to the stash. Those keys no longer run Open Recent, Reload Window, or Save. Ctrl/Cmd+Shift+S jumps to the previous stash.
+- A dark VS Code theme on a Mac in Light appearance no longer paints the graph cream. Auto reads the theme class VS Code puts on the page.
 
 ## v0.7.1
 

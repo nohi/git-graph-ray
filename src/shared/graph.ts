@@ -28,6 +28,7 @@ export function defaultViewConfig(): ViewConfig {
     lanePriority: [],
     uncommittedChanges: 'changes',
     theme: 'classic',
+    background: 'dark',
     dateFormat: 'datetime',
     columnVisibility: {
       Author: true,

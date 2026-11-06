@@ -184,7 +184,7 @@ const SHELL = `
     <h3 class="help-sub">Also</h3>
     <ul class="help-list">
       <li>Fetch runs immediately. Prune, prune tags, and auto fetch are in Graph Settings (and VS Code Settings). Auto fetch is off until you enable it.</li>
-      <li>Graph Settings sets the theme and lane priority. A larger priority keeps that branch further left. Repository Settings edits remotes, issue links, and the pull request provider.</li>
+      <li>Graph Settings sets the theme, background, and lane priority. A larger priority keeps that branch further left. Repository Settings edits remotes, issue links, and the pull request provider.</li>
       <li>Double-click a branch or tag label to check it out.</li>
       <li>Right-click a branch, remote branch, or tag label and choose Set label colour. The pattern starts as that name, and you can widen it (feature/hoge to feature/*). Pick the colour in the square or type a hex value such as #FF8888. The same globs can be edited in git-graph-ray.labels.colors. The first match wins.</li>
       <li>Ctrl/Cmd+click local branch labels to select them, then right-click a local branch, remote branch, tag, or commit and choose Rebase selected branches. Right-click a local or remote branch and choose Rebase current branch on this branch. Right-click a local branch, remote branch, or tag and choose Rebase interactive to rebase the current branch onto it in the integrated terminal.</li>
@@ -251,6 +251,13 @@ const SHELL = `
         <option value="Ray Stream">Ray Stream</option>
       </select>
     </label>
+    <label class="settings-row">Background color
+      <select id="s-bg">
+        <option value="auto">auto</option>
+        <option value="dark" selected>dark</option>
+        <option value="light">light</option>
+      </select>
+    </label>
     <label class="settings-row"><input type="checkbox" id="s-raycat" /> Show Ray Cat</label>
     <label class="settings-row">Ray Cat count
       <input type="number" id="s-raycat-count" min="1" max="10" step="1" />
@@ -315,7 +322,7 @@ export function graphHtml(webviewCsp: string, script: string, css: string, n: st
   <link rel="stylesheet" href="${css}" />
   <title>Git Graph Ray</title>
 </head>
-<body data-theme="classic" style="margin:0;padding:0;width:100%">
+<body data-theme="classic" data-bg="dark" style="margin:0;padding:0;width:100%">
 ${SHELL}
 <script nonce="${n}" src="${script}"></script>
 </body>
