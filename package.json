@@ -639,6 +639,11 @@
           "default": false,
           "description": "Fetch author avatars. This sends email addresses to the avatar service."
         },
+        "git-graph-ray.history.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Reload the graph after a commit or amend in Source Control. Turn this off to skip that reload."
+        },
         "git-graph-ray.history.openCircle": {
           "type": "string",
           "enum": [

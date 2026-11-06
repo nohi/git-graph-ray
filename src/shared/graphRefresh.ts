@@ -47,6 +47,7 @@ export const GRAPH_REPAINT_KEYS = [
   'fetch.pruneTags',
   'fetch.auto',
   'fetch.everySeconds',
+  'history.autoRefresh',
   'undo.preview',
   'history.muteMerges',
   'history.dimNotOnHead',

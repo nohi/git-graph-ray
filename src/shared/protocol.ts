@@ -127,6 +127,7 @@ export type ViewToHost =
   | { type: 'pickOpenFile'; requestId: string; title: string }
   | { type: 'openMerge'; path: string }
   | { type: 'setAutoFetch'; enabled: boolean; interval: number }
+  | { type: 'setAutoRefresh'; value: boolean }
   | { type: 'branchMerged'; requestId: string; name: string }
   | { type: 'remoteTags'; requestId: string; remotes: string[] }
   | { type: 'faces'; emails: string[] }

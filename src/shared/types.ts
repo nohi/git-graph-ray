@@ -219,6 +219,8 @@ export type ViewConfig = {
   fetchAndPruneTags: boolean;
   /** Fetch remotes on a timer while the graph is open. Off unless the user enables it. */
   autoFetch: boolean;
+  /** Reload when Git changes outside this view, including a Source Control commit. */
+  autoRefresh: boolean;
   /** Seconds between automatic fetches. Ignored while auto fetch is off. */
   autoFetchInterval: number;
   /** Show the before/after graph before Undo or Redo. */

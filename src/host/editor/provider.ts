@@ -49,12 +49,15 @@ import { detectPatchKind } from '../../shared/historyActions';
 import { branchLabelsForFilter } from '../../shared/refsList';
 import { primaryWorktreePath } from '../../shared/worktreeDialog';
 import { graphHtml, nonce } from './html';
-import { isNoisyGitWatchPath, snapshotFingerprint } from './gitWatch';
+import { externalReloadAction, isHistoryWatchPath, isNoisyGitWatchPath, snapshotFingerprint } from './gitWatch';
+import { listenForScmCommits } from './scmGit';
+import { sameRepoPath } from './scmRefresh';
 import { graphDocumentLabel } from '../../shared/graphUri';
 import { isGraphWebviewTab } from './graphTab';
 import { GRAPH_VIEW_TYPE, loadPinned, savePinned } from './uri';
 
 const RESTORE_SETTLE_MS = 600;
+const EXTERNAL_RELOAD_MS = 400;
 const HOLDER_WAIT_MS = 1000;
 
 const GROUP_FOCUS = [
@@ -406,7 +409,10 @@ class GraphSession {
   private visibleRefs: GraphRef[] = [];
   private debounce: NodeJS.Timeout | undefined;
   private quietUntil = 0;
+  /** A commit arrived while a Git action from this view was still running. */
+  private externalPending = false;
   private watcher: vscode.Disposable | undefined;
+  private scmCommits: vscode.Disposable | undefined;
   private disposed = false;
   private reloadGen = 0;
   private lastFingerprint = '';
@@ -456,6 +462,7 @@ class GraphSession {
       if (graphSettingRepaints(affects)) this.postConfig();
     });
     this.armAutoFetch();
+    this.scmCommits = listenForScmCommits((root) => this.onScmCommit(root));
     this.watch();
   }
 
@@ -802,6 +809,9 @@ class GraphSession {
           await updateSetting('fetch.auto', msg.enabled);
           await updateSetting('fetch.everySeconds', autoFetchIntervalSeconds(msg.interval));
           return;
+        case 'setAutoRefresh':
+          await updateSetting('history.autoRefresh', msg.value);
+          return;
         case 'faces':
           await this.sendFaces(msg.emails);
           return;
@@ -976,6 +986,7 @@ class GraphSession {
       }
     } finally {
       this.quietUntil = Math.max(this.quietUntil, Date.now() + 800);
+      if (this.externalPending) this.requestExternalReload();
     }
   }
 
@@ -1165,6 +1176,7 @@ class GraphSession {
       throw error;
     } finally {
       this.acting = Math.max(0, this.acting - 1);
+      if (this.acting === 0 && this.externalPending) this.requestExternalReload();
       this.post(quiet ? { type: 'busy', on: false, quiet: true } : { type: 'busy', on: false });
       this.postUndoState();
       if (report) this.post({ type: 'rebaseReport', html: report });
@@ -1397,6 +1409,31 @@ class GraphSession {
     }
   }
 
+  private onScmCommit(root: string): void {
+    if (!cfg('history.autoRefresh', true)) return;
+    if (!sameRepoPath(this.repoPath, root)) return;
+    this.requestExternalReload();
+  }
+
+  private requestExternalReload(): void {
+    if (this.disposed) return;
+    if (this.acting > 0) {
+      this.externalPending = true;
+      return;
+    }
+    this.externalPending = false;
+    clearTimeout(this.debounce);
+    this.debounce = setTimeout(() => {
+      this.debounce = undefined;
+      if (this.disposed) return;
+      if (this.acting > 0) {
+        this.externalPending = true;
+        return;
+      }
+      void this.reload({ fromWatch: true });
+    }, EXTERNAL_RELOAD_MS);
+  }
+
   private watch(): void {
     this.watcher?.dispose();
     this.watcher = undefined;
@@ -1404,11 +1441,16 @@ class GraphSession {
     const gitDir = path.join(this.repoPath, '.git');
     const w = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(gitDir, '**'));
     const bump = (uri: vscode.Uri) => {
-      if (this.disposed) return;
-      if (Date.now() < this.quietUntil) return;
-      if (isNoisyGitWatchPath(uri.fsPath)) return;
-      clearTimeout(this.debounce);
-      this.debounce = setTimeout(() => void this.reload({ fromWatch: true }), 400);
+      const action = externalReloadAction({
+        enabled: cfg('history.autoRefresh', true),
+        acting: this.acting > 0,
+        disposed: this.disposed,
+        noisy: isNoisyGitWatchPath(uri.fsPath),
+        quiet: Date.now() < this.quietUntil,
+        history: isHistoryWatchPath(uri.fsPath),
+      });
+      if (action === 'ignore') return;
+      this.requestExternalReload();
     };
     w.onDidChange(bump);
     w.onDidCreate(bump);
@@ -1421,8 +1463,11 @@ class GraphSession {
     this.disposed = true;
     clearTimeout(this.debounce);
     this.debounce = undefined;
+    this.externalPending = false;
     clearInterval(this.autoFetchTimer);
     this.autoFetchTimer = undefined;
+    this.scmCommits?.dispose();
+    this.scmCommits = undefined;
     this.configSub?.dispose();
     this.configSub = undefined;
     this.watcher?.dispose();

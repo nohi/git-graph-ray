@@ -80,6 +80,7 @@ export function defaultViewConfig(): ViewConfig {
     fetchAndPruneTags: false,
     autoFetch: false,
     autoFetchInterval: 180,
+    autoRefresh: true,
     undoPreview: true,
   };
 }

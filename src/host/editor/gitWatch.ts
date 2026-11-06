@@ -2,16 +2,50 @@ import type { GraphSnapshot } from '../../shared/protocol';
 
 const NOISY_GIT_DIR = /^(objects|hooks|info|logs)(\/|$)/i;
 const NOISY_GIT_FILE = /^(COMMIT_EDITMSG|FETCH_HEAD|ORIG_HEAD|gc\.pid)$/i;
+const HISTORY_GIT_FILE = /^(HEAD|packed-refs)$/i;
+const HISTORY_GIT_REF = /^refs\/(heads|remotes|tags|stash)(\/|$)/i;
 
 /** Paths under .git that change as a side effect of read-only git commands or locks. */
 export function isNoisyGitWatchPath(fsPath: string): boolean {
-  const p = fsPath.replace(/\\/g, '/');
-  const m = p.match(/\/\.git\/(.+)$/i);
-  if (!m) return false;
-  const rel = m[1]!;
+  const rel = gitRel(fsPath);
+  if (!rel) return false;
   if (NOISY_GIT_DIR.test(rel)) return true;
   if (/\.lock$/i.test(rel)) return true;
   return NOISY_GIT_FILE.test(rel);
+}
+
+/** HEAD and refs. A change here can add or move a commit. Index writes do not. */
+export function isHistoryWatchPath(fsPath: string): boolean {
+  const rel = gitRel(fsPath);
+  if (!rel) return false;
+  return HISTORY_GIT_FILE.test(rel) || HISTORY_GIT_REF.test(rel);
+}
+
+export type ExternalReload = 'reload' | 'ignore';
+
+/**
+ * Whether a `.git` watch event should reload the graph.
+ * Ref and HEAD changes during the post-reload quiet window are kept when
+ * automatic refresh is on: a Source Control commit often lands there, after
+ * the index write that started the previous reload. Index writes in that
+ * window are ignored so a status refresh cannot reload forever.
+ */
+export function externalReloadAction(opts: {
+  enabled: boolean;
+  acting: boolean;
+  disposed: boolean;
+  noisy: boolean;
+  quiet: boolean;
+  history: boolean;
+}): ExternalReload {
+  if (opts.disposed || opts.acting || opts.noisy) return 'ignore';
+  if (!opts.quiet) return 'reload';
+  return opts.enabled && opts.history ? 'reload' : 'ignore';
+}
+
+function gitRel(fsPath: string): string | undefined {
+  const p = fsPath.replace(/\\/g, '/');
+  return p.match(/\/\.git\/(.+)$/i)?.[1];
 }
 
 /** Stable identity of graph data; ignores uncommitted-row timestamps that change every reload. */

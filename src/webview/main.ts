@@ -500,6 +500,7 @@ function applySnap(): void {
   $('s-auto-fetch').checked = snap.config.autoFetch;
   $('s-auto-fetch-interval').value = String(snap.config.autoFetchInterval);
   $('s-auto-fetch-interval').disabled = !snap.config.autoFetch;
+  $('s-auto-refresh').checked = snap.config.autoRefresh;
   $('s-undo-preview').checked = snap.config.undoPreview;
   fillRemotes();
   fillLanePriority();
@@ -3625,6 +3626,9 @@ function bind(): void {
   };
   $('s-auto-fetch').addEventListener('change', postAutoFetch);
   $('s-auto-fetch-interval').addEventListener('change', postAutoFetch);
+  $('s-auto-refresh').addEventListener('change', () => {
+    post({ type: 'setAutoRefresh', value: $('s-auto-refresh').checked });
+  });
   $('s-undo-preview').addEventListener('change', () => {
     post({ type: 'setUndoPreview', value: $('s-undo-preview').checked });
   });

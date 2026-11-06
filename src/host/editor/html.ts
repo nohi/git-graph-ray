@@ -184,6 +184,7 @@ const SHELL = `
     <h3 class="help-sub">Also</h3>
     <ul class="help-list">
       <li>Fetch runs immediately. Prune, prune tags, and auto fetch are in Graph Settings (and VS Code Settings). Auto fetch is off until you enable it.</li>
+      <li>A commit or amend in Source Control reloads the graph. Turn that off in Graph Settings, or with git-graph-ray.history.autoRefresh. Refresh still reloads.</li>
       <li>Graph Settings sets the theme, background, and lane priority. A larger priority keeps that branch further left. Repository Settings edits remotes, issue links, and the pull request provider.</li>
       <li>Double-click a branch or tag label to check it out.</li>
       <li>Right-click a branch, remote branch, or tag label and choose Set label colour. The pattern starts as that name, and you can widen it (feature/hoge to feature/*). Pick the colour in the square or type a hex value such as #FF8888. The same globs can be edited in git-graph-ray.labels.colors. The first match wins.</li>
@@ -279,6 +280,7 @@ const SHELL = `
       <label class="settings-row">Auto fetch interval (seconds)
         <input type="number" id="s-auto-fetch-interval" min="15" step="1" />
       </label>
+      <label><input type="checkbox" id="s-auto-refresh" /> Refresh after Source Control commit</label>
       <label><input type="checkbox" id="s-undo-preview" /> Preview Undo and Redo</label>
     </div>
   </section>

@@ -3,7 +3,7 @@ import type { GraphSnapshot } from '../../shared/protocol';
 import { defaultViewConfig } from '../../shared/graph';
 import { defaultRepoSettings } from '../../shared/dialogs';
 import { UNCOMMITTED, type GraphCommit } from '../../shared/types';
-import { isNoisyGitWatchPath, snapshotFingerprint } from './gitWatch';
+import { externalReloadAction, isHistoryWatchPath, isNoisyGitWatchPath, snapshotFingerprint } from './gitWatch';
 
 describe('isNoisyGitWatchPath', () => {
   it('ignores object packs, lock files, and git message files', () => {
@@ -22,6 +22,45 @@ describe('isNoisyGitWatchPath', () => {
     expect(isNoisyGitWatchPath('I:/repo/.git/packed-refs')).toBe(false);
     expect(isNoisyGitWatchPath('I:/repo/.git/refs/heads/main')).toBe(false);
     expect(isNoisyGitWatchPath('I:/repo/src/app.ts')).toBe(false);
+  });
+});
+
+describe('isHistoryWatchPath', () => {
+  it('keeps HEAD and refs, and ignores the index and commit message', () => {
+    expect(isHistoryWatchPath('I:/repo/.git/HEAD')).toBe(true);
+    expect(isHistoryWatchPath('I:\\repo\\.git\\packed-refs')).toBe(true);
+    expect(isHistoryWatchPath('I:/repo/.git/refs/heads/main')).toBe(true);
+    expect(isHistoryWatchPath('I:/repo/.git/refs/remotes/origin/main')).toBe(true);
+    expect(isHistoryWatchPath('I:/repo/.git/refs/tags/v1')).toBe(true);
+    expect(isHistoryWatchPath('I:/repo/.git/refs/stash')).toBe(true);
+    expect(isHistoryWatchPath('I:/repo/.git/index')).toBe(false);
+    expect(isHistoryWatchPath('I:/repo/.git/COMMIT_EDITMSG')).toBe(false);
+    expect(isHistoryWatchPath('I:/repo/.git/logs/HEAD')).toBe(false);
+    expect(isHistoryWatchPath('I:/repo/src/app.ts')).toBe(false);
+  });
+});
+
+describe('externalReloadAction', () => {
+  const base = {
+    enabled: true,
+    acting: false,
+    disposed: false,
+    noisy: false,
+    quiet: false,
+    history: false,
+  };
+
+  it('reloads a quiet HEAD move only while auto refresh is on', () => {
+    expect(externalReloadAction({ ...base, quiet: true, history: true })).toBe('reload');
+    expect(externalReloadAction({ ...base, enabled: false, quiet: true, history: true })).toBe('ignore');
+    expect(externalReloadAction({ ...base, quiet: true, history: false })).toBe('ignore');
+    expect(externalReloadAction({ ...base, enabled: false })).toBe('reload');
+  });
+
+  it('stays quiet while a Git action is running or the path is lock noise', () => {
+    expect(externalReloadAction({ ...base, acting: true, history: true })).toBe('ignore');
+    expect(externalReloadAction({ ...base, disposed: true })).toBe('ignore');
+    expect(externalReloadAction({ ...base, noisy: true, history: true })).toBe('ignore');
   });
 });
 

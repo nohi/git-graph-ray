@@ -54,6 +54,7 @@ describe('graph setting refresh', () => {
     expect(graphSettingReloads(() => false)).toBe(false);
     expect(graphSettingRepaints((key) => key === 'git-graph-ray.startup.statusBar')).toBe(false);
     expect(graphSettingRepaints((key) => key === 'git-graph-ray.graph.background')).toBe(true);
+    expect(graphSettingRepaints((key) => key === 'git-graph-ray.history.autoRefresh')).toBe(true);
     expect(graphSettingReloads((key) => key === 'git-graph-ray.startup.keepWebview')).toBe(false);
   });
 });

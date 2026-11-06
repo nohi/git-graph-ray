@@ -207,6 +207,7 @@ export function getViewConfig(gitVersion = '', storedLabelColours?: unknown): Vi
     fetchAndPruneTags: c.get('fetch.pruneTags') ?? false,
     autoFetch: c.get('fetch.auto') ?? false,
     autoFetchInterval: autoFetchIntervalSeconds(c.get('fetch.everySeconds')),
+    autoRefresh: c.get('history.autoRefresh') ?? true,
     undoPreview: c.get('undo.preview') ?? true,
   };
 }

@@ -8,6 +8,7 @@
 - Compare two commits from their common parent. The file list splits into changes only on each side and files changed on both. Each section can be collapsed. In Tree view, files changed on both use the same folder tree, with one row for each side. Opening a file shows that side's diff from the common parent, so the other side's work is not shown as deletions. Snapshot switches back to the direct diff. A comparison with no common parent stays on the direct diff.
 - Tint each compare section so the two sides and the files changed on both are easier to tell apart. When the comparison is a branch, the heading shows that branch name instead of the short hash.
 - Choose the graph background in Graph Settings: auto, dark, or light (`git-graph-ray.graph.background`). Dark is the default. Dark and light stay fixed. Auto follows the VS Code theme.
+- Reload the graph after a commit or amend in Source Control. Turn that off with `git-graph-ray.history.autoRefresh`, or in Graph Settings. Refresh still reloads.
 
 ### Changes
 
