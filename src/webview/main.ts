@@ -2497,7 +2497,7 @@ function chipFace(r: GraphRef, short: boolean, iconOnly: boolean): { extra: stri
   const remoteIcon = !remoteShort && r.kind === 'remote' && snap!.config.remoteBranchPrefix !== 'text';
   const icon = remoteShort || remoteIcon ? REMOTE_CHIP_ICON : chipIcon(r.kind);
   const label = remoteShort ? remoteShortName(r) : remoteIcon ? remoteChipText(r.name, 'icon') : refDisplayName(r);
-  const extra = `${remoteShort ? ' short' : ''}${remoteIcon ? ' prefix' : ''}${iconOnly ? ' icon-only' : ''}`;
+  const extra = `${remoteShort ? ' short' : ''}${iconOnly ? ' icon-only' : ''}`;
   const title = iconOnly
     ? ` title="${esc(label)}" aria-label="${esc(`${label}, show remotes`)}"`
     : remoteIcon

@@ -186,7 +186,7 @@ export type ViewConfig = {
   showCommitsOnlyReferencedByTags: boolean;
   combineLocalAndRemote: boolean;
   referenceLabelAlignment: 'together' | 'split';
-  /** `labels.remote`. icon draws a cloud instead of the `remotes/` word. */
+  /** `labels.remote`. icon draws a cloud instead of the `remotes/` prefix. */
   remoteBranchPrefix: 'icon' | 'text';
   /** `labels.colors`. Glob to hex, first match wins. */
   referenceLabelColours: RefColourRule[];

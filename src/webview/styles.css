@@ -1966,10 +1966,6 @@ dialog button.lc-help {
       height: 0.68em;
     }
 
-    &.prefix .chip-ico {
-      margin-right: 0.06em;
-    }
-
     &.icon-only {
       padding-left: 0.22rem;
       padding-right: 0.22rem;

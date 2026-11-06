@@ -22,6 +22,7 @@
 ### Fixes
 
 - Interactive rebase closes its terminal when the rebase succeeds. A rebase that stops stays open.
+- A remote branch with no local branch shows the cloud icon and then the name, as in `origin/branch`. There is no slash between the icon and the remote name.
 - An open graph follows Settings changes. Appearance is redrawn. Commit and repository load settings reload the graph.
 - Controls in the graph write the user or workspace value that is currently in effect.
 - Remote, tag, stash, worktree, reflog, and first-parent choices in the graph are kept for that repository only when they differ from `history.*`.
