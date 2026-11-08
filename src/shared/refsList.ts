@@ -203,6 +203,23 @@ export function branchLabelsForFilter(
   });
 }
 
+/** The local branch that is checked out. A shorter name on the same commit does not match. */
+export function isCheckedOutBranch(ref: { kind: string; name: string }, currentBranch: string | null | undefined): boolean {
+  return ref.kind === 'head' && Boolean(currentBranch) && ref.name === currentBranch;
+}
+
+/**
+ * Cache key for the labels on one commit.
+ * Checking out another local branch on that commit does not change the ref list.
+ */
+export function commitLabelKey(
+  currentBranch: string | null | undefined,
+  refs: readonly { kind: string; name: string; hash: string }[],
+): string {
+  const listed = refs.map((ref) => `${ref.kind}:${ref.name}:${ref.hash}`).join(',');
+  return `${currentBranch ?? ''}\u001f${listed}`;
+}
+
 export function refsForFilterList(
   refs: GraphRef[],
   opts: { remotes: boolean; tags: boolean },

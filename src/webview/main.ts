@@ -62,7 +62,7 @@ import {
   upsertRefColour,
   type Hsv,
 } from '../shared/refColours';
-import { filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refJumpHash, refLogArg, groupChipRefs, remoteChipText, remoteLabelsUseIcons, remoteShortName, REMOTE_LABEL_FOLD, type FilterTab } from '../shared/refsList';
+import { commitLabelKey, filterRefsForTab, sortFilterRefs, windowRefs, refDisplayName, refJumpHash, refLogArg, groupChipRefs, isCheckedOutBranch, remoteChipText, remoteLabelsUseIcons, remoteShortName, REMOTE_LABEL_FOLD, type FilterTab } from '../shared/refsList';
 import { compileFindRegex, formatFindCount, highlightFind } from '../shared/commitFind';
 import { formatRefChange, presentPreview } from '../shared/undo';
 import { branchMenuEntries, commitMenuEntries, menuHtml, remoteMenuEntries, tagMenuEntries } from '../shared/commitMenu';
@@ -1179,7 +1179,7 @@ function rowContentMark(c: GraphCommit): string {
     String(c.committerDate),
     c.signatureKind ?? '',
     snap.config.referenceLabelColours.map((rule) => `${rule.pattern}=${rule.colour}`).join(';'),
-    c.refs.map((r) => `${r.kind}:${r.name}:${r.hash}`).join(','),
+    commitLabelKey(snap.currentBranch, c.refs),
     c.refs
       .filter((r) => r.kind === 'head' && pickedBranches.includes(r.name))
       .map((r) => r.name)
@@ -1285,7 +1285,7 @@ function chips(c: GraphCommit): string {
   const groups = groupChipRefs(c.refs, snap.config.combineLocalAndRemote);
   const mk = (r: GraphRef, short = false, iconOnly = false) => {
     const detached = r.kind === 'head' && r.name === 'HEAD';
-    const current = r.kind === 'head' && Boolean(snap!.currentBranch) && r.name === snap!.currentBranch;
+    const current = isCheckedOutBranch(r, snap!.currentBranch);
     const picked = r.kind === 'head' && !detached && pickedBranches.includes(r.name);
     const face = chipFace(r, short, iconOnly);
     const colour = chipColourAttrs(r);
@@ -2049,7 +2049,7 @@ function undoChips(refs: GraphRef[]): string {
   const groups = groupChipRefs(refs, snap.config.combineLocalAndRemote);
   const mk = (ref: GraphRef, short = false) => {
     const detached = ref.kind === 'head' && ref.name === 'HEAD';
-    const current = ref.kind === 'head' && Boolean(snap!.currentBranch) && ref.name === snap!.currentBranch;
+    const current = isCheckedOutBranch(ref, snap!.currentBranch);
     const face = chipFace(ref, short, false);
     const colour = chipColourAttrs(ref);
     return `<span class="chip ${ref.kind}${face.extra}${detached ? ' detached' : ''}${current ? ' current' : ''}${ref.ghost ? ' ghost' : ''}${colour.cls}"${colour.style}${face.title}>${face.icon}${esc(face.label)}</span>`;

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.1
+
+### Fixes
+
+- The bold label follows the branch that is checked out when several local branches point at the same commit. Checking out another of those branches updates that label.
+
 ## v0.8.0
 
 ### Features

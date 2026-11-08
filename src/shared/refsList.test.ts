@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   branchLabelsForFilter,
+  commitLabelKey,
   cmpRefname,
+  isCheckedOutBranch,
   filterRefsForTab,
   groupChipRefs,
   refDisplayName,
@@ -229,5 +231,24 @@ describe('groupChipRefs', () => {
     expect(remoteLabelsUseIcons(2, false)).toBe(false);
     expect(remoteLabelsUseIcons(3, false)).toBe(true);
     expect(remoteLabelsUseIcons(4, true)).toBe(false);
+  });
+});
+
+describe('checked-out branch label', () => {
+  const refs = [r('head', 'doc', { hash: 'aaa' }), r('head', 'doc-wip2', { hash: 'aaa' })];
+
+  it('highlights only the branch that is checked out', () => {
+    expect(isCheckedOutBranch(refs[0]!, 'doc-wip2')).toBe(false);
+    expect(isCheckedOutBranch(refs[1]!, 'doc-wip2')).toBe(true);
+    expect(isCheckedOutBranch(refs[1]!, 'doc')).toBe(false);
+    expect(isCheckedOutBranch(refs[0]!, 'doc')).toBe(true);
+    expect(isCheckedOutBranch(r('remote', 'origin/doc-wip2'), 'doc-wip2')).toBe(false);
+    expect(isCheckedOutBranch(refs[1]!, null)).toBe(false);
+  });
+
+  it('changes the row key when the checked-out branch changes and the refs do not', () => {
+    expect(commitLabelKey('doc', refs)).not.toBe(commitLabelKey('doc-wip2', refs));
+    expect(commitLabelKey('doc-wip2', refs)).toBe(commitLabelKey('doc-wip2', [...refs]));
+    expect(commitLabelKey(null, refs)).not.toBe(commitLabelKey('doc', refs));
   });
 });
