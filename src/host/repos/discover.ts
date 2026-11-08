@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { listWorktrees } from '../git/worktree';
 import type { RepoInfo } from '../../shared/types';
+import { workspaceIndexFor } from './openRepo';
 
 export async function discoverRepos(
   git: string,
@@ -12,6 +13,7 @@ export async function discoverRepos(
 ): Promise<RepoInfo[]> {
   const roots: string[] = [];
   const folders = vscode.workspace.workspaceFolders ?? [];
+  const folderPaths = folders.map((folder) => norm(folder.uri.fsPath));
   for (let i = 0; i < folders.length; i++) {
     const folder = folders[i]!.uri.fsPath;
     await walk(folder, 0, maxDepth, roots);
@@ -31,14 +33,14 @@ export async function discoverRepos(
         found.set(p, {
           path: p,
           name: path.basename(p),
-          workspaceIndex: folders.findIndex((f) => p.startsWith(norm(f.uri.fsPath))),
+          workspaceIndex: workspaceIndexFor(p, folderPaths),
         });
       }
       if (!trees.length) {
-        found.set(n, { path: n, name: path.basename(n), workspaceIndex: folders.findIndex((f) => n.startsWith(norm(f.uri.fsPath))) });
+        found.set(n, { path: n, name: path.basename(n), workspaceIndex: workspaceIndexFor(n, folderPaths) });
       }
     } catch {
-      found.set(n, { path: n, name: path.basename(n), workspaceIndex: 0 });
+      found.set(n, { path: n, name: path.basename(n), workspaceIndex: workspaceIndexFor(n, folderPaths) });
     }
   }
   return [...found.values()];

@@ -38,6 +38,7 @@ import { invalidateRemoteTagCache, loadRemoteTagTips } from '../git/remoteTags';
 import { loadRefs } from '../git/refs';
 import { listWorktrees } from '../git/worktree';
 import { discoverRepos, norm } from '../repos/discover';
+import { compareRepos, resolveOpenRepo } from '../repos/openRepo';
 import { loadCleanRepoSettings, loadRepoSettings, saveRepoSettings } from '../repoSettings';
 import { graphSettingReloads, graphSettingRepaints } from '../../shared/graphRefresh';
 import { applyRepoVisibility, dropDefaultVisibility } from '../../shared/repoVisibility';
@@ -837,7 +838,8 @@ class GraphSession {
     const hidden = this.ctx.workspaceState.get<string[]>('ggr.hiddenRepos', []);
     const repos = await discoverRepos(this.git(), extra, hidden, cfg('startup.searchDepth', 0));
     this.sortRepos(repos);
-    if (!this.repoPath || !repos.some((r) => r.path === this.repoPath)) this.repoPath = repos[0]?.path ?? this.repoPath;
+    const folders = (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri.fsPath);
+    this.repoPath = resolveOpenRepo(this.repoPath, repos, folders);
     const config = this.viewConfig();
     const settings = await loadCleanRepoSettings(this.ctx, this.repoPath, config);
     applyRepoVisibility(config, settings);
@@ -954,13 +956,7 @@ class GraphSession {
 
   private sortRepos(repos: GraphSnapshot['repos']): void {
     const order = cfg<string>('startup.repoOrder', 'workspace');
-    repos.sort((a, b) => {
-      if (order === 'name') return a.name.localeCompare(b.name);
-      if (order === 'workspace') {
-        if (a.workspaceIndex !== b.workspaceIndex) return a.workspaceIndex - b.workspaceIndex;
-      }
-      return a.path.localeCompare(b.path);
-    });
+    repos.sort((a, b) => compareRepos(order, a, b));
   }
 
   private async reload(opts?: { fromWatch?: boolean; recordExternal?: boolean }): Promise<void> {

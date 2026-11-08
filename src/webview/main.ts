@@ -526,10 +526,19 @@ function applySnap(): void {
   persistView();
 }
 
+/** Ignores select changes caused by rebuilding the repository list. */
+let repoSync = 0;
+
 function fillRepos(): void {
   if (!snap) return;
   const sel = $('repo');
-  sel.innerHTML = snap.repos.map((r) => `<option value="${esc(r.path)}" ${r.path === snap!.repoPath ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
+  const repoPath = snap.repoPath;
+  repoSync += 1;
+  sel.innerHTML = snap.repos.map((r) => `<option value="${esc(r.path)}" ${r.path === repoPath ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
+  if ([...sel.options].some((option) => option.value === repoPath)) sel.value = repoPath;
+  queueMicrotask(() => {
+    repoSync -= 1;
+  });
   sel.hidden = snap.repos.length < 2;
   $('btn-repo-help').hidden = sel.hidden;
   if (sel.hidden) $('pop-repo-help').hidePopover?.();
@@ -3230,7 +3239,12 @@ function bind(): void {
   };
   document.addEventListener('pointermove', trackPointer, { passive: true });
   document.addEventListener('pointerdown', trackPointer, { passive: true });
-  $('repo').addEventListener('change', (e) => post({ type: 'pickRepo', path: (e.target as HTMLSelectElement).value }));
+  $('repo').addEventListener('change', (e) => {
+    if (repoSync > 0) return;
+    const path = (e.target as HTMLSelectElement).value;
+    if (!snap || path === snap.repoPath) return;
+    post({ type: 'pickRepo', path });
+  });
   $('s-theme').addEventListener('change', (e) => post({ type: 'setTheme', value: (e.target as HTMLSelectElement).value as GraphSnapshot['config']['theme'] }));
   $('s-bg').addEventListener('change', (e) => post({ type: 'setBackground', value: (e.target as HTMLSelectElement).value as GraphSnapshot['config']['background'] }));
   $('s-raycat').addEventListener('change', postRayCat);
