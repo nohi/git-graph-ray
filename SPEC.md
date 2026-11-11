@@ -78,6 +78,7 @@
 - テーマ `graph.theme`: `classic` / `Ray` / `Ray Wave` / `Ray Cycle` / `Ray Stream`
 - 背景 `graph.background`: `auto` / `dark` / `light`、既定 `dark`。`dark` と `light` は VS Code のテーマと OS の外観に関係なく固定。`auto` は VS Code がページに付けるテーマのクラスに従う
 - `graph.lanePriority`: ブランチ glob → 数値。大きいほどその線を左に固定する。第一親で一本のときラベルより上も含む。先端まで左列は空く。同点は上にある線、次に名前。`*` は `/` を含む。リモートは `origin/name` と `remotes/origin/name` も比較し、最大値が勝つ。0 以下は予約しない。未設定は従来の列。Graph Settings で追加・編集・削除する
+- 矢印上下で表示中（日付・人のフィルタ後）の隣のコミットへ選択を移し、見えなければスクロールする。詳細が開いていれば詳細も追従、閉じていれば選択だけ移る。Enter で選択中のコミットの詳細を開閉する（閉じても選択は残る）。ダイアログ・ポップオーバー表示中と入力欄では奪わない
 - ショートカット: Find `mod+f`、Refresh `mod+r`、HEAD `mod+h`、stash `mod+s`。空文字ならその操作は無効。Refresh と stash が既定値のときは VS Code のキー割り当てにも登録し、グラフにフォーカスがある間は Open Recent / Reload Window / Save より優先する。stash の既定値では Ctrl/Cmd+Shift+S で前の stash へ移る
 - 開いているグラフは設定変更を受ける。見た目は描き直し、コミットやリポジトリ一覧の条件が変わったときは再読込する。グラフ上の編集は、いま表示に使われているユーザ設定またはワークスペース設定へ書く
 - Escape は1回で1層だけ閉じる: 確認ダイアログ → 開いているポップオーバー（Find、Graph Settings、フィルタ、Undo / Redo 履歴、列メニューなど）→ 複数選択 → 詳細。ポップオーバーを閉じても詳細は開いたまま

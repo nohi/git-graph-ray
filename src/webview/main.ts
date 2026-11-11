@@ -96,6 +96,7 @@ import {
 import { rayCatAddTag, rayCatBurnBranch, rayCatCherryPick, rayCatCreateBranch, rayCatDeleteTag, rayCatPull, rayCatPushBranch, rayCatRenameBranch, syncRayCats } from './rayCat';
 import { startContributorsPage } from './contributors';
 import { ESCAPE_POPOVER_IDS, escapeLayer } from '../shared/escapeLayer';
+import { adjacentShownCommit, enterOnCommit, scrollToRevealRow } from '../shared/commitNav';
 import './styles.css';
 
 type AnchoredPopoverOpts = { align?: AnchoredPopoverAlign; maxWidth?: number };
@@ -1772,6 +1773,16 @@ function refreshFileView(): void {
   const files = document.querySelector('.files');
   if (files) files.innerHTML = filesPaneHtml(details);
   if (detailsH == null) scheduleFitDetails();
+}
+
+function revealSelectedRow(): void {
+  if (!selected) return;
+  const rows = shownCommits();
+  const idx = displayIndexForHash(selected);
+  if (idx < 0) return;
+  const scroll = $('scroll');
+  const next = scrollToRevealRow({ top: rowTop(idx, detailsGap(rows)), rowHeight: ROW, scrollTop: scroll.scrollTop, viewHeight: scroll.clientHeight });
+  if (next != null) scroll.scrollTop = next;
 }
 
 function scrollToHash(hash: string): void {
@@ -4035,20 +4046,33 @@ function onKey(ev: KeyboardEvent): void {
     runFind(ev.shiftKey ? -1 : 1);
     return;
   }
-  if ((ev.key === 'ArrowDown' || ev.key === 'ArrowUp') && details && selected) {
+  if ((ev.key === 'ArrowDown' || ev.key === 'ArrowUp' || ev.key === 'Enter') && !ev.altKey && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey) {
     if (document.querySelector('dialog[open], [popover]:popover-open')) return;
-    if ((ev.target as HTMLElement).closest('input, textarea, select')) return;
-    ev.preventDefault();
-    const dir = ev.key === 'ArrowDown' ? 1 : -1;
-    const commitIndex = snap.commits.findIndex((c) => c.hash === selected);
-    const visible = shownCommits();
-    let pos = visible.indexOf(commitIndex);
-    let nextIndex: number | undefined;
-    if (pos < 0) {
-      nextIndex = dir > 0 ? visible.find((index) => index > commitIndex) : [...visible].reverse().find((index) => index < commitIndex);
-    } else {
-      nextIndex = visible[pos + dir];
+    const target = ev.target as HTMLElement;
+    if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if (ev.key === 'Enter') {
+      // Enter on a button or link presses it.
+      if (target.closest('button, a, summary')) return;
+      const current = selected;
+      const action = enterOnCommit(current && snap.commits.some((c) => c.hash === current) ? current : null, !!details);
+      if (action === 'none') return;
+      ev.preventDefault();
+      rangeAnchor = current;
+      commitRange = [];
+      clearCompare();
+      if (action === 'close') {
+        // The selection stays so the arrow keys continue from this commit.
+        details = null;
+        post({ type: 'openRow', hash: null });
+      } else {
+        post({ type: 'openRow', hash: current });
+      }
+      persistView();
+      paint();
+      return;
     }
+    const nextIndex = adjacentShownCommit(shownCommits(), selected ? snap.commits.findIndex((c) => c.hash === selected) : -1, ev.key === 'ArrowDown' ? 1 : -1);
+    ev.preventDefault();
     if (nextIndex == null) return;
     const next = snap.commits[nextIndex];
     if (!next) return;
@@ -4057,8 +4081,10 @@ function onKey(ev: KeyboardEvent): void {
     commitRange = [];
     persistView();
     clearCompare();
-    post({ type: 'openRow', hash: selected });
+    // Open details follow the selection. Closed details stay closed until Enter.
+    if (details) post({ type: 'openRow', hash: selected });
     paint();
+    revealSelectedRow();
     return;
   }
   if ((ev.ctrlKey || ev.metaKey) && !ev.altKey && ev.key.toLowerCase() === 'z') {

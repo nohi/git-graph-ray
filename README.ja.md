@@ -52,6 +52,8 @@
 | Jump to HEAD | Ctrl/Cmd+H |
 | Jump to stash | Ctrl/Cmd+S |
 | 前の stash へジャンプ | Ctrl/Cmd+Shift+S |
+| 次 / 前のコミットを選択 | ↓ / ↑ |
+| コミット詳細を開く / 閉じる | Enter |
 
 ## スクリーンショット
 

@@ -52,6 +52,8 @@ Defaults. Find, Refresh, Jump to HEAD, and Jump to stash can be reassigned in se
 | Jump to HEAD | Ctrl/Cmd+H |
 | Jump to stash | Ctrl/Cmd+S |
 | Jump to previous stash | Ctrl/Cmd+Shift+S |
+| Select next / previous commit | Down / Up |
+| Open or close commit details | Enter |
 
 ## Screenshots
 
