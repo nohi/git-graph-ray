@@ -330,7 +330,8 @@ window.addEventListener('message', (ev: MessageEvent<HostToView>) => {
     paint();
     scheduleFitDetails();
   } else if (m.type === 'fail') {
-    setGitBusy(false);
+    // An empty message only clears the banner. A Git action may still be running.
+    if (m.message) setGitBusy(false);
     $('fail-msg').textContent = m.message;
     $('fail').hidden = !m.message;
   } else if (m.type === 'busy') {
