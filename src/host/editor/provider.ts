@@ -57,6 +57,8 @@ import { sameRepoPath } from './scmRefresh';
 import { graphDocumentLabel } from '../../shared/graphUri';
 import { isGraphWebviewTab } from './graphTab';
 import { GRAPH_VIEW_TYPE, loadPinned, savePinned } from './uri';
+import { createLoadLog, graphLoadFailMessage, isUnbornHeadError, loadFailurePlan, optionalLoad, settleLoad, errorText, type GraphLoadError } from './loadErrors';
+import { logChannel } from '../logger';
 
 const RESTORE_SETTLE_MS = 600;
 const EXTERNAL_RELOAD_MS = 400;
@@ -419,6 +421,11 @@ class GraphSession {
   private disposed = false;
   private reloadGen = 0;
   private lastFingerprint = '';
+  /** Repository of the last graph sent to the webview. */
+  private snapshotRepo: string | null = null;
+  private loadFailShown = false;
+  private readonly loadFailLog = createLoadLog((line) => logChannel().error(line));
+  private readonly loadWarnLog = createLoadLog((line) => logChannel().warn(line));
   private scrollHeadOnLoad = true;
   private historyPath: string | null = null;
   private loadGen = 0;
@@ -835,7 +842,7 @@ class GraphSession {
     return 'all';
   }
 
-  private async snapshot(): Promise<GraphSnapshot> {
+  private async snapshot(): Promise<{ payload: GraphSnapshot; error?: GraphLoadError }> {
     const extra = this.ctx.workspaceState.get<string[]>('ggr.extraRepos', []);
     const hidden = this.ctx.workspaceState.get<string[]>('ggr.hiddenRepos', []);
     const repos = await discoverRepos(this.git(), extra, hidden, cfg('startup.searchDepth', 0));
@@ -847,18 +854,17 @@ class GraphSession {
     applyRepoVisibility(config, settings);
     this.showRemotes = config.showRemoteBranches;
 
-    const { refs, branches, head, currentBranch } = await loadRefs(this.git(), this.repoPath, config.showRemoteHeads).catch(() => ({
-      refs: [] as import('../../shared/types').GraphRef[],
-      branches: [] as string[],
-      head: null as string | null,
-      currentBranch: null as string | null,
-    }));
-    const trees = await listWorktrees(this.git(), this.repoPath).catch(() => []);
+    const hasRepo = Boolean(this.repoPath);
+    const noRefs = { refs: [] as GraphRef[], branches: [] as string[], head: null as string | null, currentBranch: null as string | null };
+    const refsLoad = hasRepo ? await settleLoad('refs', loadRefs(this.git(), this.repoPath, config.showRemoteHeads), noRefs) : { value: noRefs };
+    const { refs, branches, head, currentBranch } = refsLoad.value;
+    const trees = hasRepo ? await optionalLoad(this.loadWarnLog, 'worktrees', 'Could not list worktrees', listWorktrees(this.git(), this.repoPath), []) : [];
     const mainWorktreePath = primaryWorktreePath(trees, this.repoPath);
     for (const t of trees) {
       refs.push({ kind: 'worktree', name: path.basename(t.path), hash: t.head, worktreePath: t.path });
     }
-    const remotes = (await listRemotes(this.git(), this.repoPath).catch(() => [])).filter((r) => !settings.hideRemotes.includes(r.name));
+    const remoteRows = hasRepo ? await optionalLoad(this.loadWarnLog, 'remotes', 'Could not list remotes', listRemotes(this.git(), this.repoPath), []) : [];
+    const remotes = remoteRows.filter((r) => !settings.hideRemotes.includes(r.name));
     this.includeHead = !currentBranch;
     const filterRefs = refs.filter((r) => {
       if (r.kind === 'stash') return false;
@@ -877,7 +883,20 @@ class GraphSession {
 
     this.skip = 0;
     const page = historyPage('history.pageSize', 300);
-    const loaded = await loadCommits(this.commitLoad(page, 0)).catch(() => ({ commits: [], hasMore: false }));
+    const noCommits = { commits: [] as GraphSnapshot['commits'], hasMore: false };
+    const commitsLoad =
+      hasRepo && !refsLoad.error
+        ? await settleLoad(
+            'commits',
+            loadCommits(this.commitLoad(page, 0)).catch((error: unknown) => {
+              // A branch with no commits yet has nothing to show. That is not a failure.
+              if (head === null && isUnbornHeadError(errorText(error))) return noCommits;
+              throw error;
+            }),
+            noCommits,
+          )
+        : { value: noCommits };
+    const loaded = commitsLoad.value;
     const untracked = config.showUntrackedFiles ? '-unormal' : '-uno';
     const porcelain = this.repoPath
       ? await gitMaybe(this.git(), this.repoPath, ['status', '--porcelain=v1', '-b', untracked]).catch(() => '')
@@ -890,7 +909,7 @@ class GraphSession {
 
     if (!this.disposed) this.panel.title = graphDocumentLabel(this.repoPath);
 
-    return {
+    const payload: GraphSnapshot = {
       repos,
       repoPath: this.repoPath,
       mainWorktreePath,
@@ -913,6 +932,7 @@ class GraphSession {
       operation,
       divergence,
     };
+    return { payload, error: refsLoad.error ?? commitsLoad.error };
   }
 
   private commitLoad(maxCount: number, skip: number) {
@@ -968,11 +988,30 @@ class GraphSession {
     this.quietUntil = Date.now() + 1500;
     if (!opts?.fromWatch) this.post({ type: 'patch', payload: { loading: true } });
     try {
-      const payload = await this.snapshot();
+      let payload: GraphSnapshot | undefined;
+      let error: unknown;
+      try {
+        const result = await this.snapshot();
+        payload = result.payload;
+        error = result.error;
+      } catch (e) {
+        error = e;
+      }
       if (this.disposed || gen !== this.reloadGen) return;
+      if (error !== undefined) {
+        this.reportLoadFailure(error, payload, Boolean(opts?.fromWatch));
+        return;
+      }
+      if (!payload) return;
+      this.loadFailLog.clear('load');
+      if (this.loadFailShown) {
+        this.loadFailShown = false;
+        this.post({ type: 'fail', message: '' });
+      }
       const fp = snapshotFingerprint(payload);
       if (opts?.fromWatch && fp === this.lastFingerprint) return;
       this.lastFingerprint = fp;
+      this.snapshotRepo = payload.repoPath;
       this.post({ type: 'snapshot', payload });
       if (opts?.recordExternal === false) await this.rememberCheckpoint();
       else await this.noteExternalCommit();
@@ -985,6 +1024,28 @@ class GraphSession {
     } finally {
       this.quietUntil = Math.max(this.quietUntil, Date.now() + 800);
       if (this.externalPending) this.requestExternalReload();
+    }
+  }
+
+  /** Keeps a graph that is still correct, logs the reason, and shows it unless an automatic reload hit it again. */
+  private reportLoadFailure(error: unknown, payload: GraphSnapshot | undefined, fromWatch: boolean): void {
+    const message = graphLoadFailMessage(error);
+    this.loadFailLog.report('load', message, !fromWatch);
+    const plan = loadFailurePlan({
+      fromWatch,
+      hasSnapshot: this.snapshotRepo !== null,
+      sameRepo: this.snapshotRepo !== null && sameRepoPath(payload?.repoPath ?? this.repoPath, this.snapshotRepo),
+    });
+    if (plan.postSnapshot && payload) {
+      this.lastFingerprint = '';
+      this.snapshotRepo = payload.repoPath;
+      this.post({ type: 'snapshot', payload });
+    } else if (!fromWatch) {
+      this.post({ type: 'patch', payload: { loading: false } });
+    }
+    if (plan.showFail) {
+      this.loadFailShown = true;
+      this.post({ type: 'fail', message: `${message} (see the Git Graph Ray output for details)` });
     }
   }
 

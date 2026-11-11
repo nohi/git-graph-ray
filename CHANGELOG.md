@@ -9,6 +9,7 @@
 - A graph opened on a linked worktree reloads after a checkout, commit, or branch move in that worktree. The graph now watches the Git folders that Git reports for the worktree instead of its `.git` file.
 - Escape closes one layer at a time. Closing Find, Graph Settings, a filter, the undo or redo history, or the column menu keeps the details pane open, and those menus now close on Escape.
 - Settings saved under the keys used before v0.8.0 are copied to the new keys once, for User and Workspace Settings. A new key that already has a value is kept. The old entries stay in settings.json so they can be checked and deleted. `commitDetailsView.autoCenter` and `enhancedAccessibility` have no new key and are not copied.
+- When Git cannot read branches, tags, or commits, the graph shows the reason instead of an empty graph, and the Git Graph Ray output records it. A Refresh that fails keeps the graph that was showing. Automatic reloads that fail only write to the output. A failure to list remotes or worktrees is written to the output and the graph still loads.
 
 ## v0.8.0
 
