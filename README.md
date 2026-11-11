@@ -12,12 +12,14 @@ Open the graph from the Command Palette (**Git Graph Ray: View Git Graph**), the
 
 - **Commit graph** — Color-coded branches, merges, and refs in a virtualized table. A commit or amend in Source Control reloads the graph (`git-graph-ray.history.autoRefresh`, on by default). Columns cover the description, author, dates, hash, and signature (signed or not, and GPG / SSH / X.509). Show or hide columns from the header and drag to resize them. Author avatars are optional.
 - **Commit details** — Metadata, parents, body, and file changes in Tree or List view. Open diffs and revisions from the graph. A collapsible Signature row shows verification and the fields Git can read from the signature. Ctrl/Cmd+click a second commit to compare them. A third selected commit closes the details.
+- **Compare from the common parent** — Two selected commits are compared from their common parent by default (Since diverge). Files changed only on one side and files changed on both are listed in separate, collapsible sections, and each file opens that side's diff from the common parent. Snapshot switches to the direct diff.
 - **Git actions** — Branch, merge, rebase (interactive rebase opens in the integrated terminal), cherry-pick (Shift+click a commit range, or Ctrl/Cmd+click individual commits; merge commits are skipped), revert, reset, reword, drop, tag, stash (including selected files), pull/push (pull can rebase), worktree operations, and patches from the graph. Conflicted files on an in-progress operation open in the VS Code merge editor. Create pull requests for GitHub, GitLab, Bitbucket, or a custom provider. Reword needs Git 2.54 or later. Each Git command is written to the **Git Graph Ray** output channel. Auto fetch is off until enabled in Repository Settings.
 - **Undo and Redo** — Step through local Git operations from the header (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z) or several steps at once from the history menu. Preview the before and after graphs, ref changes, and the commands that will run. Commits and amends from Source Control are included and undone with `git reset --soft`, so the changes stay staged. History stays in the window (up to 50 entries). Worktree operations and interactive rebase are left out of that history.
 - **Repositories and worktrees** — Discover nested repos, add or hide folders, and treat worktrees as first-class repos. Create, open, and remove worktrees from the graph.
 - **Filtering and navigation** — Multi-select branches, remotes, and tags. Hide loaded commits by author date or committer date while the graph line stays connected. Jump to HEAD or a stash, search subjects (match case, regular expression, or diffs), mute merge commits, and load more history as you scroll.
 - **Issue linking** — Turn issue keys in commit messages into links with a regex and a URL template.
-- **Themes** — Classic, Ray, Ray Wave, Ray Cycle, and Ray Stream. Ray Cat can sit along the bottom of the view.
+- **Contributors** — A Contributors tab lists each person's commits and added and deleted lines, by author or committer, for the last 7, 30, or 90 days, the last 12 months, or a custom range. Filter the graph by author or committer from the Contributor popover.
+- **Themes** — Classic, Ray, Ray Wave, Ray Cycle, and Ray Stream. The graph background is dark by default; choose light, or auto to follow the VS Code theme (`git-graph-ray.graph.background`). Ray Cat can sit along the bottom of the view.
 
 ## Requirements
 
@@ -29,6 +31,7 @@ Open the graph from the Command Palette (**Git Graph Ray: View Git Graph**), the
 | Command | Description |
 | --- | --- |
 | **Git Graph Ray: View Git Graph** | Open the graph for the current workspace |
+| **Git Graph Ray: View Contributors** | Open the Contributors tab |
 | **Git Graph Ray: Fetch from Remote(s)** | Fetch remotes and open the graph |
 | **Git Graph Ray: Add Git Repository...** | Add a repository that was not discovered automatically |
 | **Git Graph Ray: Remove Git Repository...** | Hide a repository from the graph |
@@ -37,7 +40,7 @@ Open the graph from the Command Palette (**Git Graph Ray: View Git Graph**), the
 
 ## Shortcuts
 
-Defaults. Find, Refresh, Jump to HEAD, and Jump to stash can be reassigned in settings.
+Defaults. Find, Refresh, Jump to HEAD, and Jump to stash can be reassigned in settings. While the graph is focused, the default Refresh and Jump to stash keys take priority over VS Code's Open Recent, Reload Window, and Save.
 
 | Action | Shortcut |
 | --- | --- |
@@ -48,6 +51,7 @@ Defaults. Find, Refresh, Jump to HEAD, and Jump to stash can be reassigned in se
 | Refresh | Ctrl/Cmd+R |
 | Jump to HEAD | Ctrl/Cmd+H |
 | Jump to stash | Ctrl/Cmd+S |
+| Jump to previous stash | Ctrl/Cmd+Shift+S |
 
 ## Screenshots
 
