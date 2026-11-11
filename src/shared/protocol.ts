@@ -80,6 +80,8 @@ export type GraphSnapshot = {
   historyPath: string | null;
   operation: RepoOperation | null;
   divergence: UpstreamDivergence | null;
+  /** Worktree paths with uncommitted changes. Worktrees that failed to read are left out. */
+  worktreeDirty: string[];
 };
 
 export type ViewToHost =

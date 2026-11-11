@@ -82,6 +82,7 @@
 - ショートカット: Find `mod+f`、Refresh `mod+r`、HEAD `mod+h`、stash `mod+s`。空文字ならその操作は無効。Refresh と stash が既定値のときは VS Code のキー割り当てにも登録し、グラフにフォーカスがある間は Open Recent / Reload Window / Save より優先する。stash の既定値では Ctrl/Cmd+Shift+S で前の stash へ移る
 - 開いているグラフは設定変更を受ける。見た目は描き直し、コミットやリポジトリ一覧の条件が変わったときは再読込する。グラフ上の編集は、いま表示に使われているユーザ設定またはワークスペース設定へ書く
 - Escape は1回で1層だけ閉じる: 確認ダイアログ → 開いているポップオーバー（Find、Graph Settings、フィルタ、Undo / Redo 履歴、列メニューなど）→ 複数選択 → 詳細。ポップオーバーを閉じても詳細は開いたまま
+- 未コミット変更のある worktree のチップにはドットを付け、title に示す。読込時と Refresh 時に更新する。他 worktree のファイル一覧は出さない
 
 ## 7. 詳細と比較
 

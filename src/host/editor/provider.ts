@@ -36,7 +36,7 @@ import { addRemote, deleteRemote, editRemote, listRemotes } from '../git/remotes
 import { branchFullyMerged } from '../git/branchMerged';
 import { invalidateRemoteTagCache, loadRemoteTagTips } from '../git/remoteTags';
 import { loadRefs } from '../git/refs';
-import { listWorktrees } from '../git/worktree';
+import { listWorktrees, loadWorktreeDirt } from '../git/worktree';
 import { discoverRepos, norm } from '../repos/discover';
 import { compareRepos, resolveOpenRepo } from '../repos/openRepo';
 import { loadCleanRepoSettings, loadRepoSettings, saveRepoSettings } from '../repoSettings';
@@ -911,6 +911,13 @@ class GraphSession {
     const dirty = config.showUncommittedChanges && workingTreeDirty(porcelain, config.showUntrackedFiles);
     const divergence = parseUpstreamDivergence(porcelain);
     const operation = this.repoPath ? await readRepoOperation(this.git(), this.repoPath).catch(() => null) : null;
+    const worktreeDirty = hasRepo
+      ? await loadWorktreeDirt(
+          trees.map((tree) => tree.path),
+          (cwd) => gitMaybe(this.git(), cwd, ['status', '--porcelain=v1', '-b', untracked]),
+          { includeUntracked: config.showUntrackedFiles },
+        ).catch(() => [])
+      : [];
     this.commits = withUncommitted(loaded.commits, head, dirty);
     this.hasMore = loaded.hasMore;
 
@@ -938,6 +945,7 @@ class GraphSession {
       historyPath: this.historyPath,
       operation,
       divergence,
+      worktreeDirty,
     };
     return { payload, error: refsLoad.error ?? commitsLoad.error };
   }

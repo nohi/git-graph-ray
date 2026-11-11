@@ -130,6 +130,7 @@ function snap(over: Partial<GraphSnapshot> = {}): GraphSnapshot {
     historyPath: null,
     operation: null,
     divergence: null,
+    worktreeDirty: [],
     ...over,
   };
 }

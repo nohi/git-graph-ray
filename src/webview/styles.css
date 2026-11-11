@@ -1991,6 +1991,16 @@ dialog button.lc-help {
     --chip-ico: var(--ico-worktree);
   }
 
+  &.dirty::after {
+    content: '';
+    width: 0.5em;
+    height: 0.5em;
+    border-radius: 50%;
+    background: currentColor;
+    margin-left: 0.3em;
+    flex: none;
+  }
+
   &.coloured.current {
     background: color-mix(in srgb, var(--ref-colour) 38%, transparent);
   }
