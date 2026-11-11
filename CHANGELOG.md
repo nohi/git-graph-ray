@@ -2,6 +2,10 @@
 
 ## v0.8.1
 
+### Features
+
+- Command names, setting descriptions, and messages from VS Code (the status bar item, the version Copy button, file pickers) follow the VS Code display language. Japanese is included. The graph view itself is still in English. Saved setting values do not change with the language.
+
 ### Fixes
 
 - The bold label follows the branch that is checked out when several local branches point at the same commit. Checking out another of those branches updates that label.

@@ -43,8 +43,9 @@ export function registerCommands(
     vscode.commands.registerCommand('git-graph-ray.version', async () => {
       const ver = ctx.extension.packageJSON.version as string;
       const gitVer = await gitVersionString(git());
-      const choice = await vscode.window.showInformationMessage(versionInformationDisplay(ver, gitVer), 'Copy');
-      if (choice === 'Copy') await vscode.env.clipboard.writeText(versionInformationText(ver, gitVer));
+      const copy = vscode.l10n.t('Copy');
+      const choice = await vscode.window.showInformationMessage(versionInformationDisplay(ver, gitVer), copy);
+      if (choice === copy) await vscode.env.clipboard.writeText(versionInformationText(ver, gitVer));
     }),
     vscode.commands.registerCommand('git-graph-ray.graph.refresh', () => {
       provider.postShortcut('refresh');

@@ -760,8 +760,8 @@ class GraphSession {
             canSelectFolders: true,
             canSelectFiles: false,
             canSelectMany: false,
-            title: 'Worktree location',
-            openLabel: 'Select location',
+            title: vscode.l10n.t('Worktree location'),
+            openLabel: vscode.l10n.t('Select location'),
             defaultUri: msg.defaultPath ? vscode.Uri.file(msg.defaultPath) : undefined,
           });
           this.post({ type: 'picked', requestId: msg.requestId, path: pick?.[0]?.fsPath ?? null });
@@ -771,7 +771,7 @@ class GraphSession {
           const pick = await vscode.window.showSaveDialog({
             title: msg.title,
             defaultUri: vscode.Uri.file(path.join(this.repoPath, msg.defaultName)),
-            filters: { Patch: ['patch', 'diff'] },
+            filters: { [vscode.l10n.t('Patch')]: ['patch', 'diff'] },
           });
           this.post({ type: 'picked', requestId: msg.requestId, path: pick?.fsPath ?? null });
           return;
@@ -782,8 +782,8 @@ class GraphSession {
             canSelectFiles: true,
             canSelectFolders: false,
             canSelectMany: false,
-            openLabel: 'Select patch',
-            filters: { Patch: ['patch', 'diff'] },
+            openLabel: vscode.l10n.t('Select patch'),
+            filters: { [vscode.l10n.t('Patch')]: ['patch', 'diff'] },
           });
           const file = pick?.[0]?.fsPath ?? null;
           let patchKind: 'am' | 'apply' | undefined;

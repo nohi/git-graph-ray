@@ -8,7 +8,7 @@ import { norm } from '../repos/discover';
 import { contributorsHtml } from './contributorsHtml';
 import { nonce } from './html';
 
-const NO_REPO = 'Open a folder with a Git repository to view contributors.';
+const noRepoMessage = () => vscode.l10n.t('Open a folder with a Git repository to view contributors.');
 
 export class ContributorsPanel implements vscode.WebviewPanelSerializer {
   static readonly viewType = 'git-graph-ray.contributors';
@@ -44,7 +44,7 @@ export class ContributorsPanel implements vscode.WebviewPanelSerializer {
     const repo = fromState ? norm(fromState) : await resolveOpenRepo(this.git());
     if (!repo) {
       panel.dispose();
-      void vscode.window.showInformationMessage(NO_REPO);
+      void vscode.window.showInformationMessage(noRepoMessage());
       return;
     }
     this.bind(panel, repo);
@@ -53,7 +53,7 @@ export class ContributorsPanel implements vscode.WebviewPanelSerializer {
   async open(explicit?: string): Promise<void> {
     const repo = explicit ? norm(explicit) : await resolveOpenRepo(this.git());
     if (!repo) {
-      void vscode.window.showInformationMessage(NO_REPO);
+      void vscode.window.showInformationMessage(noRepoMessage());
       return;
     }
     if (this.panel) {

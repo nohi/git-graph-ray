@@ -3,7 +3,7 @@
   "displayName": "Git Graph Ray",
   "version": "0.8.1",
   "publisher": "nohi",
-  "description": "View a Git graph of your repository and run Git actions from it.",
+  "description": "%description%",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -26,6 +26,7 @@
     "onStartupFinished",
     "onWebviewPanel:git-graph-ray.graph"
   ],
+  "l10n": "./l10n",
   "main": "./dist/host/extension.js",
   "extensionKind": [
     "workspace"
@@ -35,55 +36,55 @@
     "commands": [
       {
         "command": "git-graph-ray.view",
-        "title": "View Git Graph",
+        "title": "%command.view%",
         "category": "Git Graph Ray",
         "icon": "resources/icon.png"
       },
       {
         "command": "git-graph-ray.contributors",
-        "title": "View Contributors",
+        "title": "%command.contributors%",
         "category": "Git Graph Ray"
       },
       {
         "command": "git-graph-ray.addGitRepository",
-        "title": "Add Git Repository...",
+        "title": "%command.addGitRepository%",
         "category": "Git Graph Ray"
       },
       {
         "command": "git-graph-ray.clearAvatarCache",
-        "title": "Clear Avatar Cache",
+        "title": "%command.clearAvatarCache%",
         "category": "Git Graph Ray"
       },
       {
         "command": "git-graph-ray.fetch",
-        "title": "Fetch from Remote(s)",
+        "title": "%command.fetch%",
         "category": "Git Graph Ray"
       },
       {
         "command": "git-graph-ray.removeGitRepository",
-        "title": "Remove Git Repository...",
+        "title": "%command.removeGitRepository%",
         "category": "Git Graph Ray"
       },
       {
         "command": "git-graph-ray.version",
-        "title": "Get Version Information",
+        "title": "%command.version%",
         "category": "Git Graph Ray"
       },
       {
         "command": "git-graph-ray.openFile",
-        "title": "Open File",
+        "title": "%command.openFile%",
         "category": "Git Graph Ray",
         "icon": "$(go-to-file)",
         "enablement": "isInDiffEditor && resourceScheme == git-graph-ray-file"
       },
       {
         "command": "git-graph-ray.graph.refresh",
-        "title": "Refresh",
+        "title": "%command.graph.refresh%",
         "category": "Git Graph Ray"
       },
       {
         "command": "git-graph-ray.graph.scrollToStash",
-        "title": "Jump to Stash",
+        "title": "%command.graph.scrollToStash%",
         "category": "Git Graph Ray"
       }
     ],
@@ -162,7 +163,7 @@
         "git-graph-ray.actions": {
           "type": "object",
           "additionalProperties": false,
-          "markdownDescription": "Starting choices for dialogs opened from the graph. Editing a dialog does not write these back.",
+          "markdownDescription": "%config.actions.markdownDescription%",
           "default": {
             "tagAnnotated": true,
             "tagPush": false,
@@ -192,47 +193,47 @@
             "tagAnnotated": {
               "type": "boolean",
               "default": true,
-              "description": "Start Add Tag as an annotated tag."
+              "description": "%config.actions.tagAnnotated.description%"
             },
             "tagPush": {
               "type": "boolean",
               "default": false,
-              "description": "Start Add Tag with a remote selected for push."
+              "description": "%config.actions.tagPush.description%"
             },
             "stashKeepIndex": {
               "type": "boolean",
               "default": false,
-              "description": "Start Apply Stash with the index restored."
+              "description": "%config.actions.stashKeepIndex.description%"
             },
             "popKeepIndex": {
               "type": "boolean",
               "default": false,
-              "description": "Start Pop Stash with the index restored."
+              "description": "%config.actions.popKeepIndex.description%"
             },
             "cherryNoCommit": {
               "type": "boolean",
               "default": false,
-              "description": "Start Cherry-pick without committing."
+              "description": "%config.actions.cherryNoCommit.description%"
             },
             "cherryRecordOrigin": {
               "type": "boolean",
               "default": false,
-              "description": "Start Cherry-pick recording the source commit."
+              "description": "%config.actions.cherryRecordOrigin.description%"
             },
             "branchCheckout": {
               "type": "boolean",
               "default": false,
-              "description": "Start Create Branch with checkout selected."
+              "description": "%config.actions.branchCheckout.description%"
             },
             "branchForceDelete": {
               "type": "boolean",
               "default": false,
-              "description": "Start Delete Branch with force selected."
+              "description": "%config.actions.branchForceDelete.description%"
             },
             "fetchIntoForce": {
               "type": "boolean",
               "default": false,
-              "description": "Start Fetch into local branch with force selected."
+              "description": "%config.actions.fetchIntoForce.description%"
             },
             "nameSpaces": {
               "type": "string",
@@ -242,22 +243,22 @@
                 "underscore"
               ],
               "default": "keep",
-              "description": "What to do with spaces typed in a new branch or tag name."
+              "description": "%config.actions.nameSpaces.description%"
             },
             "mergeNoCommit": {
               "type": "boolean",
               "default": false,
-              "description": "Start Merge without committing."
+              "description": "%config.actions.mergeNoCommit.description%"
             },
             "mergeNoFastForward": {
               "type": "boolean",
               "default": true,
-              "description": "Start Merge with a merge commit even when fast-forward is possible."
+              "description": "%config.actions.mergeNoFastForward.description%"
             },
             "mergeSquash": {
               "type": "boolean",
               "default": false,
-              "description": "Start Merge with squash selected."
+              "description": "%config.actions.mergeSquash.description%"
             },
             "mergeSquashMessage": {
               "type": "string",
@@ -266,22 +267,22 @@
                 "file"
               ],
               "default": "subject",
-              "description": "subject writes a short title. file uses the message Git stored for the squash."
+              "description": "%config.actions.mergeSquashMessage.description%"
             },
             "pullNoFastForward": {
               "type": "boolean",
               "default": false,
-              "description": "Start Pull with no fast-forward selected."
+              "description": "%config.actions.pullNoFastForward.description%"
             },
             "pullRebase": {
               "type": "boolean",
               "default": false,
-              "description": "Start Pull with rebase selected. Rebase ignores no fast-forward and squash."
+              "description": "%config.actions.pullRebase.description%"
             },
             "pullSquash": {
               "type": "boolean",
               "default": false,
-              "description": "Start Pull with squash selected."
+              "description": "%config.actions.pullSquash.description%"
             },
             "pullSquashMessage": {
               "type": "string",
@@ -290,17 +291,17 @@
                 "file"
               ],
               "default": "subject",
-              "description": "subject writes a short title. file uses the message Git stored for the squash."
+              "description": "%config.actions.pullSquashMessage.description%"
             },
             "rebaseIgnoreDate": {
               "type": "boolean",
               "default": false,
-              "description": "Start Rebase with ignore date selected."
+              "description": "%config.actions.rebaseIgnoreDate.description%"
             },
             "rebaseInteractive": {
               "type": "boolean",
               "default": false,
-              "description": "Start Rebase ready to open the interactive editor."
+              "description": "%config.actions.rebaseInteractive.description%"
             },
             "resetMode": {
               "type": "string",
@@ -310,7 +311,7 @@
                 "hard"
               ],
               "default": "mixed",
-              "description": "Starting mode for Reset current branch to this commit."
+              "description": "%config.actions.resetMode.description%"
             },
             "resetUncommitted": {
               "type": "string",
@@ -319,18 +320,18 @@
                 "hard"
               ],
               "default": "mixed",
-              "description": "Starting mode for Reset uncommitted changes."
+              "description": "%config.actions.resetUncommitted.description%"
             },
             "stashUntracked": {
               "type": "boolean",
               "default": true,
-              "description": "Start Stash including untracked files."
+              "description": "%config.actions.stashUntracked.description%"
             }
           }
         },
         "git-graph-ray.branches.globs": {
           "type": "array",
-          "description": "Extra branch filters. Each entry has a name shown in the list and a pattern of branch names.",
+          "description": "%config.branches.globs.description%",
           "items": {
             "type": "object",
             "required": [
@@ -350,7 +351,7 @@
         },
         "git-graph-ray.columns": {
           "type": "object",
-          "description": "Which columns are visible when the graph opens.",
+          "description": "%config.columns.description%",
           "default": {
             "Author": true,
             "AuthorDate": true,
@@ -384,7 +385,7 @@
           "type": "number",
           "default": 300,
           "minimum": 88,
-          "description": "Tallest the commit details panel grows on its own, in pixels."
+          "description": "%config.details.maxHeight.description%"
         },
         "git-graph-ray.details.place": {
           "type": "string",
@@ -393,7 +394,7 @@
             "bottom"
           ],
           "default": "inline",
-          "description": "inline opens details on the commit row. bottom docks the panel under the graph."
+          "description": "%config.details.place.description%"
         },
         "git-graph-ray.details.files": {
           "type": "string",
@@ -402,21 +403,21 @@
             "list"
           ],
           "default": "tree",
-          "description": "How changed files are listed in commit details."
+          "description": "%config.details.files.description%"
         },
         "git-graph-ray.details.foldSingleFolders": {
           "type": "boolean",
           "default": true,
-          "description": "Collapse a chain of single-child folders in the file tree."
+          "description": "%config.details.foldSingleFolders.description%"
         },
         "git-graph-ray.details.markdown": {
           "type": "boolean",
           "default": true,
-          "description": "Render simple markup in commit messages."
+          "description": "%config.details.markdown.description%"
         },
         "git-graph-ray.emoji": {
           "type": "array",
-          "description": "Replace these codes in commit subjects and bodies. Example code: :rocket:",
+          "description": "%config.emoji.description%",
           "items": {
             "type": "object",
             "required": [
@@ -437,35 +438,35 @@
         "git-graph-ray.fetch.prune": {
           "type": "boolean",
           "default": false,
-          "description": "Drop remote-tracking branches that the remote no longer has when fetching from the graph."
+          "description": "%config.fetch.prune.description%"
         },
         "git-graph-ray.fetch.pruneTags": {
           "type": "boolean",
           "default": false,
-          "description": "Also drop stale remote tags when fetching from the graph."
+          "description": "%config.fetch.pruneTags.description%"
         },
         "git-graph-ray.fetch.auto": {
           "type": "boolean",
           "default": false,
-          "description": "Fetch remotes on a timer while the graph tab is open."
+          "description": "%config.fetch.auto.description%"
         },
         "git-graph-ray.fetch.everySeconds": {
           "type": "number",
           "default": 180,
           "minimum": 15,
-          "description": "Seconds between automatic fetches. Used only when automatic fetch is on."
+          "description": "%config.fetch.everySeconds.description%"
         },
         "git-graph-ray.fetch.tagCacheSeconds": {
           "type": "number",
           "default": 300,
           "minimum": 0,
-          "description": "How long, in seconds, to reuse a remote tag listing. 0 asks the remote every time."
+          "description": "%config.fetch.tagCacheSeconds.description%"
         },
         "git-graph-ray.files.encoding": {
           "type": "string",
           "default": "utf8",
           "scope": "resource",
-          "description": "Encoding used when this view reads file contents."
+          "description": "%config.files.encoding.description%"
         },
         "git-graph-ray.graph.bend": {
           "type": "string",
@@ -474,7 +475,7 @@
             "corner"
           ],
           "default": "curve",
-          "description": "curve bends lane changes. corner draws them as steps."
+          "description": "%config.graph.bend.description%"
         },
         "git-graph-ray.graph.lanePriority": {
           "type": "object",
@@ -482,7 +483,7 @@
           "additionalProperties": {
             "type": "number"
           },
-          "markdownDescription": "Keep graph lanes that contain matching branches further left. Each key is a glob and each value is a priority. A larger number is further left. `*` matches any text, including `/`, and `?` matches one character. Remote-tracking branches also match `origin/name` and `remotes/origin/name`, so `release*` matches `release/1.0` and `origin/release/1.0`. The highest matching number wins. A priority of 0 or below is ignored.\n\nThe lane includes commits above the label while they stay on one first-parent line, and it stays empty until that line starts. Equal priorities use the line that appears higher in the graph, then the branch name.\n\nExample: `{ \"main\": 99, \"master\": 99, \"release*\": 50 }`."
+          "markdownDescription": "%config.graph.lanePriority.markdownDescription%"
         },
         "git-graph-ray.graph.palette": {
           "type": "array",
@@ -503,7 +504,7 @@
             "#3a4ad0",
             "#d4a012"
           ],
-          "description": "Lane colours for the classic theme. Other themes use their own colours."
+          "description": "%config.graph.palette.description%"
         },
         "git-graph-ray.graph.theme": {
           "type": "string",
@@ -515,11 +516,11 @@
             "Ray Stream"
           ],
           "enumDescriptions": [
-            "Lane colours from git-graph-ray.graph.palette.",
-            "Neon lane colours with a glow.",
-            "Neon lanes with a pulsing wave.",
-            "Neon lanes that cycle through hue.",
-            "A rainbow that streams up the graph; selection highlights sweep left to right."
+            "%config.graph.theme.enumDescriptions.classic%",
+            "%config.graph.theme.enumDescriptions.Ray%",
+            "%config.graph.theme.enumDescriptions.Ray Wave%",
+            "%config.graph.theme.enumDescriptions.Ray Cycle%",
+            "%config.graph.theme.enumDescriptions.Ray Stream%"
           ],
           "default": "classic"
         },
@@ -531,29 +532,29 @@
             "light"
           ],
           "enumDescriptions": [
-            "Follow the VS Code theme.",
-            "Dark background. Ignores the VS Code theme and the operating system.",
-            "Light background. Ignores the VS Code theme and the operating system."
+            "%config.graph.background.enumDescriptions.auto%",
+            "%config.graph.background.enumDescriptions.dark%",
+            "%config.graph.background.enumDescriptions.light%"
           ],
           "default": "dark",
-          "description": "Background of the graph. Dark and light stay fixed. Auto follows the VS Code theme."
+          "description": "%config.graph.background.description%"
         },
         "git-graph-ray.history.pageSize": {
           "type": "number",
           "default": 300,
           "minimum": 1,
-          "description": "How many commits to load when the graph opens."
+          "description": "%config.history.pageSize.description%"
         },
         "git-graph-ray.history.pageMore": {
           "type": "number",
           "default": 100,
           "minimum": 1,
-          "description": "How many older commits to load when you reach the end of the graph."
+          "description": "%config.history.pageMore.description%"
         },
         "git-graph-ray.history.autoPage": {
           "type": "boolean",
           "default": true,
-          "description": "Load older commits when you scroll to the end of the graph."
+          "description": "%config.history.autoPage.description%"
         },
         "git-graph-ray.history.order": {
           "type": "string",
@@ -563,86 +564,86 @@
             "topo"
           ],
           "enumDescriptions": [
-            "Committer date.",
-            "Author date.",
-            "Parents before children, then date."
+            "%config.history.order.enumDescriptions.date%",
+            "%config.history.order.enumDescriptions.author%",
+            "%config.history.order.enumDescriptions.topo%"
           ],
           "default": "date"
         },
         "git-graph-ray.history.muteMerges": {
           "type": "boolean",
           "default": true,
-          "description": "Draw merge commits in a quieter colour."
+          "description": "%config.history.muteMerges.description%"
         },
         "git-graph-ray.history.dimNotOnHead": {
           "type": "boolean",
           "default": false,
-          "description": "Dim commits that are not ancestors of HEAD."
+          "description": "%config.history.dimNotOnHead.description%"
         },
         "git-graph-ray.history.remotes": {
           "type": "boolean",
           "default": true,
-          "description": "Show remote-tracking branches. The graph stores a different choice for one repository when you change it there."
+          "description": "%config.history.remotes.description%"
         },
         "git-graph-ray.history.remoteHeads": {
           "type": "boolean",
           "default": true,
-          "description": "Show the remote default branch (such as origin/HEAD)."
+          "description": "%config.history.remoteHeads.description%"
         },
         "git-graph-ray.history.tags": {
           "type": "boolean",
           "default": true,
-          "description": "Show tags. The graph stores a different choice for one repository when you change it there."
+          "description": "%config.history.tags.description%"
         },
         "git-graph-ray.history.tagOnlyCommits": {
           "type": "boolean",
           "default": true,
-          "description": "Include commits that are reachable only from tags."
+          "description": "%config.history.tagOnlyCommits.description%"
         },
         "git-graph-ray.history.stashes": {
           "type": "boolean",
           "default": true,
-          "description": "Show stashes. The graph stores a different choice for one repository when you change it there."
+          "description": "%config.history.stashes.description%"
         },
         "git-graph-ray.history.worktrees": {
           "type": "boolean",
           "default": true,
-          "description": "Show worktrees. The graph stores a different choice for one repository when you change it there."
+          "description": "%config.history.worktrees.description%"
         },
         "git-graph-ray.history.uncommitted": {
           "type": "boolean",
           "default": true,
-          "description": "Show a row for uncommitted changes."
+          "description": "%config.history.uncommitted.description%"
         },
         "git-graph-ray.history.untracked": {
           "type": "boolean",
           "default": true,
-          "description": "Count untracked files as uncommitted changes."
+          "description": "%config.history.untracked.description%"
         },
         "git-graph-ray.history.reflog": {
           "type": "boolean",
           "default": false,
-          "description": "Include commits that are only mentioned by the reflog. The graph stores a different choice for one repository when you change it there."
+          "description": "%config.history.reflog.description%"
         },
         "git-graph-ray.history.firstParent": {
           "type": "boolean",
           "default": false,
-          "description": "Follow only the first parent of each commit. The graph stores a different choice for one repository when you change it there."
+          "description": "%config.history.firstParent.description%"
         },
         "git-graph-ray.history.mailmap": {
           "type": "boolean",
           "default": false,
-          "description": "Apply the repository mailmap to author and committer names."
+          "description": "%config.history.mailmap.description%"
         },
         "git-graph-ray.history.avatars": {
           "type": "boolean",
           "default": false,
-          "description": "Fetch author avatars. This sends email addresses to the avatar service."
+          "description": "%config.history.avatars.description%"
         },
         "git-graph-ray.history.autoRefresh": {
           "type": "boolean",
           "default": true,
-          "description": "Reload the graph after a commit or amend in Source Control. Turn this off to skip that reload."
+          "description": "%config.history.autoRefresh.description%"
         },
         "git-graph-ray.history.openCircle": {
           "type": "string",
@@ -651,8 +652,8 @@
             "head"
           ],
           "enumDescriptions": [
-            "Draw the open circle on the uncommitted-changes row.",
-            "Draw the open circle on the checked-out commit."
+            "%config.history.openCircle.enumDescriptions.changes%",
+            "%config.history.openCircle.enumDescriptions.head%"
           ],
           "default": "changes"
         },
@@ -660,25 +661,25 @@
           "type": "string",
           "default": "mod+f",
           "pattern": "^$|^mod\\+[a-z]$",
-          "description": "Shortcut for Find while the graph is focused. Empty turns it off. Example: mod+f"
+          "description": "%config.keys.find.description%"
         },
         "git-graph-ray.keys.refresh": {
           "type": "string",
           "default": "mod+r",
           "pattern": "^$|^mod\\+[a-z]$",
-          "description": "Shortcut for Refresh. Empty turns it off. While the graph is focused, the default Ctrl/Cmd+R overrides Open Recent and Reload Window."
+          "description": "%config.keys.refresh.description%"
         },
         "git-graph-ray.keys.head": {
           "type": "string",
           "default": "mod+h",
           "pattern": "^$|^mod\\+[a-z]$",
-          "description": "Shortcut for Jump to HEAD. Empty turns it off."
+          "description": "%config.keys.head.description%"
         },
         "git-graph-ray.keys.stash": {
           "type": "string",
           "default": "mod+s",
           "pattern": "^$|^mod\\+[a-z]$",
-          "description": "Shortcut for Jump to stash. Empty turns it off. While the graph is focused, the default Ctrl/Cmd+S overrides Save, and Ctrl/Cmd+Shift+S overrides Save As."
+          "description": "%config.keys.stash.description%"
         },
         "git-graph-ray.labels.layout": {
           "type": "string",
@@ -687,15 +688,15 @@
             "split"
           ],
           "enumDescriptions": [
-            "Branches and tags in one group.",
-            "Branches on the left and tags on the right."
+            "%config.labels.layout.enumDescriptions.together%",
+            "%config.labels.layout.enumDescriptions.split%"
           ],
           "default": "together"
         },
         "git-graph-ray.labels.combine": {
           "type": "boolean",
           "default": true,
-          "description": "Show a local branch and its remote-tracking branch as one label when they share a commit."
+          "description": "%config.labels.combine.description%"
         },
         "git-graph-ray.labels.remote": {
           "type": "string",
@@ -704,11 +705,11 @@
             "text"
           ],
           "enumDescriptions": [
-            "A cloud icon instead of the remotes/ prefix.",
-            "The text prefix, as in remotes/origin/main."
+            "%config.labels.remote.enumDescriptions.icon%",
+            "%config.labels.remote.enumDescriptions.text%"
           ],
           "default": "icon",
-          "description": "How remote-tracking branch labels start."
+          "description": "%config.labels.remote.description%"
         },
         "git-graph-ray.labels.colors": {
           "type": "object",
@@ -717,16 +718,16 @@
             "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
           },
           "default": {},
-          "markdownDescription": "Colours for branch and tag labels. Each key is a glob and each value is a `#RGB`, `#RGBA`, `#RRGGBB`, or `#RRGGBBAA` colour. `*` matches any text, including `/`, and `?` matches one character. `\\*` and `\\?` are literal. This is not a regular expression. The first matching key wins.\n\nA pattern is compared with the branch or tag name. Remote-tracking branches also match `origin/name` and `remotes/origin/name`, so `release*` colours both the local `release/1.0` label and `origin/release/1.0`.\n\nExample: `{ \"release*\": \"#FF8888\", \"v*\": \"#88CCFF\" }`."
+          "markdownDescription": "%config.labels.colors.markdownDescription%"
         },
         "git-graph-ray.menus": {
           "type": "object",
           "default": {},
-          "markdownDescription": "Hide context menu actions. A menu name maps to action ids, and false hides that action. Copy stays available.\n\n- commit: checkout, branch, tag, worktree, merge, rebase, reset, reword, cherry, revert, drop, compare, compareHead, patch, applyPatch\n- branch: checkout, rename, delete, merge, rebase, push, compare, compareHead, pr, colour\n- remote: checkout, delete, fetchInto, merge, rebase, pull, compare, compareHead, pr, colour\n- tag: delete, push, rebase, colour\n- stash: apply, pop, branch, drop\n- uncommitted: stash, patch, applyPatch, reset, clean, scm\n- worktree: open, openNew, remove\n\nExample: `{ \"branch\": { \"rebase\": false } }`."
+          "markdownDescription": "%config.menus.markdownDescription%"
         },
         "git-graph-ray.pullRequests": {
           "type": "array",
-          "description": "Extra pull request hosts. url is a template for the create-request page.",
+          "description": "%config.pullRequests.description%",
           "items": {
             "type": "object",
             "required": [
@@ -747,14 +748,14 @@
         "git-graph-ray.rayCat.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Show Ray Cat at the bottom of the graph view."
+          "description": "%config.rayCat.enabled.description%"
         },
         "git-graph-ray.rayCat.count": {
           "type": "number",
           "default": 1,
           "minimum": 1,
           "maximum": 10,
-          "description": "How many Ray Cats to show (1–10). Each cat starts at a random gradient hue."
+          "description": "%config.rayCat.count.description%"
         },
         "git-graph-ray.refs.branchSort": {
           "type": "string",
@@ -765,7 +766,7 @@
             "-refname"
           ],
           "default": "version:refname",
-          "description": "Sort order for branches in the filter list."
+          "description": "%config.refs.branchSort.description%"
         },
         "git-graph-ray.refs.tagSort": {
           "type": "string",
@@ -776,33 +777,33 @@
             "-refname"
           ],
           "default": "-version:refname",
-          "description": "Sort order for tags in the filter list."
+          "description": "%config.refs.tagSort.description%"
         },
         "git-graph-ray.refs.listLimit": {
           "type": "number",
           "default": 200,
           "minimum": 1,
-          "description": "How many refs the filter list shows before scrolling loads more."
+          "description": "%config.refs.listLimit.description%"
         },
         "git-graph-ray.sign.commits": {
           "type": "boolean",
           "default": false,
-          "description": "Sign commits created from the graph."
+          "description": "%config.sign.commits.description%"
         },
         "git-graph-ray.sign.tags": {
           "type": "boolean",
           "default": false,
-          "description": "Sign annotated tags created from the graph."
+          "description": "%config.sign.tags.description%"
         },
         "git-graph-ray.startup.searchDepth": {
           "type": "number",
           "default": 0,
-          "description": "How many folder levels to search for repositories. 0 searches the workspace folders only."
+          "description": "%config.startup.searchDepth.description%"
         },
         "git-graph-ray.startup.repoOfActiveFile": {
           "type": "boolean",
           "default": false,
-          "description": "Open the repository that contains the active editor, when it is known."
+          "description": "%config.startup.repoOfActiveFile.description%"
         },
         "git-graph-ray.startup.editorColumn": {
           "type": "string",
@@ -820,12 +821,12 @@
             "9"
           ],
           "default": "active",
-          "description": "Editor group used when the graph opens in a new tab."
+          "description": "%config.startup.editorColumn.description%"
         },
         "git-graph-ray.startup.statusBar": {
           "type": "boolean",
           "default": true,
-          "description": "Show a status bar item that opens the graph."
+          "description": "%config.startup.statusBar.description%"
         },
         "git-graph-ray.startup.scmButton": {
           "type": "string",
@@ -834,25 +835,25 @@
             "menu"
           ],
           "enumDescriptions": [
-            "Button on the Source Control title bar.",
-            "Entry in the Source Control overflow menu."
+            "%config.startup.scmButton.enumDescriptions.bar%",
+            "%config.startup.scmButton.enumDescriptions.menu%"
           ],
           "default": "bar"
         },
         "git-graph-ray.startup.keepWebview": {
           "type": "boolean",
           "default": true,
-          "description": "Keep the graph loaded while its tab is in the background. Changing this reopens an open graph or Contributors tab."
+          "description": "%config.startup.keepWebview.description%"
         },
         "git-graph-ray.startup.scrollToHead": {
           "type": "boolean",
           "default": false,
-          "description": "Scroll to HEAD when the graph first loads."
+          "description": "%config.startup.scrollToHead.description%"
         },
         "git-graph-ray.startup.onlyCheckedOut": {
           "type": "boolean",
           "default": false,
-          "description": "Load only the checked-out branch when the graph opens."
+          "description": "%config.startup.onlyCheckedOut.description%"
         },
         "git-graph-ray.startup.branches": {
           "type": "array",
@@ -860,7 +861,7 @@
             "type": "string"
           },
           "default": [],
-          "description": "Branch names to load when the graph opens. When this list is not empty, it wins over loading only the checked-out branch."
+          "description": "%config.startup.branches.description%"
         },
         "git-graph-ray.startup.repoOrder": {
           "type": "string",
@@ -870,23 +871,23 @@
             "path"
           ],
           "enumDescriptions": [
-            "Workspace folder order, then path.",
-            "Repository name.",
-            "Full path."
+            "%config.startup.repoOrder.enumDescriptions.workspace%",
+            "%config.startup.repoOrder.enumDescriptions.name%",
+            "%config.startup.repoOrder.enumDescriptions.path%"
           ],
           "default": "workspace",
-          "description": "Order of repositories in the graph dropdown."
+          "description": "%config.startup.repoOrder.description%"
         },
         "git-graph-ray.terminal.shell": {
           "type": "string",
           "default": "",
           "scope": "machine",
-          "description": "Shell used for interactive rebase. Empty uses the integrated terminal default."
+          "description": "%config.terminal.shell.description%"
         },
         "git-graph-ray.undo.preview": {
           "type": "boolean",
           "default": true,
-          "description": "Show how the graph changes, and which Git commands will run, before Undo or Redo. When off, Undo and Redo run immediately unless a warning is required."
+          "description": "%config.undo.preview.description%"
         },
         "git-graph-ray.when.format": {
           "type": "string",
@@ -898,14 +899,14 @@
             "relative"
           ],
           "enumDescriptions": [
-            "Locale date and time.",
-            "Locale date.",
-            "ISO date and time.",
-            "ISO date.",
-            "Relative to now."
+            "%config.when.format.enumDescriptions.datetime%",
+            "%config.when.format.enumDescriptions.date%",
+            "%config.when.format.enumDescriptions.iso%",
+            "%config.when.format.enumDescriptions.isoDate%",
+            "%config.when.format.enumDescriptions.relative%"
           ],
           "default": "datetime",
-          "description": "How dates are written in the graph and in commit details."
+          "description": "%config.when.format.description%"
         }
       }
     }
