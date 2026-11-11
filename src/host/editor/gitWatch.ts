@@ -1,13 +1,18 @@
 import type { GraphSnapshot } from '../../shared/protocol';
+import { relativeToGitRoot } from '../git/gitDir';
 
 const NOISY_GIT_DIR = /^(objects|hooks|info|logs)(\/|$)/i;
 const NOISY_GIT_FILE = /^(COMMIT_EDITMSG|FETCH_HEAD|ORIG_HEAD|gc\.pid)$/i;
 const HISTORY_GIT_FILE = /^(HEAD|packed-refs)$/i;
 const HISTORY_GIT_REF = /^refs\/(heads|remotes|tags|stash)(\/|$)/i;
 
-/** Paths under .git that change as a side effect of read-only git commands or locks. */
-export function isNoisyGitWatchPath(fsPath: string): boolean {
-  const rel = gitRel(fsPath);
+/**
+ * Paths under .git that change as a side effect of read-only git commands or locks.
+ * `roots` are the watched git dirs (see `resolveGitWatchDirs`). Without them the
+ * path must contain `/.git/`.
+ */
+export function isNoisyGitWatchPath(fsPath: string, roots?: readonly string[]): boolean {
+  const rel = gitRel(fsPath, roots);
   if (!rel) return false;
   if (NOISY_GIT_DIR.test(rel)) return true;
   if (/\.lock$/i.test(rel)) return true;
@@ -15,8 +20,8 @@ export function isNoisyGitWatchPath(fsPath: string): boolean {
 }
 
 /** HEAD and refs. A change here can add or move a commit. Index writes do not. */
-export function isHistoryWatchPath(fsPath: string): boolean {
-  const rel = gitRel(fsPath);
+export function isHistoryWatchPath(fsPath: string, roots?: readonly string[]): boolean {
+  const rel = gitRel(fsPath, roots);
   if (!rel) return false;
   return HISTORY_GIT_FILE.test(rel) || HISTORY_GIT_REF.test(rel);
 }
@@ -43,7 +48,8 @@ export function externalReloadAction(opts: {
   return opts.enabled && opts.history ? 'reload' : 'ignore';
 }
 
-function gitRel(fsPath: string): string | undefined {
+function gitRel(fsPath: string, roots?: readonly string[]): string | undefined {
+  if (roots?.length) return relativeToGitRoot(fsPath, roots);
   const p = fsPath.replace(/\\/g, '/');
   return p.match(/\/\.git\/(.+)$/i)?.[1];
 }

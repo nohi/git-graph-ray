@@ -40,6 +40,33 @@ describe('isHistoryWatchPath', () => {
   });
 });
 
+describe('watch paths in a linked worktree', () => {
+  const roots = ['I:\\ws\\repo\\.git\\worktrees\\feature', 'I:\\ws\\repo\\.git'];
+
+  it('treats the worktree HEAD and shared refs as history', () => {
+    expect(isHistoryWatchPath('i:\\ws\\repo\\.git\\worktrees\\feature\\HEAD', roots)).toBe(true);
+    expect(isHistoryWatchPath('I:/ws/repo/.git/refs/heads/feature', roots)).toBe(true);
+    expect(isHistoryWatchPath('I:/ws/repo/.git/packed-refs', roots)).toBe(true);
+    expect(isHistoryWatchPath('I:/ws/repo/.git/worktrees/feature/index', roots)).toBe(false);
+  });
+
+  it('keeps worktree lock and log noise quiet', () => {
+    expect(isNoisyGitWatchPath('I:/ws/repo/.git/worktrees/feature/index.lock', roots)).toBe(true);
+    expect(isNoisyGitWatchPath('I:/ws/repo/.git/worktrees/feature/logs/HEAD', roots)).toBe(true);
+    expect(isNoisyGitWatchPath('I:/ws/repo/.git/worktrees/feature/ORIG_HEAD', roots)).toBe(true);
+    expect(isNoisyGitWatchPath('I:/ws/repo/.git/worktrees/feature/index', roots)).toBe(false);
+    expect(isNoisyGitWatchPath('I:/ws/repo/.git/refs/heads/feature', roots)).toBe(false);
+  });
+
+  it('works for a git dir outside any .git folder', () => {
+    const bare = ['/srv/repo.git/worktrees/wt', '/srv/repo.git'];
+    expect(isHistoryWatchPath('/srv/repo.git/worktrees/wt/HEAD', bare)).toBe(true);
+    expect(isHistoryWatchPath('/srv/repo.git/refs/tags/v1', bare)).toBe(true);
+    expect(isNoisyGitWatchPath('/srv/repo.git/objects/ab/cdef', bare)).toBe(true);
+    expect(isHistoryWatchPath('/srv/other/HEAD', bare)).toBe(false);
+  });
+});
+
 describe('externalReloadAction', () => {
   const base = {
     enabled: true,

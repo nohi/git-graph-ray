@@ -51,6 +51,7 @@ import { branchLabelsForFilter } from '../../shared/refsList';
 import { primaryWorktreePath } from '../../shared/worktreeDialog';
 import { graphHtml, nonce } from './html';
 import { externalReloadAction, isHistoryWatchPath, isNoisyGitWatchPath, snapshotFingerprint } from './gitWatch';
+import { gitWatchTargets, resolveGitWatchDirs, type GitWatchDirs } from '../git/gitDir';
 import { listenForScmCommits } from './scmGit';
 import { sameRepoPath } from './scmRefresh';
 import { graphDocumentLabel } from '../../shared/graphUri';
@@ -413,6 +414,7 @@ class GraphSession {
   /** A commit arrived while a Git action from this view was still running. */
   private externalPending = false;
   private watcher: vscode.Disposable | undefined;
+  private watchGeneration = 0;
   private scmCommits: vscode.Disposable | undefined;
   private disposed = false;
   private reloadGen = 0;
@@ -1433,25 +1435,39 @@ class GraphSession {
   private watch(): void {
     this.watcher?.dispose();
     this.watcher = undefined;
+    const generation = ++this.watchGeneration;
     if (this.disposed || !this.repoPath) return;
-    const gitDir = path.join(this.repoPath, '.git');
-    const w = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(gitDir, '**'));
+    const repoPath = this.repoPath;
+    // A linked worktree has a `.git` file, so watch the git dirs Git reports.
+    void resolveGitWatchDirs(this.git(), repoPath).then((dirs) => {
+      if (generation !== this.watchGeneration || this.disposed || repoPath !== this.repoPath) return;
+      this.startWatch(dirs);
+    });
+  }
+
+  private startWatch(dirs: GitWatchDirs): void {
+    const roots = [dirs.gitDir, dirs.commonDir];
+    const watchers = gitWatchTargets(dirs).map((t) =>
+      vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(t.root, t.glob)),
+    );
     const bump = (uri: vscode.Uri) => {
       const action = externalReloadAction({
         enabled: cfg('history.autoRefresh', true),
         acting: this.acting > 0,
         disposed: this.disposed,
-        noisy: isNoisyGitWatchPath(uri.fsPath),
+        noisy: isNoisyGitWatchPath(uri.fsPath, roots),
         quiet: Date.now() < this.quietUntil,
-        history: isHistoryWatchPath(uri.fsPath),
+        history: isHistoryWatchPath(uri.fsPath, roots),
       });
       if (action === 'ignore') return;
       this.requestExternalReload();
     };
-    w.onDidChange(bump);
-    w.onDidCreate(bump);
-    w.onDidDelete(bump);
-    this.watcher = w;
+    for (const w of watchers) {
+      w.onDidChange(bump);
+      w.onDidCreate(bump);
+      w.onDidDelete(bump);
+    }
+    this.watcher = vscode.Disposable.from(...watchers);
   }
 
   private dispose(): void {
