@@ -6,6 +6,7 @@ import { AvatarStore } from './avatars';
 import { ContributorsPanel } from './editor/contributorsPanel';
 import { gitVersionString } from './git/executable';
 import { versionInformationDisplay, versionInformationText } from './versionInfo';
+import { isFile, workingFileFor } from './diff/openFilePath';
 
 export function registerCommands(
   ctx: vscode.ExtensionContext,
@@ -57,9 +58,17 @@ export function registerCommands(
       const uri = vscode.window.activeTextEditor?.document.uri;
       if (!uri || uri.scheme !== 'git-graph-ray-file') return;
       const q = new URLSearchParams(uri.query);
-      const root = q.get('root') ?? '';
-      const file = uri.path.replace(/^\//, '');
-      await vscode.window.showTextDocument(vscode.Uri.file(`${root}/${file}`));
+      const target = workingFileFor(q.get('root') ?? '', uri.path);
+      if (!target) return;
+      if (!target.full) {
+        void vscode.window.showErrorMessage(vscode.l10n.t('Cannot open {0} because it is outside the repository.', target.rel));
+        return;
+      }
+      if (!(await isFile(target.full))) {
+        void vscode.window.showErrorMessage(vscode.l10n.t('{0} is not in the working tree.', target.rel));
+        return;
+      }
+      await vscode.window.showTextDocument(vscode.Uri.file(target.full));
     }),
   );
 }

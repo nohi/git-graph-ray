@@ -5,5 +5,7 @@
   "Worktree location": "worktree の場所",
   "Select location": "場所を選択",
   "Select patch": "パッチを選択",
-  "Patch": "パッチ"
+  "Patch": "パッチ",
+  "Cannot open {0} because it is outside the repository.": "{0} はリポジトリの外にあるため開けません。",
+  "{0} is not in the working tree.": "{0} は作業ツリーにありません。"
 }

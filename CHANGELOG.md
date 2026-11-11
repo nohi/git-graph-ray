@@ -9,6 +9,7 @@
 
 ### Fixes
 
+- Open File in a diff tab opens the file in the working tree. Before, the path included the revision shown in the tab, so the file was not found. Paths outside the repository are not opened, and a file missing from the working tree shows a short message.
 - The bold label follows the branch that is checked out when several local branches point at the same commit. Checking out another of those branches updates that label.
 - The repository menu opens on the worktree or main folder that VS Code has open. A worktree chosen in that menu stays selected. Sibling folders such as `repo` and `repo-feature` are not treated as the same folder.
 - A graph opened on a linked worktree reloads after a checkout, commit, or branch move in that worktree. The graph now watches the Git folders that Git reports for the worktree instead of its `.git` file.
