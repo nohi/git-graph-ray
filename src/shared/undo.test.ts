@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { GraphCommit, GraphRef } from './types';
 import {
-  DIRTY_RESET_WARNING,
-  REMOTE_BRANCH_WARNING,
   checkpointsEqual,
   checkpointRefs,
+  dirtyResetWarning,
   externalCommitChange,
   formatGitCommand,
   formatRefChange,
@@ -18,6 +17,7 @@ import {
   presentPreview,
   previewWindow,
   pushUndo,
+  remoteBranchWarning,
   undoLabel,
   undoPolicy,
   type LocalCheckpoint,
@@ -92,6 +92,7 @@ describe('undoPolicy', () => {
     expect(undoPolicy({ kind: 'addTag', hash: A, name: 'v1', annotated: false }).warning).toBeNull();
     expect(undoPolicy({ kind: 'addTag', hash: A, name: 'v1', annotated: false, pushTo: [] }).warning).toBeNull();
     expect(undoPolicy({ kind: 'checkoutBranch', name: 'main' }).warning).toBeNull();
+    expect(undoPolicy({ kind: 'amendHead', hash: A, message: 'x', includeStaged: false })).toEqual({ record: true, warning: null });
   });
 });
 
@@ -121,6 +122,7 @@ describe('undoLabel', () => {
     expect(undoPolicy({ kind: 'rebaseBranches', onto: 'main', branches: ['a'], ignoreDate: true, checkout: 'stay', onFailure: 'stop' }).record).toBe(true);
     expect(undoLabel({ kind: 'reset', hash: A, mode: 'mixed' })).toBe('Reset to aaaaaaa');
     expect(undoLabel({ kind: 'stashApply', name: 'stash@{0}', pop: true, reinstateIndex: false })).toBe('Pop stash');
+    expect(undoLabel({ kind: 'amendHead', hash: A, message: 'x', includeStaged: true })).toBe('Amend aaaaaaa');
   });
 });
 
@@ -136,7 +138,8 @@ describe('planRestore', () => {
     expect(plan.args).toEqual([['reset', '--hard', A]]);
     expect(plan.commands).toEqual([`git reset --hard ${A}`]);
     expect(plan.hardReset).toBe(true);
-    expect(plan.warning).toBe(DIRTY_RESET_WARNING);
+    expect(plan.warning).toBe('Uncommitted changes will be discarded.');
+    expect(dirtyResetWarning()).toBe('Uncommitted changes will be discarded.');
     expect(needsUndoDialog(plan, false)).toBe(true);
   });
 
@@ -259,7 +262,12 @@ describe('planRestore', () => {
     });
     expect(plan.args).toEqual([['reset', '--hard', A]]);
     expect(plan.warning).toContain('remote-tracking branches');
-    expect(plan.warning).toContain(REMOTE_BRANCH_WARNING);
+    expect(plan.warning).toContain(
+      'A remote-tracking branch points at a commit this change moves. Only the local branch is restored.',
+    );
+    expect(remoteBranchWarning()).toBe(
+      'A remote-tracking branch points at a commit this change moves. Only the local branch is restored.',
+    );
     expect(plan.commands.some((line) => line.includes('refs/remotes'))).toBe(false);
   });
 

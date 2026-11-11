@@ -1,3 +1,4 @@
+import { t } from '@vscode/l10n';
 import type { GitAction } from '../../shared/protocol';
 import { applyPatchArgs, cherryPickArgs, mergeArgs, pullArgs, pushBranchArgs, rebaseArgs, rebaseBranchArgs, revertArgs, stashApplyArgs, stashPushArgs } from '../../shared/gitArgs';
 import { safeRepoPaths } from '../../shared/historyActions';
@@ -81,6 +82,18 @@ export async function runGitAction(
     case 'reword':
       await rewordCommit(git, cwd, action.hash, action.message, opts.signCommits);
       return;
+    case 'amendHead': {
+      const head = (await gitOk(git, cwd, ['rev-parse', 'HEAD'])).trim();
+      if (head !== action.hash) throw new Error(t('HEAD has changed since the dialog was opened.'));
+      if (!action.includeStaged) {
+        const staged = await gitExec(git, cwd, ['diff', '--cached', '--quiet']);
+        if (staged.code === 1) {
+          throw new Error(t('There are staged changes. Check "Include staged changes", or unstage them first.'));
+        }
+      }
+      await gitOk(git, cwd, ['commit', '--amend', '-m', action.message, ...(opts.signCommits ? ['-S'] : [])]);
+      return;
+    }
     case 'addTag': {
       const args = action.annotated
         ? ['tag', '-a', action.name, action.hash, '-m', action.message || action.name]

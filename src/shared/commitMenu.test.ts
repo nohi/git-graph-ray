@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { branchMenuEntries, commitMenuEntries, menuHtml, remoteMenuEntries, tagMenuEntries } from './commitMenu';
+import { branchMenuEntries, canAmendHead, commitMenuEntries, menuHtml, remoteMenuEntries, tagMenuEntries } from './commitMenu';
 
 describe('commitMenuEntries', () => {
   it('uses the requested labels and separators', () => {
@@ -37,6 +37,35 @@ describe('commitMenuEntries', () => {
     ]);
     expect(menuHtml(entries)).toContain('class="menu-sep"');
     expect(menuHtml(entries)).toContain('Checkout (Switch)');
+  });
+
+  it('shows Amend after reword when the commit is the branch tip', () => {
+    const entries = commitMenuEntries({
+      canReword: true,
+      canAmend: true,
+      isMerge: false,
+      withHead: false,
+      visible: () => true,
+    });
+    const ids = entries.filter((entry) => entry !== 'sep').map((entry) => (entry as { id: string }).id);
+    expect(ids).toContain('c-am');
+    expect(ids.indexOf('c-am')).toBe(ids.indexOf('c-rw') + 1);
+    expect(entries).toContainEqual({ id: 'c-am', label: 'Amend' });
+  });
+
+
+  it('hides Amend when it is not allowed or the menu hides it', () => {
+    const base = { canReword: false, isMerge: false, withHead: false, visible: () => true };
+    for (const canAmend of [false, undefined]) {
+      const ids = commitMenuEntries({ ...base, canAmend })
+        .filter((entry) => entry !== 'sep')
+        .map((entry) => (entry as { id: string }).id);
+      expect(ids).not.toContain('c-am');
+    }
+    const hidden = commitMenuEntries({ ...base, canAmend: true, visible: (id) => id !== 'amend' })
+      .filter((entry) => entry !== 'sep')
+      .map((entry) => (entry as { id: string }).id);
+    expect(hidden).not.toContain('c-am');
   });
 
   it('rebases the selection onto this commit and hides it when rebase is hidden', () => {
@@ -85,6 +114,21 @@ describe('commitMenuEntries', () => {
     expect(ids(false, () => true)).not.toContain('cmp-head');
     expect(ids(true, (id) => id !== 'compare' && id !== 'compareHead')).not.toContain('cmp');
     expect(ids(true, (id) => id !== 'compare' && id !== 'compareHead')).not.toContain('cmp-head');
+  });
+});
+
+describe('canAmendHead', () => {
+  const head = 'abc123';
+  const base = { hash: head, head, currentBranch: 'main', busy: false };
+  it('allows the branch tip only', () => {
+    expect(canAmendHead(base)).toBe(true);
+  });
+
+  it('refuses other commits, detached HEAD, and mid-operation states', () => {
+    expect(canAmendHead({ ...base, hash: 'other' })).toBe(false);
+    expect(canAmendHead({ ...base, head: null })).toBe(false);
+    expect(canAmendHead({ ...base, currentBranch: null })).toBe(false);
+    expect(canAmendHead({ ...base, busy: true })).toBe(false);
   });
 });
 

@@ -7,6 +7,11 @@ export type RebaseTargetKind = 'branch' | 'tag' | 'commit';
 
 export type SelectedRebase = { count: number; disabledReason?: string };
 
+/** Amend is offered on the branch tip only, never detached and never mid-operation. */
+export function canAmendHead(opts: { hash: string; head: string | null; currentBranch: string | null; busy: boolean }): boolean {
+  return !opts.busy && opts.head != null && opts.hash === opts.head && opts.currentBranch != null;
+}
+
 export function rebaseInteractiveLabel(target: RebaseTargetKind): string {
   return t('Rebase interactive on this {0}', rebaseTargetNoun(target));
 }
@@ -32,6 +37,7 @@ export function compareMenuEntries(opts: { withHead: boolean; visible: (id: stri
 
 export function commitMenuEntries(opts: {
   canReword: boolean;
+  canAmend?: boolean;
   isMerge: boolean;
   withHead: boolean;
   visible: (id: string) => boolean;
@@ -57,6 +63,7 @@ export function commitMenuEntries(opts: {
     ]),
     keep([
       v('reword') && opts.canReword && { id: 'c-rw', label: t('History reword') },
+      v('amend') && opts.canAmend === true && { id: 'c-am', label: t('Amend') },
       v('cherry') && (opts.cherryPick ?? { id: 'c-cp', label: t('Cherry Pick') }),
       v('revert') && { id: 'c-rv', label: t('Revert') },
       v('drop') && !opts.isMerge && { id: 'c-dr', label: t('Drop') },

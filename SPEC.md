@@ -103,7 +103,8 @@
 - Branch: create/checkout/rename/delete/merge/rebase/rebase interactive/push/PR
 - Remote: checkout/delete/fetch-into/merge/pull（rebase / no-ff / squash）/rebase interactive/PR
 - Uncommitted: stash/reset/clean/SCM、パッチ作成、パッチ適用
-- Commit: tag/branch/checkout/cherry-pick/revert/drop（親1）/merge/rebase/reset/worktree/copy/reword、パッチ作成、パッチ適用
+- Commit: tag/branch/checkout/cherry-pick/revert/drop（親1）/merge/rebase/reset/worktree/copy/reword/amend、パッチ作成、パッチ適用
+- Amend: ブランチ上の HEAD のみ（detached・操作中は非表示）。subject/body を編集。ステージ済みを含めるかはチェックボックス（既定オフ）。ステージ済みがあり未チェックなら実行せず案内する。HEAD が変わっていたら実行しない。署名は `sign.commits`。Undo 可
 - 選んだローカルブランチの rebase 先はローカルブランチ、リモートブランチ、タグ、コミット。対話 rebase はコミットに加え、ローカルブランチ、リモートブランチ、タグのラベルから。現在のブランチ自身は対話 rebase の対象にしない
 - ファイル: 未コミットの選択ファイルは stash またはパッチ。コミット上の選択ファイルはパッチ
 - Shift+クリックでグラフ上の範囲を選ぶ。Ctrl/Cmd+クリックで個別に追加・解除でき、連続していなくてもよい。2件のときはその差分を開き、3件以上では詳細を閉じる。右クリックで cherry-pick。マージは除き、古い順

@@ -182,6 +182,7 @@ export type GitAction =
   | { kind: 'reset'; hash: string; mode: 'soft' | 'mixed' | 'hard' }
   | { kind: 'dropCommit'; hash: string }
   | { kind: 'reword'; hash: string; message: string }
+  | { kind: 'amendHead'; hash: string; message: string; includeStaged: boolean }
   | { kind: 'addTag'; hash: string; name: string; annotated: boolean; message?: string; pushTo?: string[] }
   | { kind: 'deleteTag'; name: string; deleteOnRemote?: string }
   | { kind: 'pushTag'; name: string; remotes: string[] }

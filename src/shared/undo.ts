@@ -75,6 +75,8 @@ export function undoPolicy(action: GitAction): { record: boolean; warning: strin
       return action.interactive ? { record: false, warning: null } : { record: true, warning: null };
     case 'rebaseBranches':
       return { record: true, warning: null };
+    case 'amendHead':
+      return { record: true, warning: null };
     case 'checkoutBranch':
       return {
         record: true,
@@ -146,6 +148,8 @@ export function undoLabel(action: GitAction): string {
       return t('Drop {0}', shortHash(action.hash));
     case 'reword':
       return t('Reword {0}', shortHash(action.hash));
+    case 'amendHead':
+      return t('Amend {0}', shortHash(action.hash));
     case 'addTag':
       return t('Create tag {0}', action.name);
     case 'deleteTag':
