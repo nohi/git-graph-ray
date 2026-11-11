@@ -3,7 +3,9 @@ import * as path from 'node:path';
 /** Identity for a repository root. Windows and UNC paths compare case-insensitively. */
 export function repoPathKey(p: string): string {
   if (!p.trim()) return '';
-  const n = path.resolve(p).replaceAll('\\', '/');
+  // A drive or UNC path is resolved as Windows on every platform, so the result does not depend on the host OS.
+  const windows = /^[a-zA-Z]:([\\/]|$)/.test(p) || /^[\\/]{2}[^\\/]/.test(p);
+  const n = (windows ? path.win32.resolve(p) : path.resolve(p)).replaceAll('\\', '/');
   if (/^[a-zA-Z]:/.test(n) || n.startsWith('//')) return n.toLowerCase();
   return n;
 }
