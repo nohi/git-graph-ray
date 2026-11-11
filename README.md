@@ -55,6 +55,10 @@ Defaults. Find, Refresh, Jump to HEAD, and Jump to stash can be reassigned in se
 | Select next / previous commit | Down / Up |
 | Open or close commit details | Enter |
 
+## Settings
+
+Setting keys were renamed in v0.8. Old values are copied to the new keys automatically; see [CHANGELOG](CHANGELOG.md) and [docs/upgrade.md](docs/upgrade.md).
+
 ## Screenshots
 
 ![Git Graph Ray](https://raw.githubusercontent.com/nohi/git-graph-ray/main/docs/screenshots/SS-001-overview.png)

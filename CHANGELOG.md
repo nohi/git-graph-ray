@@ -33,7 +33,7 @@
 
 ### Changes
 
-- [BREAKING] Settings use a new set of keys. Values saved under the previous keys are ignored, because those keys are no longer registered. Delete the old entries and set the new ones.
+- [BREAKING] Settings use a new set of keys. Values saved under the previous keys are ignored, because those keys are no longer registered. Since v0.8.1 the old values are copied to the new keys automatically, once for User and Workspace Settings; old entries can be checked and deleted. See [docs/upgrade.md](docs/upgrade.md) for the old-to-new key table.
 
 ### Fixes
 
@@ -97,16 +97,16 @@
 
 - Keep matching branches on the left with `git-graph-ray.graph.lanePriority`. Keys are globs (`release*` matches `release/1.0`) and values are priorities. A larger number stays further left. The highest match wins. Add, edit, and delete patterns from Graph Settings.
 - Split the toolbar settings into Graph Settings (appearance, general, lane priority) and Repository Settings (remotes, issue linking, pull request).
-- Colour branch and tag labels with `git-graph-ray.referenceLabels.colours`. Keys are globs (`release*` matches `release/1.0`) and values are hex colours. The first match wins. The same colour is used on the graph, in Branches/Tags, and in Compare with….
+- Colour branch and tag labels with `git-graph-ray.referenceLabels.colours` (now `git-graph-ray.labels.colors`). Keys are globs (`release*` matches `release/1.0`) and values are hex colours. The first match wins. The same colour is used on the graph, in Branches/Tags, and in Compare with….
 - Right-click a branch, remote branch, or tag label and choose Set label colour. The dialog starts from that name, so `feature/hoge` can be edited to `feature/*`. The colour is chosen in the picker or typed as hex.
 
 ### Changes
 
-- Leave ignore date unchecked in the Rebase dialog. `git-graph-ray.dialog.rebase.ignoreDate` defaults to off.
+- Leave ignore date unchecked in the Rebase dialog. `git-graph-ray.dialog.rebase.ignoreDate` (now `git-graph-ray.actions.rebaseIgnoreDate`) defaults to off.
 
 ### Fixes
 
-- Set label colour still saves when VS Code reports that `git-graph-ray.referenceLabels.colours` is not a registered configuration. The colour is kept and copied into User Settings once the setting is registered.
+- Set label colour still saves when VS Code reports that `git-graph-ray.referenceLabels.colours` (now `git-graph-ray.labels.colors`) is not a registered configuration. The colour is kept and copied into User Settings once the setting is registered.
 - Highlight the commit a comparison starts from in gold, so it is distinct from the usual selection color. The other commit stays purple.
 
 ## v0.5.2
@@ -124,7 +124,7 @@
 - Stash the files selected in uncommitted changes, with an optional message. Untracked files in the selection are included.
 - Open a conflicted file in the VS Code merge editor from its name on the in-progress banner.
 - Create a patch from a commit, a commit range, selected files, or the working tree. Apply a patch to the working tree, or as commits when the file is a format-patch mailbox.
-- Auto fetch while the graph tab is open. It is off by default. The interval is `git-graph-ray.repository.autoFetchInterval` (default 180 seconds, minimum 15).
+- Auto fetch while the graph tab is open. It is off by default. The interval is `git-graph-ray.repository.autoFetchInterval` (now `git-graph-ray.fetch.everySeconds`; default 180 seconds, minimum 15).
 - Attach every remote of the same branch to the local label on that commit. One or two remotes show the remote name with a cloud icon. Three or more show cloud icons until clicked, then the names. An arrow collapses them again.
 - Remote branch labels can show a wide cloud icon instead of the `remotes/` prefix (`/origin/main`). Set `git-graph-ray.referenceLabels.remoteBranchPrefix` to `Text` to show `remotes/origin/main` again.
 
@@ -150,11 +150,11 @@
 - Choose one or more remotes when pushing a tag.
 - Show a check beside a remote that already has the tag on the same commit, and a warning when that remote tag points at a different commit. A spinner shows while the lookup is in progress.
 - Show the Git error in the Add Tag and Push Tag dialogs when `git ls-remote --tags` fails. Creating or deleting the local tag still works.
-- Reuse `git ls-remote --tags` results for `git-graph-ray.repository.remoteTags.cacheSeconds` (default 300 seconds). Set it to 0 to query every time. Pushing or deleting a remote tag from this extension drops that remote's cache.
+- Reuse `git ls-remote --tags` results for `git-graph-ray.repository.remoteTags.cacheSeconds` (now `git-graph-ray.fetch.tagCacheSeconds`; default 300 seconds). Set it to 0 to query every time. Pushing or deleting a remote tag from this extension drops that remote's cache.
 
 ### Changes
 
-- `git-graph-ray.dialog.addTag.pushToRemote` pre-selects the preferred remote (origin, or the first remote) in the Add Tag dialog.
+- `git-graph-ray.dialog.addTag.pushToRemote` (now `git-graph-ray.actions.tagPush`) pre-selects the preferred remote (origin, or the first remote) in the Add Tag dialog.
 
 ### Fixes
 

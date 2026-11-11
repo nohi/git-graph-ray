@@ -55,6 +55,10 @@
 | 次 / 前のコミットを選択 | ↓ / ↑ |
 | コミット詳細を開く / 閉じる | Enter |
 
+## 設定
+
+設定キーは v0.8 で変更されました。古い値は新しいキーへ自動的にコピーされます。詳しくは [CHANGELOG](CHANGELOG.md) と [docs/upgrade.md](docs/upgrade.md) を参照してください。
+
 ## スクリーンショット
 
 ![Git Graph Ray](https://raw.githubusercontent.com/nohi/git-graph-ray/main/docs/screenshots/SS-001-overview.png)
