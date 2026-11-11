@@ -95,6 +95,7 @@ import {
 } from '../shared/popover';
 import { rayCatAddTag, rayCatBurnBranch, rayCatCherryPick, rayCatCreateBranch, rayCatDeleteTag, rayCatPull, rayCatPushBranch, rayCatRenameBranch, syncRayCats } from './rayCat';
 import { startContributorsPage } from './contributors';
+import { ESCAPE_POPOVER_IDS, escapeLayer } from '../shared/escapeLayer';
 import './styles.css';
 
 type AnchoredPopoverOpts = { align?: AnchoredPopoverAlign; maxWidth?: number };
@@ -3995,30 +3996,29 @@ function onKey(ev: KeyboardEvent): void {
       dlg.close();
       return;
     }
-    if ($('pop-confirm').matches(':popover-open')) {
+    const openPopovers = ESCAPE_POPOVER_IDS.map((id) => $(id)).filter((pop) => pop.matches(':popover-open'));
+    const layer = escapeLayer({
+      confirm: $('pop-confirm').matches(':popover-open'),
+      popover: openPopovers.length > 0,
+      selection: pickedBranches.length > 0 || commitRange.length > 0,
+      details: !!details,
+    });
+    if (layer === 'confirm') {
       closeConfirmTip();
       return;
     }
-    const popoverOpen = ['pop-graph', 'pop-settings', 'pop-ctx', 'pop-find', 'pop-date', 'pop-refs', 'pop-dates', 'pop-contributor', 'pop-repo-help'].some((id) =>
-      $(id).matches(':popover-open'),
-    );
-    $('pop-graph').hidePopover?.();
-    $('pop-settings').hidePopover?.();
-    $('pop-ctx').hidePopover?.();
-    $('pop-find').hidePopover?.();
-    $('pop-date').hidePopover?.();
-    $('pop-refs').hidePopover?.();
-    $('pop-dates').hidePopover?.();
-    $('pop-contributor').hidePopover?.();
-    $('pop-repo-help').hidePopover?.();
-    if (!popoverOpen && (pickedBranches.length || commitRange.length)) {
+    if (layer === 'popover') {
+      for (const pop of openPopovers) pop.hidePopover?.();
+      return;
+    }
+    if (layer === 'selection') {
       pickedBranches = [];
       commitRange = [];
       rangeAnchor = null;
       paint();
       return;
     }
-    if (details) {
+    if (layer === 'details') {
       details = null;
       selected = null;
       clearCompare();
