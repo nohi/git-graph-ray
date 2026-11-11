@@ -1,8 +1,11 @@
+import { t } from '@vscode/l10n';
 import { refDisplayName } from './refsList';
 import type { CompareOverlap, CompareRelation, CompareSplit, FileChange, GraphRef } from './types';
 
 /** Shown when the two revisions have no merge base, including a worktree comparison. */
-export const NO_COMMON_PARENT_NOTE = 'No common parent. Showing the snapshot diff.';
+export function noCommonParentNote(): string {
+  return t('No common parent. Showing the snapshot diff.');
+}
 
 export type CompareView = 'diverge' | 'snapshot';
 
@@ -59,21 +62,21 @@ export function compareBanners(opts: {
   rightEmpty: boolean;
 }): string[] {
   const lines: string[] = [];
-  if (opts.severalParents) lines.push(`Several common parents. Using ${opts.baseLabel}.`);
+  if (opts.severalParents) lines.push(t('Several common parents. Using {0}.', opts.baseLabel));
   if (opts.relation === 'same') {
-    lines.push('These commits are the same.');
+    lines.push(t('These commits are the same.'));
     return lines;
   }
   if (opts.relation === 'left-contains-right') {
-    lines.push(`${opts.rightLabel} is an ancestor of ${opts.leftLabel}.`);
+    lines.push(t('{0} is an ancestor of {1}.', opts.rightLabel, opts.leftLabel));
     return lines;
   }
   if (opts.relation === 'right-contains-left') {
-    lines.push(`${opts.leftLabel} is an ancestor of ${opts.rightLabel}.`);
+    lines.push(t('{0} is an ancestor of {1}.', opts.leftLabel, opts.rightLabel));
     return lines;
   }
-  if (opts.leftEmpty) lines.push(`${opts.leftLabel} has no file changes since the common parent.`);
-  if (opts.rightEmpty) lines.push(`${opts.rightLabel} has no file changes since the common parent.`);
+  if (opts.leftEmpty) lines.push(t('{0} has no file changes since the common parent.', opts.leftLabel));
+  if (opts.rightEmpty) lines.push(t('{0} has no file changes since the common parent.', opts.rightLabel));
   return lines;
 }
 

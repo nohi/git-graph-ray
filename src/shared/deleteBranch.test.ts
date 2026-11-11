@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { UNMERGED_BRANCH_MESSAGE, deleteBranchConfirm, deleteBranchDialogHtml } from './deleteBranch';
+import { deleteBranchConfirm, deleteBranchDialogHtml, unmergedBranchMessage } from './deleteBranch';
 
 describe('deleteBranchDialogHtml', () => {
   it('includes the force checkbox and a hidden unmerged warning', () => {
@@ -8,7 +8,8 @@ describe('deleteBranchDialogHtml', () => {
     expect(html).not.toContain('id="fr" checked');
     expect(html).toContain('id="del-unmerged"');
     expect(html).toContain('hidden');
-    expect(html).toContain(UNMERGED_BRANCH_MESSAGE);
+    expect(html).toContain('This branch is not fully merged and cannot be deleted unless force is checked.');
+    expect(unmergedBranchMessage()).toBe('This branch is not fully merged and cannot be deleted unless force is checked.');
   });
 
   it('checks force when that is the saved default', () => {

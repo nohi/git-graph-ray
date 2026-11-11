@@ -1,3 +1,5 @@
+import { t } from '@vscode/l10n';
+
 /** Cryptographic signature stored on a commit, without a validity judgement. */
 export type SignatureKind = 'gpg' | 'ssh' | 'x509' | 'unknown';
 
@@ -56,28 +58,28 @@ export function signatureKindLabel(kind: SignatureKind): string {
     case 'x509':
       return 'X.509';
     case 'unknown':
-      return 'Unknown';
+      return t('Unknown');
   }
 }
 
 export function signatureGradeLabel(grade: SignatureGrade): string {
   switch (grade) {
     case 'G':
-      return 'Good';
+      return t('Good');
     case 'B':
-      return 'Bad';
+      return t('Bad');
     case 'U':
-      return 'Unknown validity';
+      return t('Unknown validity');
     case 'X':
-      return 'Expired';
+      return t('Expired');
     case 'Y':
-      return 'Expired key';
+      return t('Expired key');
     case 'R':
-      return 'Revoked key';
+      return t('Revoked key');
     case 'E':
-      return 'Cannot be checked';
+      return t('Cannot be checked');
     case 'N':
-      return 'None';
+      return t('None');
   }
 }
 
@@ -89,11 +91,11 @@ export function signatureGradeTone(grade: SignatureGrade): 'good' | 'bad' | 'war
 
 export function signatureTrustLabel(trust: string): string {
   const known: Record<string, string> = {
-    undefined: 'Undefined',
-    never: 'Never',
-    marginal: 'Marginal',
-    fully: 'Fully',
-    ultimate: 'Ultimate',
+    undefined: t('Undefined'),
+    never: t('Never'),
+    marginal: t('Marginal'),
+    fully: t('Fully'),
+    ultimate: t('Ultimate'),
   };
   return known[trust.toLowerCase()] ?? trust;
 }
@@ -166,15 +168,15 @@ export function buildCommitSignature(input: {
 }
 
 export function signatureColumn(kind: SignatureKind | null | undefined): { text: string; title: string; signed: boolean } {
-  if (!kind) return { text: 'No', title: 'Unsigned', signed: false };
+  if (!kind) return { text: t('No'), title: t('Unsigned'), signed: false };
   const label = signatureKindLabel(kind);
-  if (kind === 'unknown') return { text: 'Signed', title: 'Signed · unknown type', signed: true };
-  return { text: label, title: `Signed · ${label}`, signed: true };
+  if (kind === 'unknown') return { text: t('Signed'), title: t('Signed · unknown type'), signed: true };
+  return { text: label, title: t('Signed · {0}', label), signed: true };
 }
 
 export function signatureSummary(sig: CommitSignature | undefined): { text: string; signed: boolean; tone?: 'good' | 'bad' | 'warn' } {
   const col = signatureColumn(sig?.kind);
-  if (!col.signed) return { text: 'Unsigned', signed: false };
+  if (!col.signed) return { text: t('Unsigned'), signed: false };
   const tone = sig?.grade ? signatureGradeTone(sig.grade) : undefined;
   return { text: col.text, signed: true, tone };
 }
@@ -185,52 +187,52 @@ export function signatureInfoRows(
 ): SignatureInfoRow[] {
   const kind = sig?.kind ?? null;
   const rows: SignatureInfoRow[] = [
-    { label: 'Signed', value: kind ? 'Yes' : 'No' },
-    { label: 'Type', value: kind ? signatureKindLabel(kind) : '—' },
+    { label: t('Signed'), value: kind ? t('Yes') : t('No') },
+    { label: t('Type'), value: kind ? signatureKindLabel(kind) : '—' },
   ];
   if (!kind || !sig) return rows;
-  if (sig.grade) rows.push({ label: 'Status', value: signatureGradeLabel(sig.grade), tone: signatureGradeTone(sig.grade) });
-  if (sig.signer) rows.push({ label: 'Signer', value: sig.signer, copy: sig.signer });
-  if (sig.keyAlgorithm) rows.push({ label: kind === 'ssh' ? 'Key type' : 'Public key', value: sig.keyAlgorithm });
-  if (sig.hashAlgorithm) rows.push({ label: 'Hash', value: sig.hashAlgorithm });
-  if (sig.namespace) rows.push({ label: 'Namespace', value: sig.namespace });
-  if (sig.signedAt) rows.push({ label: 'Signature time', value: formatDate(sig.signedAt) });
-  if (sig.keyExpires) rows.push({ label: 'Key expiration', value: lifetimeText(sig.keyExpires, formatDate, 'key creation') });
-  if (sig.signatureExpires) rows.push({ label: 'Signature expiration', value: lifetimeText(sig.signatureExpires, formatDate, 'signing') });
-  if (sig.key && sig.key !== sig.fingerprint) rows.push({ label: 'Key', value: sig.key, copy: sig.key, mono: true });
-  if (sig.fingerprint) rows.push({ label: 'Fingerprint', value: sig.fingerprint, copy: sig.fingerprint, mono: true });
-  if (sig.primary) rows.push({ label: 'Primary key', value: sig.primary, copy: sig.primary, mono: true });
-  if (sig.trust) rows.push({ label: 'Trust', value: signatureTrustLabel(sig.trust) });
+  if (sig.grade) rows.push({ label: t('Status'), value: signatureGradeLabel(sig.grade), tone: signatureGradeTone(sig.grade) });
+  if (sig.signer) rows.push({ label: t('Signer'), value: sig.signer, copy: sig.signer });
+  if (sig.keyAlgorithm) rows.push({ label: kind === 'ssh' ? t('Key type') : t('Public key'), value: sig.keyAlgorithm });
+  if (sig.hashAlgorithm) rows.push({ label: t('Hash'), value: sig.hashAlgorithm });
+  if (sig.namespace) rows.push({ label: t('Namespace'), value: sig.namespace });
+  if (sig.signedAt) rows.push({ label: t('Signature time'), value: formatDate(sig.signedAt) });
+  if (sig.keyExpires) rows.push({ label: t('Key expiration'), value: lifetimeText(sig.keyExpires, formatDate, t('key creation')) });
+  if (sig.signatureExpires) rows.push({ label: t('Signature expiration'), value: lifetimeText(sig.signatureExpires, formatDate, t('signing')) });
+  if (sig.key && sig.key !== sig.fingerprint) rows.push({ label: t('Key'), value: sig.key, copy: sig.key, mono: true });
+  if (sig.fingerprint) rows.push({ label: t('Fingerprint'), value: sig.fingerprint, copy: sig.fingerprint, mono: true });
+  if (sig.primary) rows.push({ label: t('Primary key'), value: sig.primary, copy: sig.primary, mono: true });
+  if (sig.trust) rows.push({ label: t('Trust'), value: signatureTrustLabel(sig.trust) });
   return rows;
 }
 
 function lifetimeText(life: SignatureLifetime, formatDate: (unix: number) => string, after: string): string {
   switch (life.state) {
     case 'never':
-      return 'Never';
+      return t('Never');
     case 'unknown':
-      return 'Not included';
+      return t('Not included');
     case 'at':
       return formatDate(life.time) || utcStamp(life.time);
     case 'after':
-      return life.seconds > 0 ? durationAfter(life.seconds, after) : 'Never';
+      return life.seconds > 0 ? durationAfter(life.seconds, after) : t('Never');
   }
 }
 
 function durationAfter(seconds: number, event: string): string {
-  const units: Array<[number, string]> = [
-    [86400, 'day'],
-    [3600, 'hour'],
-    [60, 'minute'],
-    [1, 'second'],
+  const units: Array<[number, string, string]> = [
+    [86400, t('day'), t('days')],
+    [3600, t('hour'), t('hours')],
+    [60, t('minute'), t('minutes')],
+    [1, t('second'), t('seconds')],
   ];
-  for (const [size, name] of units) {
+  for (const [size, singular, plural] of units) {
     if (seconds % size === 0) {
       const count = seconds / size;
-      return `${count} ${name}${count === 1 ? '' : 's'} after ${event}`;
+      return t('{0} {1} after {2}', count, count === 1 ? singular : plural, event);
     }
   }
-  return `${seconds} seconds after ${event}`;
+  return t('{0} {1} after {2}', seconds, t('seconds'), event);
 }
 
 function utcStamp(unix: number): string {

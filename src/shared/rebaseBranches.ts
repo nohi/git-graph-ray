@@ -1,3 +1,4 @@
+import { t } from '@vscode/l10n';
 import { branchEndRowsHtml, branchNameHtml } from './branchDialog';
 import { escapeHtml } from './issueLinks';
 
@@ -48,20 +49,20 @@ export function rebaseBranchesDialogHtml(opts: { onto: string; branches: readonl
   const items = opts.branches.map((name) => `<li><code>${escapeHtml(name)}</code></li>`).join('');
   const ignore = opts.ignoreDate ? ' checked' : '';
   const ends = branchEndRowsHtml([
-    { label: 'onto', body: branchNameHtml(opts.onto) },
-    { label: 'from', body: `<ul class="rebase-list">${items}</ul>` },
+    { label: t('onto'), body: branchNameHtml(opts.onto) },
+    { label: t('from'), body: `<ul class="rebase-list">${items}</ul>` },
   ]);
   return `${ends}
 <label><input type="checkbox" id="id"${ignore}/> ignore date</label>
 <fieldset class="dlg-stack">
-  <legend>After rebase</legend>
-  <label><input type="radio" name="rb-co" value="restore" checked /> Return to the previous branch</label>
-  <label><input type="radio" name="rb-co" value="stay" /> Stay on the last branch</label>
+  <legend>${t('After rebase')}</legend>
+  <label><input type="radio" name="rb-co" value="restore" checked /> ${t('Return to the previous branch')}</label>
+  <label><input type="radio" name="rb-co" value="stay" /> ${t('Stay on the last branch')}</label>
 </fieldset>
 <fieldset class="dlg-stack">
-  <legend>On failure</legend>
-  <label><input type="radio" name="rb-fail" value="skip" checked /> Skip and continue</label>
-  <label><input type="radio" name="rb-fail" value="stop" /> Stop</label>
+  <legend>${t('On failure')}</legend>
+  <label><input type="radio" name="rb-fail" value="skip" checked /> ${t('Skip and continue')}</label>
+  <label><input type="radio" name="rb-fail" value="stop" /> ${t('Stop')}</label>
 </fieldset>`;
 }
 
@@ -72,16 +73,16 @@ export function rebaseBranchesReportHtml(outcomes: readonly RebaseBranchOutcome[
   if (!skipped.length && !notRun.length && !restoreError) return null;
   const rebased = outcomes.filter((outcome) => outcome.status === 'rebased');
   const parts: string[] = [];
-  if (rebased.length) parts.push(reportSection('Rebased', rebased.map((outcome) => escapeHtml(outcome.branch))));
+  if (rebased.length) parts.push(reportSection(t('Rebased'), rebased.map((outcome) => escapeHtml(outcome.branch))));
   if (skipped.length) {
     parts.push(
       reportSection(
-        'Skipped',
-        skipped.map((outcome) => `${escapeHtml(outcome.branch)} — ${escapeHtml(outcome.reason || 'rebase failed')}`),
+        t('Skipped'),
+        skipped.map((outcome) => `${escapeHtml(outcome.branch)} — ${escapeHtml(outcome.reason || t('rebase failed'))}`),
       ),
     );
   }
-  if (notRun.length) parts.push(reportSection('Not run', notRun.map((outcome) => escapeHtml(outcome.branch))));
+  if (notRun.length) parts.push(reportSection(t('Not run'), notRun.map((outcome) => escapeHtml(outcome.branch))));
   if (restoreError) parts.push(`<p class="dlg-warn">${escapeHtml(restoreError)}</p>`);
   return parts.join('');
 }
@@ -140,5 +141,5 @@ function reportSection(title: string, items: string[]): string {
 function errorMessage(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error);
   const trimmed = text.trim();
-  return trimmed || 'rebase failed';
+  return trimmed || t('rebase failed');
 }

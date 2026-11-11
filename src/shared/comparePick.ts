@@ -1,3 +1,4 @@
+import { t } from '@vscode/l10n';
 import type { GraphRef, RefSort } from './types';
 import { cmpRefname, refDisplayName, uniqueRefs } from './refsList';
 
@@ -22,12 +23,18 @@ export type ComparePick = {
   truncated: boolean;
 };
 
-const SECTION_TITLE: Record<CompareKind, string> = {
-  commit: 'Commits',
-  head: 'Local branches',
-  remote: 'Remote branches',
-  tag: 'Tags',
-};
+function sectionTitle(id: CompareKind): string {
+  switch (id) {
+    case 'commit':
+      return t('Commits');
+    case 'head':
+      return t('Local branches');
+    case 'remote':
+      return t('Remote branches');
+    case 'tag':
+      return t('Tags');
+  }
+}
 
 const HASH_RE = /^[0-9a-f]{4,64}$/i;
 
@@ -95,7 +102,7 @@ function refCandidate(ref: GraphRef): CompareCandidate {
 
 function pushSection(sections: CompareSection[], id: CompareKind, items: CompareCandidate[]): void {
   if (!items.length) return;
-  sections.push({ id, title: SECTION_TITLE[id], items });
+  sections.push({ id, title: sectionTitle(id), items });
 }
 
 function take(items: CompareCandidate[], budget: { left: number; truncated: boolean }): CompareCandidate[] {

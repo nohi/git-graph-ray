@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { NO_COMMON_PARENT_NOTE } from '../../shared/compareSplit';
+import { noCommonParentNote } from '../../shared/compareSplit';
 import { UNCOMMITTED } from '../../shared/types';
 import { loadDetails } from './details';
 
@@ -96,12 +96,13 @@ describe('loadDetails compare', () => {
     git(dir, ['commit', '-m', 'orphan']);
     const unrelated = await loadDetails('git', dir, 'left', 'orphan');
     expect(unrelated.compareSplit).toBeUndefined();
-    expect(unrelated.compareNote).toBe(NO_COMMON_PARENT_NOTE);
+    expect(unrelated.compareNote).toBe('No common parent. Showing the snapshot diff.');
+    expect(noCommonParentNote()).toBe('No common parent. Showing the snapshot diff.');
     expect(unrelated.files.length).toBeGreaterThan(0);
 
     const worktree = await loadDetails('git', dir, UNCOMMITTED, 'left');
     expect(worktree.compareSplit).toBeUndefined();
-    expect(worktree.compareNote).toBe(NO_COMMON_PARENT_NOTE);
+    expect(worktree.compareNote).toBe('No common parent. Showing the snapshot diff.');
     expect(worktree.hash).toBe(UNCOMMITTED);
   });
 

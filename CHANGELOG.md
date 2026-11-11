@@ -5,7 +5,7 @@
 ### Features
 
 - Move between commits with the Up and Down arrow keys, and open or close the details with Enter. The arrows skip commits hidden by the date or person filter and scroll to keep the selected row in view. When the details are closed, the arrows move only the selection. Dialogs, menus, and text fields keep their own arrow keys.
-- Command names, setting descriptions, and messages from VS Code (the status bar item, the version Copy button, file pickers) follow the VS Code display language. Japanese is included. The graph view itself is still in English. Saved setting values do not change with the language.
+- Command names, setting descriptions, and graph view text (toolbar, menus, dialogs, details labels, undo history, error and empty messages) follow the VS Code display language. Japanese is included. Saved setting values do not change with the language. Git command and flag names, and the Contributors page, stay in English.
 
 ### Fixes
 

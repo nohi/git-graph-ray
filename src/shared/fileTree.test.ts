@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFileTree, FOLDER_MENU, folderFoldPlan, wantsNestedFolderToggle } from './fileTree';
+import { buildFileTree, folderFoldPlan, folderMenu, wantsNestedFolderToggle } from './fileTree';
 
 describe('folderFoldPlan', () => {
   it('opens the folder and every nested folder', () => {
@@ -23,9 +23,9 @@ describe('folderFoldPlan', () => {
   });
 });
 
-describe('FOLDER_MENU', () => {
+describe('folderMenu', () => {
   it('offers fold actions, then copy and open', () => {
-    expect(FOLDER_MENU.map((item) => item.label)).toEqual([
+    expect(folderMenu().map((item) => item.label)).toEqual([
       'Expand',
       'Collapse',
       'Collapse child folders',
@@ -33,7 +33,7 @@ describe('FOLDER_MENU', () => {
       'Copy Full Path',
       'Open folder',
     ]);
-    expect(FOLDER_MENU.map((item) => item.action ?? item.command)).toEqual([
+    expect(folderMenu().map((item) => item.action ?? item.command)).toEqual([
       'expand',
       'collapse',
       'collapse-children',

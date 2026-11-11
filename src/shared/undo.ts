@@ -1,12 +1,16 @@
+import { t } from '@vscode/l10n';
 import type { GitAction } from './protocol';
 import type { GraphCommit, GraphRef } from './types';
 
 export const UNDO_LIMIT = 50;
 
-export const REMOTE_BRANCH_WARNING =
-  'A remote-tracking branch points at a commit this change moves. Only the local branch is restored.';
+export function remoteBranchWarning(): string {
+  return t('A remote-tracking branch points at a commit this change moves. Only the local branch is restored.');
+}
 
-export const DIRTY_RESET_WARNING = 'Uncommitted changes will be discarded.';
+export function dirtyResetWarning(): string {
+  return t('Uncommitted changes will be discarded.');
+}
 
 export type RefPoint = { name: string; hash: string };
 
@@ -50,13 +54,6 @@ export type RestorePlan = {
   changes: RefChange[];
 };
 
-const PULL_WARNING = 'This pull updated remote-tracking branches. Only the local branch is restored.';
-const FETCH_INTO_WARNING = 'This fetched into a local branch. Only the local branch is restored.';
-const CHECKOUT_PULL_WARNING = 'The checkout also pulled from the remote. Only local refs are restored.';
-const DELETE_REMOTE_BRANCH_WARNING = 'The remote branch was deleted and will not be restored.';
-const DELETE_REMOTE_TAG_WARNING = 'The remote tag was deleted and will not be restored.';
-const PUSH_TAG_WARNING = 'The tag was pushed. The remote tag is left unchanged.';
-
 export function undoPolicy(action: GitAction): { record: boolean; warning: string | null } {
   switch (action.kind) {
     case 'worktreeAdd':
@@ -79,17 +76,35 @@ export function undoPolicy(action: GitAction): { record: boolean; warning: strin
     case 'rebaseBranches':
       return { record: true, warning: null };
     case 'checkoutBranch':
-      return { record: true, warning: action.pullAfterwards ? CHECKOUT_PULL_WARNING : null };
+      return {
+        record: true,
+        warning: action.pullAfterwards ? t('The checkout also pulled from the remote. Only local refs are restored.') : null,
+      };
     case 'deleteBranch':
-      return { record: true, warning: action.deleteOnRemote ? DELETE_REMOTE_BRANCH_WARNING : null };
+      return {
+        record: true,
+        warning: action.deleteOnRemote ? t('The remote branch was deleted and will not be restored.') : null,
+      };
     case 'deleteTag':
-      return { record: true, warning: action.deleteOnRemote ? DELETE_REMOTE_TAG_WARNING : null };
+      return {
+        record: true,
+        warning: action.deleteOnRemote ? t('The remote tag was deleted and will not be restored.') : null,
+      };
     case 'addTag':
-      return { record: true, warning: action.pushTo?.length ? PUSH_TAG_WARNING : null };
+      return {
+        record: true,
+        warning: action.pushTo?.length ? t('The tag was pushed. The remote tag is left unchanged.') : null,
+      };
     case 'pullBranch':
-      return { record: true, warning: PULL_WARNING };
+      return {
+        record: true,
+        warning: t('This pull updated remote-tracking branches. Only the local branch is restored.'),
+      };
     case 'fetchIntoLocal':
-      return { record: true, warning: FETCH_INTO_WARNING };
+      return {
+        record: true,
+        warning: t('This fetched into a local branch. Only the local branch is restored.'),
+      };
     default:
       return { record: true, warning: null };
   }
@@ -98,79 +113,83 @@ export function undoPolicy(action: GitAction): { record: boolean; warning: strin
 export function undoLabel(action: GitAction): string {
   switch (action.kind) {
     case 'checkoutCommit':
-      return `Checkout ${shortHash(action.hash)}`;
+      return t('Checkout {0}', shortHash(action.hash));
     case 'checkoutBranch':
-      return `Checkout ${action.name}`;
+      return t('Checkout {0}', action.name);
     case 'checkoutRemote':
-      return `Checkout ${action.localName}`;
+      return t('Checkout {0}', action.localName);
     case 'createBranch':
-      return `Create branch ${action.name}`;
+      return t('Create branch {0}', action.name);
     case 'renameBranch':
-      return `Rename branch ${action.oldName} to ${action.newName}`;
+      return t('Rename branch {0} to {1}', action.oldName, action.newName);
     case 'deleteBranch':
-      return `Delete branch ${action.name}`;
+      return t('Delete branch {0}', action.name);
     case 'deleteRemoteBranch':
-      return `Delete remote branch ${action.name}`;
+      return t('Delete remote branch {0}', action.name);
     case 'merge':
-      return `Merge ${action.ref.startsWith('refs/remotes/') ? action.ref.slice('refs/remotes/'.length) : action.ref}`;
+      return t('Merge {0}', action.ref.startsWith('refs/remotes/') ? action.ref.slice('refs/remotes/'.length) : action.ref);
     case 'rebase':
-      return `Rebase onto ${action.ref}`;
+      return t('Rebase onto {0}', action.ref);
     case 'rebaseBranches': {
       const count = action.branches.length;
-      return `Rebase ${count} ${count === 1 ? 'branch' : 'branches'} onto ${rebaseOntoLabel(action.onto)}`;
+      return t('Rebase {0} {1} onto {2}', count, count === 1 ? t('branch') : t('branches'), rebaseOntoLabel(action.onto));
     }
     case 'cherryPick':
-      return action.hashes.length > 1 ? `Cherry-pick ${action.hashes.length} commits` : `Cherry-pick ${shortHash(action.hashes[0] ?? '')}`;
+      return action.hashes.length > 1
+        ? t('Cherry-pick {0} commits', action.hashes.length)
+        : t('Cherry-pick {0}', shortHash(action.hashes[0] ?? ''));
     case 'revert':
-      return `Revert ${shortHash(action.hash)}`;
+      return t('Revert {0}', shortHash(action.hash));
     case 'reset':
-      return `Reset to ${action.hash === 'HEAD' ? 'HEAD' : shortHash(action.hash)}`;
+      return t('Reset to {0}', action.hash === 'HEAD' ? 'HEAD' : shortHash(action.hash));
     case 'dropCommit':
-      return `Drop ${shortHash(action.hash)}`;
+      return t('Drop {0}', shortHash(action.hash));
     case 'reword':
-      return `Reword ${shortHash(action.hash)}`;
+      return t('Reword {0}', shortHash(action.hash));
     case 'addTag':
-      return `Create tag ${action.name}`;
+      return t('Create tag {0}', action.name);
     case 'deleteTag':
-      return `Delete tag ${action.name}`;
+      return t('Delete tag {0}', action.name);
     case 'pushTag':
-      return `Push tag ${action.name}`;
+      return t('Push tag {0}', action.name);
     case 'stash':
-      return action.paths?.length ? `Stash ${action.paths.length === 1 ? '1 file' : `${action.paths.length} files`}` : 'Stash';
+      return action.paths?.length
+        ? t('Stash {0}', action.paths.length === 1 ? t('1 file') : t('{0} files', action.paths.length))
+        : t('Stash');
     case 'stashApply':
-      return action.pop ? 'Pop stash' : 'Apply stash';
+      return action.pop ? t('Pop stash') : t('Apply stash');
     case 'stashDrop':
-      return 'Drop stash';
+      return t('Drop stash');
     case 'stashCreateBranch':
-      return `Create branch ${action.name} from stash`;
+      return t('Create branch {0} from stash', action.name);
     case 'cleanUntracked':
-      return 'Clean untracked files';
+      return t('Clean untracked files');
     case 'pushBranch':
-      return `Push ${action.name}`;
+      return t('Push {0}', action.name);
     case 'pullBranch':
-      return `Pull ${action.remote}/${action.branch}`;
+      return t('Pull {0}/{1}', action.remote, action.branch);
     case 'createCommitPatch':
     case 'createFilePatch':
     case 'createWorktreePatch':
-      return 'Create patch';
+      return t('Create patch');
     case 'applyPatch':
-      return action.commits ? 'Apply patch as commits' : 'Apply patch';
+      return action.commits ? t('Apply patch as commits') : t('Apply patch');
     case 'fetchRemote':
-      return 'Fetch';
+      return t('Fetch');
     case 'fetchIntoLocal':
-      return `Fetch into ${action.local}`;
+      return t('Fetch into {0}', action.local);
     case 'worktreeAdd':
-      return 'Add worktree';
+      return t('Add worktree');
     case 'worktreeOpen':
-      return 'Open worktree';
+      return t('Open worktree');
     case 'worktreeRemove':
-      return 'Remove worktree';
+      return t('Remove worktree');
     case 'openScm':
-      return 'Open Source Control';
+      return t('Open Source Control');
     case 'continueOperation':
-      return `Continue ${action.operation}`;
+      return t('Continue {0}', action.operation);
     case 'abortOperation':
-      return `Abort ${action.operation}`;
+      return t('Abort {0}', action.operation);
   }
 }
 
@@ -242,7 +261,7 @@ export function rangeLabel(entries: UndoEntry[]): string {
   const top = entries[entries.length - 1];
   if (!top) return '';
   if (entries.length === 1) return top.label;
-  return `${top.label} (+${entries.length - 1} more)`;
+  return t('{0} (+{1} more)', top.label, entries.length - 1);
 }
 
 export function undoEnds(entry: UndoEntry, direction: 'undo' | 'redo'): { from: LocalCheckpoint; to: LocalCheckpoint } {
@@ -324,8 +343,8 @@ export function planRestore(input: {
   const hardReset = input.dirty && args.some((cmd) => cmd[0] === 'reset' && cmd[1] === '--hard');
   const warning = joinWarnings([
     input.actionWarning,
-    remoteOverlap(current, target, input.remotes) ? REMOTE_BRANCH_WARNING : null,
-    hardReset ? DIRTY_RESET_WARNING : null,
+    remoteOverlap(current, target, input.remotes) ? remoteBranchWarning() : null,
+    hardReset ? dirtyResetWarning() : null,
   ]);
   return {
     args,
@@ -341,7 +360,12 @@ export function formatGitCommand(args: string[]): string {
 }
 
 export function formatRefChange(change: RefChange): string {
-  return `${change.name}: ${shortenHashes(change.from ?? '(none)')} → ${shortenHashes(change.to ?? '(none)')}`;
+  return t(
+    '{0}: {1} → {2}',
+    change.name,
+    shortenHashes(change.from ?? t('(none)')),
+    shortenHashes(change.to ?? t('(none)')),
+  );
 }
 
 export function checkpointRefs(checkpoint: LocalCheckpoint, remoteRefs: GraphRef[]): GraphRef[] {
@@ -783,7 +807,8 @@ function onlyCurrentBranchMoved(prev: LocalCheckpoint, next: LocalCheckpoint): b
 function commitLabel(kind: 'Commit' | 'Amend', subject: string): string {
   const line = (subject.split(/\r?\n/, 1)[0] ?? '').replace(/\s+/g, ' ').trim();
   const text = line.length > 72 ? `${line.slice(0, 72)}…` : line;
-  return text ? `${kind} ${text}` : kind;
+  if (kind === 'Amend') return text ? t('Amend {0}', text) : t('Amend');
+  return text ? t('Commit {0}', text) : t('Commit');
 }
 
 function refChanges(current: LocalCheckpoint, target: LocalCheckpoint): RefChange[] {

@@ -1,3 +1,4 @@
+import { t } from '@vscode/l10n';
 import { escapeAttr } from './issueLinks';
 import { remoteBranchName } from './refsList';
 
@@ -189,14 +190,14 @@ export function isUnregisteredConfigurationMessage(message: string): boolean {
 
 export function labelColourDialogHtml(opts: { pattern: string; colour: string }): string {
   const colour = normalizeHex(opts.colour) ?? DEFAULT_LABEL_COLOUR;
-  return `<label class="dlg-field"><span class="lc-label">Pattern<button type="button" id="lc-help" class="lc-help" aria-label="About patterns" aria-expanded="false">?</button></span><input id="lc-pattern" spellcheck="false" autocomplete="off" value="${escapeAttr(opts.pattern)}" /></label>
-<div id="lc-tip" popover="manual" class="pop lc-tip" role="tooltip">The name you clicked is filled in. Edit it to widen the match, for example feature/hoge to feature/*. * matches any text, including /. The first matching pattern wins.</div>
+  return `<label class="dlg-field"><span class="lc-label">${t('Pattern')}<button type="button" id="lc-help" class="lc-help" aria-label="${escapeAttr(t('About patterns'))}" aria-expanded="false">?</button></span><input id="lc-pattern" spellcheck="false" autocomplete="off" value="${escapeAttr(opts.pattern)}" /></label>
+<div id="lc-tip" popover="manual" class="pop lc-tip" role="tooltip">${t('The name you clicked is filled in. Edit it to widen the match, for example feature/hoge to feature/*. * matches any text, including /. The first matching pattern wins.')}</div>
 <div class="lc-picker">
   <div class="lc-sv" id="lc-sv" aria-hidden="true"><div class="lc-sv-white"></div><div class="lc-sv-black"></div><div class="lc-knob" id="lc-knob"></div></div>
-  <input type="range" class="lc-hue" id="lc-hue" min="0" max="360" step="1" aria-label="Hue" />
-  <label class="lc-hex-row">Hex<span class="lc-swatch" id="lc-swatch"></span><input id="lc-hex" spellcheck="false" autocomplete="off" maxlength="9" value="${escapeAttr(colour)}" /></label>
+  <input type="range" class="lc-hue" id="lc-hue" min="0" max="360" step="1" aria-label="${escapeAttr(t('Hue'))}" />
+  <label class="lc-hex-row">${t('Hex')}<span class="lc-swatch" id="lc-swatch"></span><input id="lc-hex" spellcheck="false" autocomplete="off" maxlength="9" value="${escapeAttr(colour)}" /></label>
 </div>
-<button type="button" id="lc-remove" title="Remove the colour saved for this pattern">Remove colour</button>`;
+<button type="button" id="lc-remove" title="${escapeAttr(t('Remove the colour saved for this pattern'))}">${t('Remove colour')}</button>`;
 }
 
 function clamp01(n: number): number {

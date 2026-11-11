@@ -1,3 +1,4 @@
+import { config as l10nConfig } from '@vscode/l10n';
 import * as vscode from 'vscode';
 import { startAskpassServer } from './askpass/server';
 import { AvatarStore } from './avatars';
@@ -12,6 +13,8 @@ import { logChannel } from './logger';
 import { createStatusBar } from './statusBar';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  // Shared undo labels are rendered in the webview but generated on the host.
+  l10nConfig({ contents: vscode.l10n.bundle ?? {} });
   const output = logChannel();
   setGitCommandLogger((line) => output.appendLine(line));
   context.subscriptions.push(output, { dispose: () => setGitCommandLogger(() => {}) });

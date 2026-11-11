@@ -1,3 +1,4 @@
+import { t } from '@vscode/l10n';
 import { escapeHtml } from './issueLinks';
 
 /** `body` is HTML. Escape branch names before inserting them. */
@@ -26,8 +27,8 @@ export function mergeDialogHtml(opts: {
 }): string {
   const mark = (on: boolean) => (on ? ' checked' : '');
   return `${branchEndRowsHtml([
-    { label: 'into', body: branchNameHtml(currentBranchName(opts.into)) },
-    { label: 'from', body: branchNameHtml(opts.from) },
+    { label: t('into'), body: branchNameHtml(currentBranchName(opts.into)) },
+    { label: t('from'), body: branchNameHtml(opts.from) },
   ])}<label><input type="checkbox" id="nc"${mark(opts.noCommit)}/> no commit</label><label><input type="checkbox" id="nff"${mark(opts.noFastForward)}/> no ff</label><label><input type="checkbox" id="sq"${mark(opts.squash)}/> squash</label>`;
 }
 
@@ -44,7 +45,7 @@ export function rebaseDialogHtml(opts: {
       ? ''
       : `<label><input type="checkbox" id="ir"${opts.interactive ? ' checked' : ''}/> interactive</label>`;
   return `${branchEndRowsHtml([
-    { label: 'onto', body: branchNameHtml(opts.onto) },
-    { label: 'from', body: branchNameHtml(currentBranchName(opts.from)) },
+    { label: t('onto'), body: branchNameHtml(opts.onto) },
+    { label: t('from'), body: branchNameHtml(currentBranchName(opts.from)) },
   ])}<label><input type="checkbox" id="id"${ignore}/> ignore date</label>${interactive}`;
 }

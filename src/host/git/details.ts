@@ -1,6 +1,7 @@
+import { t } from '@vscode/l10n';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { NO_COMMON_PARENT_NOTE, classifyCompareFiles, compareRelation } from '../../shared/compareSplit';
+import { classifyCompareFiles, compareRelation, noCommonParentNote } from '../../shared/compareSplit';
 import { buildCommitSignature } from '../../shared/signature';
 import { UNCOMMITTED, type CommitDetails, type CompareSplit, type FileChange } from '../../shared/types';
 import { gitExec, gitOk } from './runner';
@@ -80,7 +81,7 @@ async function compareDetails(git: string, cwd: string, a: string, b: string, en
     files,
     subject: `Compare ${short(a)} ↔ ${short(b)}`,
     signature: a === UNCOMMITTED ? { kind: null } : da.signature,
-    ...(split ? { compareSplit: split } : { compareNote: NO_COMMON_PARENT_NOTE }),
+    ...(split ? { compareSplit: split } : { compareNote: noCommonParentNote() }),
   };
 }
 
@@ -148,7 +149,7 @@ async function uncommittedDetails(git: string, cwd: string, encoding: string): P
     committerName: '',
     committerEmail: '',
     committerDate: 0,
-    subject: 'Uncommitted changes',
+    subject: t('Uncommitted changes'),
     body: '',
     files,
     signature: { kind: null },

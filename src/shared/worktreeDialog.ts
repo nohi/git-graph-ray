@@ -1,3 +1,4 @@
+import { t } from '@vscode/l10n';
 import { escapeAttr } from './issueLinks';
 import type { GraphRef } from './types';
 
@@ -101,7 +102,10 @@ export function worktreeInsideMain(destination: string, mainWorktree: string): b
 }
 
 export function worktreeInsideWarning(mainDisplayPath: string): string {
-  return `This folder is inside the main worktree (${mainDisplayPath}). Worktrees are usually created as a sibling folder next to the repository.`;
+  return t(
+    'This folder is inside the main worktree ({0}). Worktrees are usually created as a sibling folder next to the repository.',
+    mainDisplayPath,
+  );
 }
 
 export type WorktreeFormState = {
@@ -129,13 +133,13 @@ export function defaultWorktreeLocation(mainWorktree: string): string {
 
 export function worktreeDialogHtml(opts: { location: string; name: string; requestId: string }): string {
   return `<div class="dlg-field">
-      <label for="wt-loc">Create in</label>
+      <label for="wt-loc">${t('Create in')}</label>
       <span class="wt-path">
         <input data-pick="${escapeAttr(opts.requestId)}" id="wt-loc" autocomplete="off" value="${escapeAttr(opts.location)}" />
-        <button type="button" id="wt-browse">Browse</button>
+        <button type="button" id="wt-browse">${t('Browse')}</button>
       </span>
     </div>
-    <label class="dlg-field" for="wt-name">Folder name <input id="wt-name" autocomplete="off" value="${escapeAttr(opts.name)}" /></label>
+    <label class="dlg-field" for="wt-name">${t('Folder name')} <input id="wt-name" autocomplete="off" value="${escapeAttr(opts.name)}" /></label>
     <p id="wt-preview" class="dlg-note"></p>
     <p id="wt-warn" class="dlg-warn" role="status" hidden></p>`;
 }

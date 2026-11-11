@@ -53,4 +53,18 @@ describe('graphHtml', () => {
     expect(html).not.toContain('btn-cancel');
     expect(html).not.toContain('id="app"');
   });
+
+  it('embeds the l10n bundle for the webview when provided', () => {
+    const html = graphHtml('https://csp.example', 'webview.js', 'style.css', 'n0nce', '{"Fetch":"取得</script><x"}');
+    expect(html).toContain('<script type="application/json" id="gg-l10n">');
+    expect(html).toContain('\\u003c/script>\\u003cx');
+    const m = html.match(/<script type="application\/json" id="gg-l10n">([\s\S]*?)<\/script>/);
+    expect(m).toBeTruthy();
+    expect(JSON.parse(m![1])).toEqual({ Fetch: '取得</script><x' });
+  });
+
+  it('omits the l10n bundle block when none is provided', () => {
+    const html = graphHtml('https://csp.example', 'webview.js', 'style.css', 'n0nce');
+    expect(html).not.toContain('id="gg-l10n"');
+  });
 });

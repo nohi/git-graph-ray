@@ -1,3 +1,4 @@
+import { t } from '@vscode/l10n';
 import {
   FIND_MATCH_CAP,
   FIND_SCAN_CAP,
@@ -142,7 +143,7 @@ export function withUncommitted(commits: GraphCommit[], head: string | null, ena
     committerName: '',
     committerEmail: '',
     committerDate: Math.floor(Date.now() / 1000),
-    subject: 'Uncommitted changes',
+    subject: t('Uncommitted changes'),
     refs: [],
     signatureKind: null,
   };

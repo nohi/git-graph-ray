@@ -1,3 +1,5 @@
+import { t } from '@vscode/l10n';
+
 /** Which part of the graph could not be read. `repo` covers anything before refs, such as finding repositories. */
 export type GraphLoadStage = 'repo' | 'refs' | 'commits';
 
@@ -13,7 +15,7 @@ export class GraphLoadError extends Error {
 
 export function errorText(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error);
-  return text.trim() || 'Unknown error';
+  return text.trim() || t('Unknown error');
 }
 
 export function toLoadError(stage: GraphLoadStage, error: unknown): GraphLoadError {
@@ -70,15 +72,20 @@ export function isUnbornHeadError(text: string): boolean {
   return /does not have any commits yet|bad default revision 'HEAD'|ambiguous argument 'HEAD': unknown revision/i.test(text);
 }
 
-const STAGE_TEXT: Record<GraphLoadStage, string> = {
-  repo: 'Could not open the repository',
-  refs: 'Could not read branches and tags',
-  commits: 'Could not read commits',
-};
+function stageText(stage: GraphLoadStage): string {
+  switch (stage) {
+    case 'refs':
+      return t('Could not read branches and tags');
+    case 'commits':
+      return t('Could not read commits');
+    case 'repo':
+      return t('Could not open the repository');
+  }
+}
 
 export function graphLoadFailMessage(error: unknown): string {
   const failure = toLoadError('repo', error);
-  return `${STAGE_TEXT[failure.stage]}: ${failure.detail}`;
+  return t('{0}: {1}', stageText(failure.stage), failure.detail);
 }
 
 /**

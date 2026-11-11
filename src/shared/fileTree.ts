@@ -1,3 +1,5 @@
+import { t } from '@vscode/l10n';
+
 export type FileNode = {
   name: string;
   path?: string;
@@ -74,14 +76,16 @@ export type FolderMenuItem = {
   command?: FolderPathCommand;
 };
 
-export const FOLDER_MENU: readonly FolderMenuItem[] = [
-  { id: 'fd-expand', label: 'Expand', action: 'expand' },
-  { id: 'fd-collapse', label: 'Collapse', action: 'collapse' },
-  { id: 'fd-children', label: 'Collapse child folders', action: 'collapse-children' },
-  { id: 'fd-copy', label: 'Copy Path', command: 'copy-path' },
-  { id: 'fd-copy-full', label: 'Copy Full Path', command: 'copy-full-path' },
-  { id: 'fd-open', label: 'Open folder', command: 'open-folder' },
-];
+export function folderMenu(): FolderMenuItem[] {
+  return [
+    { id: 'fd-expand', label: t('Expand'), action: 'expand' },
+    { id: 'fd-collapse', label: t('Collapse'), action: 'collapse' },
+    { id: 'fd-children', label: t('Collapse child folders'), action: 'collapse-children' },
+    { id: 'fd-copy', label: t('Copy Path'), command: 'copy-path' },
+    { id: 'fd-copy-full', label: t('Copy Full Path'), command: 'copy-full-path' },
+    { id: 'fd-open', label: t('Open folder'), command: 'open-folder' },
+  ];
+}
 
 /**
  * Next open state for a folder and its nested folders.

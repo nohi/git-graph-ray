@@ -1,3 +1,4 @@
+import { t } from '@vscode/l10n';
 import { UNCOMMITTED, type CommitDetails } from './types';
 
 export type MetaCopyIcon = 'copy' | 'mail' | 'person' | 'contact';
@@ -18,17 +19,17 @@ export function personIdentity(name: string, email: string): string {
 
 export function hashCopies(hash: string): MetaCopy[] {
   return [
-    { label: '8', text: hash.slice(0, 8), title: 'Copy 8 characters' },
-    { label: 'F', text: hash, title: 'Copy full hash' },
+    { label: '8', text: hash.slice(0, 8), title: t('Copy 8 characters') },
+    { label: 'F', text: hash, title: t('Copy full hash') },
   ];
 }
 
 export function personCopies(name: string, email: string): MetaCopy[] {
   const copies: MetaCopy[] = [];
   const full = personIdentity(name, email);
-  if (full) copies.push({ label: '', text: full, title: 'Copy name and email', icon: 'contact' });
-  if (name) copies.push({ label: '', text: name, title: 'Copy name', icon: 'person' });
-  if (email) copies.push({ label: '', text: email, title: 'Copy email', icon: 'mail' });
+  if (full) copies.push({ label: '', text: full, title: t('Copy name and email'), icon: 'contact' });
+  if (name) copies.push({ label: '', text: name, title: t('Copy name'), icon: 'person' });
+  if (email) copies.push({ label: '', text: email, title: t('Copy email'), icon: 'mail' });
   return copies;
 }
 
@@ -47,11 +48,11 @@ export function detailsMetaRows(
 ): DetailsMetaRow[] {
   const rows: DetailsMetaRow[] = [];
   if (d.hash && d.hash !== UNCOMMITTED) {
-    rows.push({ label: 'Commit', value: d.hash, copies: hashCopies(d.hash) });
+    rows.push({ label: t('Commit'), value: d.hash, copies: hashCopies(d.hash) });
   }
   d.parents.filter(Boolean).forEach((p, i) => {
     rows.push({
-      label: i === 0 ? 'Parents' : '',
+      label: i === 0 ? t('Parents') : '',
       value: p,
       hashLink: p,
       copies: hashCopies(p),
@@ -59,7 +60,7 @@ export function detailsMetaRows(
   });
   if (d.compareSplit?.base) {
     rows.push({
-      label: 'Common parent',
+      label: t('Common parent'),
       value: d.compareSplit.base,
       hashLink: d.compareSplit.base,
       copies: hashCopies(d.compareSplit.base),
@@ -67,24 +68,24 @@ export function detailsMetaRows(
   }
   const author = personIdentity(d.authorName, d.authorEmail);
   if (author) {
-    rows.push({ label: 'Author', value: author, copies: personCopies(d.authorName, d.authorEmail) });
+    rows.push({ label: t('Author'), value: author, copies: personCopies(d.authorName, d.authorEmail) });
   }
   if (dates.author) {
-    rows.push({ label: 'Author Date', value: dates.author, copies: [{ label: '', text: dates.author, title: 'Copy' }] });
+    rows.push({ label: t('Author Date'), value: dates.author, copies: [{ label: '', text: dates.author, title: t('Copy') }] });
   }
   const committer = personIdentity(d.committerName, d.committerEmail);
   if (committer) {
     rows.push({
-      label: 'Committer',
+      label: t('Committer'),
       value: committer,
       copies: personCopies(d.committerName, d.committerEmail),
     });
   }
   if (dates.committer) {
     rows.push({
-      label: 'Committer Date',
+      label: t('Committer Date'),
       value: dates.committer,
-      copies: [{ label: '', text: dates.committer, title: 'Copy' }],
+      copies: [{ label: '', text: dates.committer, title: t('Copy') }],
     });
   }
   return rows;

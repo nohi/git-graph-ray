@@ -229,7 +229,14 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
     const htmlN = nonce();
     const script = panel.webview.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, 'dist/webview/webview.js'));
     const css = panel.webview.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, 'dist/webview/style.css'));
-    panel.webview.html = graphHtml(panel.webview.cspSource, String(script), String(css), htmlN);
+    const l10nBundle = vscode.l10n.bundle;
+    panel.webview.html = graphHtml(
+      panel.webview.cspSource,
+      String(script),
+      String(css),
+      htmlN,
+      l10nBundle ? JSON.stringify(l10nBundle) : undefined,
+    );
     this.notifyHolder();
   }
 
@@ -858,12 +865,12 @@ class GraphSession {
     const noRefs = { refs: [] as GraphRef[], branches: [] as string[], head: null as string | null, currentBranch: null as string | null };
     const refsLoad = hasRepo ? await settleLoad('refs', loadRefs(this.git(), this.repoPath, config.showRemoteHeads), noRefs) : { value: noRefs };
     const { refs, branches, head, currentBranch } = refsLoad.value;
-    const trees = hasRepo ? await optionalLoad(this.loadWarnLog, 'worktrees', 'Could not list worktrees', listWorktrees(this.git(), this.repoPath), []) : [];
+    const trees = hasRepo ? await optionalLoad(this.loadWarnLog, 'worktrees', vscode.l10n.t('Could not list worktrees'), listWorktrees(this.git(), this.repoPath), []) : [];
     const mainWorktreePath = primaryWorktreePath(trees, this.repoPath);
     for (const t of trees) {
       refs.push({ kind: 'worktree', name: path.basename(t.path), hash: t.head, worktreePath: t.path });
     }
-    const remoteRows = hasRepo ? await optionalLoad(this.loadWarnLog, 'remotes', 'Could not list remotes', listRemotes(this.git(), this.repoPath), []) : [];
+    const remoteRows = hasRepo ? await optionalLoad(this.loadWarnLog, 'remotes', vscode.l10n.t('Could not list remotes'), listRemotes(this.git(), this.repoPath), []) : [];
     const remotes = remoteRows.filter((r) => !settings.hideRemotes.includes(r.name));
     this.includeHead = !currentBranch;
     const filterRefs = refs.filter((r) => {
@@ -1045,7 +1052,7 @@ class GraphSession {
     }
     if (plan.showFail) {
       this.loadFailShown = true;
-      this.post({ type: 'fail', message: `${message} (see the Git Graph Ray output for details)` });
+      this.post({ type: 'fail', message: vscode.l10n.t('{0} (see the Git Graph Ray output for details)', message) });
     }
   }
 

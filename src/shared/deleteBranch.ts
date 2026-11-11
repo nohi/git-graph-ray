@@ -1,12 +1,15 @@
-export const UNMERGED_BRANCH_MESSAGE =
-  'This branch is not fully merged and cannot be deleted unless force is checked.';
+import { t } from '@vscode/l10n';
+
+export function unmergedBranchMessage(): string {
+  return t('This branch is not fully merged and cannot be deleted unless force is checked.');
+}
 
 /** `pending` until git answers. `unknown` when the check itself failed. */
 export type BranchMergeState = 'pending' | 'merged' | 'unmerged' | 'unknown';
 
 export function deleteBranchDialogHtml(force: boolean): string {
   const checked = force ? 'checked' : '';
-  return `<label><input type="checkbox" id="fr" ${checked}/> force</label><p id="del-unmerged" class="dlg-warn" role="status" hidden>${UNMERGED_BRANCH_MESSAGE}</p>`;
+  return `<label><input type="checkbox" id="fr" ${checked}/> force</label><p id="del-unmerged" class="dlg-warn" role="status" hidden>${unmergedBranchMessage()}</p>`;
 }
 
 /** `git branch -d` refuses an unmerged branch. Force is the only way through. */
