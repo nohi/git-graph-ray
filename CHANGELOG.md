@@ -8,6 +8,7 @@
 - The repository menu opens on the worktree or main folder that VS Code has open. A worktree chosen in that menu stays selected. Sibling folders such as `repo` and `repo-feature` are not treated as the same folder.
 - A graph opened on a linked worktree reloads after a checkout, commit, or branch move in that worktree. The graph now watches the Git folders that Git reports for the worktree instead of its `.git` file.
 - Escape closes one layer at a time. Closing Find, Graph Settings, a filter, the undo or redo history, or the column menu keeps the details pane open, and those menus now close on Escape.
+- Settings saved under the keys used before v0.8.0 are copied to the new keys once, for User and Workspace Settings. A new key that already has a value is kept. The old entries stay in settings.json so they can be checked and deleted. `commitDetailsView.autoCenter` and `enhancedAccessibility` have no new key and are not copied.
 
 ## v0.8.0
 

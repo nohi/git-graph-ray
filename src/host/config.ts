@@ -5,6 +5,7 @@ import { defaultViewConfig, parseGitVersion } from '../shared/graph';
 import { parseLanePriority } from '../shared/layout';
 import { isUnregisteredConfigurationMessage, labelColourSettingValue, parseRefColours, refColoursToSetting } from '../shared/refColours';
 import { settingWriteScope } from '../shared/settingScope';
+import { runLegacyMigration, type SettingLayer } from '../shared/legacySettings';
 import type { ColumnVisibility, RefSort, ViewConfig } from '../shared/types';
 
 const SECTION = 'git-graph-ray';
@@ -81,6 +82,37 @@ export async function migrateLabelColours(context: vscode.ExtensionContext): Pro
     }
   }
   await context.globalState.update(LABEL_COLOUR_STATE_KEY, undefined);
+}
+
+/** Set once the settings saved under the keys used before v0.8.0 are copied for a layer. */
+export const LEGACY_SETTINGS_STATE_KEY = 'legacySettingsMigrated';
+
+/**
+ * Copy User and Workspace values from the keys used before v0.8.0 to the new keys, once per layer.
+ * User Settings are tracked in globalState and Workspace Settings in workspaceState.
+ * Old values stay in settings.json. `inspect` still reads keys that are no longer registered.
+ */
+export async function migrateLegacySettings(context: vscode.ExtensionContext): Promise<void> {
+  const config = () => vscode.workspace.getConfiguration(SECTION);
+  const state = (layer: SettingLayer) => (layer === 'global' ? context.globalState : context.workspaceState);
+  const layers: SettingLayer[] = vscode.workspace.workspaceFolders?.length ? ['global', 'workspace'] : ['global'];
+  await runLegacyMigration({
+    layers,
+    read: (key) => {
+      const inspected = config().inspect(key);
+      return { global: inspected?.globalValue, workspace: inspected?.workspaceValue };
+    },
+    write: (change) =>
+      Promise.resolve(
+        config().update(
+          change.key,
+          change.value,
+          change.layer === 'workspace' ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global,
+        ),
+      ),
+    done: (layer) => state(layer).get<boolean>(LEGACY_SETTINGS_STATE_KEY) === true,
+    markDone: (layer) => Promise.resolve(state(layer).update(LEGACY_SETTINGS_STATE_KEY, true)),
+  });
 }
 
 type ActionSettings = {
