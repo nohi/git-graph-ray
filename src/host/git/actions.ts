@@ -94,6 +94,23 @@ export async function runGitAction(
       await gitOk(git, cwd, ['commit', '--amend', '-m', action.message, ...(opts.signCommits ? ['-S'] : [])]);
       return;
     }
+    case 'squashRange': {
+      if (action.hashes.length < 2) throw new Error(t('Select two or more commits to squash.'));
+      const tip = action.hashes[action.hashes.length - 1]!;
+      const head = (await gitOk(git, cwd, ['rev-parse', 'HEAD'])).trim();
+      if (head !== tip) throw new Error(t('HEAD has changed since the dialog was opened.'));
+      const oldest = action.hashes[0]!;
+      const olds = (await gitOk(git, cwd, ['log', '-1', '--format=%P', oldest])).trim().split(/\s+/).filter(Boolean);
+      if (olds.length > 1) throw new Error(t('Merge commits cannot be squashed.'));
+      if (olds.length < 1) throw new Error(t('The root commit cannot be squashed.'));
+      const parent = (await gitOk(git, cwd, ['rev-parse', `${oldest}^`])).trim();
+      if (parent !== action.base) throw new Error(t('The selected commits are no longer consecutive.'));
+      const staged = await gitExec(git, cwd, ['diff', '--cached', '--quiet']);
+      if (staged.code === 1) throw new Error(t('There are staged changes. Unstage them before squashing.'));
+      await gitOk(git, cwd, ['reset', '--soft', action.base]);
+      await gitOk(git, cwd, ['commit', '-m', action.message, ...(opts.signCommits ? ['-S'] : [])]);
+      return;
+    }
     case 'addTag': {
       const args = action.annotated
         ? ['tag', '-a', action.name, action.hash, '-m', action.message || action.name]

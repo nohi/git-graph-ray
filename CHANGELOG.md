@@ -6,6 +6,7 @@
 
 - Move between commits with the Up and Down arrow keys, and open or close the details with Enter. The arrows skip commits hidden by the date or person filter and scroll to keep the selected row in view. When the details are closed, the arrows move only the selection. Dialogs, menus, and text fields keep their own arrow keys.
 - Amend the checked-out branch tip from its context menu. Edit the subject and body, and optionally include staged changes (off by default). Amend refuses to run when staged changes are left unchecked, and it can be undone.
+- Squash consecutive commits at the branch tip into one commit from their context menu. The range must start at the tip with no gaps, merges, or the root commit. A dialog edits the combined message, and the result can be undone.
 - Command names, setting descriptions, and graph view text (toolbar, menus, dialogs, details labels, undo history, error and empty messages) follow the VS Code display language. Japanese is included. Saved setting values do not change with the language. Git command and flag names, and the Contributors page, stay in English.
 
 ### Fixes

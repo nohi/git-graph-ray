@@ -115,3 +115,62 @@ describe('amendHead', () => {
   });
 });
 
+describe('squashRange', () => {
+  it('folds the tip run into one commit on the base', async () => {
+    fs.writeFileSync(path.join(repo, 'b.txt'), 'b\n');
+    git('add', 'b.txt');
+    git('commit', '-q', '-m', 'second');
+    fs.writeFileSync(path.join(repo, 'c.txt'), 'c\n');
+    git('add', 'c.txt');
+    git('commit', '-q', '-m', 'third');
+    const tip = git('rev-parse', 'HEAD');
+    const mid = git('rev-parse', 'HEAD~1');
+    const base = git('rev-parse', 'HEAD~2');
+    const tree = git('rev-parse', 'HEAD^{tree}');
+    await runGitAction(
+      'git',
+      repo,
+      { kind: 'squashRange', base, hashes: [mid, tip], message: 'squashed' },
+      { signCommits: false, signTags: false },
+    );
+    expect(git('rev-parse', 'HEAD^{tree}')).toBe(tree);
+    expect(git('log', '-1', '--format=%s')).toBe('squashed');
+    expect(git('rev-parse', 'HEAD~1')).toBe(base);
+    expect(git('rev-list', '--count', 'HEAD')).toBe('2');
+  });
+
+  it('refuses a stale tip, a wrong base, and staged changes', async () => {
+    fs.writeFileSync(path.join(repo, 'b.txt'), 'b\n');
+    git('add', 'b.txt');
+    git('commit', '-q', '-m', 'second');
+    fs.writeFileSync(path.join(repo, 'c.txt'), 'c\n');
+    git('add', 'c.txt');
+    git('commit', '-q', '-m', 'third');
+    const tip = git('rev-parse', 'HEAD');
+    const mid = git('rev-parse', 'HEAD~1');
+    const base = git('rev-parse', 'HEAD~2');
+    const before = git('rev-parse', 'HEAD');
+    await expect(
+      runGitAction('git', repo, { kind: 'squashRange', base, hashes: [tip, mid], message: 'x' }, { signCommits: false, signTags: false }),
+    ).rejects.toThrow('HEAD has changed');
+    await expect(
+      runGitAction('git', repo, { kind: 'squashRange', base: tip, hashes: [mid, tip], message: 'x' }, { signCommits: false, signTags: false }),
+    ).rejects.toThrow('no longer consecutive');
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'one\nstaged\n');
+    git('add', 'a.txt');
+    await expect(
+      runGitAction('git', repo, { kind: 'squashRange', base, hashes: [mid, tip], message: 'x' }, { signCommits: false, signTags: false }),
+    ).rejects.toThrow('Unstage them before squashing');
+    expect(git('rev-parse', 'HEAD')).toBe(before);
+  });
+
+  it('refuses a range that reaches the root commit', async () => {
+    const tip = git('rev-parse', 'HEAD');
+    const root = git('rev-list', '--max-parents=0', 'HEAD').trim();
+    const before = git('rev-parse', 'HEAD');
+    await expect(
+      runGitAction('git', repo, { kind: 'squashRange', base: root, hashes: [root, tip], message: 'x' }, { signCommits: false, signTags: false }),
+    ).rejects.toThrow('root commit');
+    expect(git('rev-parse', 'HEAD')).toBe(before);
+  });
+});

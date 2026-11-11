@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cherryPickPlan, detectPatchKind, displayedRange, patchFileName, safeRepoPaths, toggleCommitSelection } from './historyActions';
+import { checkSquashRange, cherryPickPlan, detectPatchKind, displayedRange, patchFileName, safeRepoPaths, toggleCommitSelection } from './historyActions';
 
 const commits = [
   { hash: '*', parents: ['c'] },
@@ -73,5 +73,62 @@ describe('safeRepoPaths', () => {
     expect(() => safeRepoPaths(['../secret'])).toThrow(/Invalid path/);
     expect(() => safeRepoPaths(['/etc/passwd'])).toThrow(/Invalid path/);
     expect(() => safeRepoPaths(['C:/Windows/note.txt'])).toThrow(/Invalid path/);
+  });
+});
+
+describe('checkSquashRange', () => {
+  const line = [
+    { hash: 'e', parents: ['d'] },
+    { hash: 'd', parents: ['c'] },
+    { hash: 'c', parents: ['b'] },
+    { hash: 'b', parents: ['a'] },
+    { hash: 'a', parents: [] },
+  ];
+  const at = (range: string[], tip = 'e', branch: string | null = 'main', busy = false) =>
+    checkSquashRange({ commits: line, range, tip, branch, busy });
+
+  it('accepts the tip run and returns oldest-first hashes with the base', () => {
+    expect(at(['e', 'd', 'c'])).toEqual({ ok: true, hashes: ['c', 'd', 'e'], base: 'b' });
+    expect(at(['d', 'e'])).toEqual({ ok: true, hashes: ['d', 'e'], base: 'c' });
+  });
+
+  it('ignores the uncommitted row and then needs two commits', () => {
+    expect(at(['*', 'e', 'd'])).toEqual({ ok: true, hashes: ['d', 'e'], base: 'c' });
+    expect(at(['*', 'e'])).toEqual({ ok: false, reason: 'Select two or more commits to squash.' });
+    expect(at(['e'])).toEqual({ ok: false, reason: 'Select two or more commits to squash.' });
+  });
+
+  it('refuses detached HEAD and mid-operation states', () => {
+    expect(at(['e', 'd'], 'e', null)).toEqual({ ok: false, reason: 'Check out a branch to squash.' });
+    expect(at(['e', 'd'], 'e', 'main', true)).toEqual({ ok: false, reason: 'A Git operation is already in progress' });
+  });
+
+  it('refuses ranges that do not start at the tip or skip commits', () => {
+    expect(at(['d', 'c'])).toEqual({ ok: false, reason: 'Select consecutive commits starting at the branch tip.' });
+    expect(at(['e', 'c'])).toEqual({ ok: false, reason: 'Select consecutive commits with no gaps.' });
+    expect(at(['e', 'missing'])).toEqual({ ok: false, reason: 'Select consecutive commits with no gaps.' });
+  });
+
+  it('refuses merges and the root commit', () => {
+    const fork = [
+      { hash: 'e', parents: ['d'] },
+      { hash: 'd', parents: ['c', 'x'] },
+      { hash: 'c', parents: ['b'] },
+      { hash: 'b', parents: ['a'] },
+      { hash: 'a', parents: [] },
+    ];
+    expect(checkSquashRange({ commits: fork, range: ['e', 'd'], tip: 'e', branch: 'main', busy: false })).toEqual({
+      ok: false,
+      reason: 'Merge commits cannot be squashed.',
+    });
+    expect(at(['e', 'd', 'c', 'b', 'a'])).toEqual({ ok: false, reason: 'The root commit cannot be squashed.' });
+  });
+
+  it('refuses a range that runs past the loaded history', () => {
+    const shallow = [{ hash: 'e', parents: ['x'] }];
+    expect(checkSquashRange({ commits: shallow, range: ['e', 'x'], tip: 'e', branch: 'main', busy: false })).toEqual({
+      ok: false,
+      reason: 'Cannot squash past the loaded history.',
+    });
   });
 });

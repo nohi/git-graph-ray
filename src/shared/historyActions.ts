@@ -1,3 +1,5 @@
+import { t } from '@vscode/l10n';
+
 /** A commit row in graph order. Index 0 is the top of the graph (newest). */
 export type HistoryCommit = { hash: string; parents: string[] };
 
@@ -54,6 +56,48 @@ export function cherryPickPlan(
     picked.push(row.commit);
   }
   return { commits: picked, skippedMerges };
+}
+
+export type SquashCheck =
+  | { ok: true; hashes: string[]; base: string }
+  | { ok: false; reason: string };
+
+/**
+ * Whether a selection can squash into one commit with a soft reset.
+ * The range must be the tip run of the branch: two or more commits starting
+ * at the tip with no gaps, merges, or the root commit. `hashes` come back
+ * oldest first with `base` as the parent to reset to. The uncommitted row
+ * is ignored.
+ */
+export function checkSquashRange(opts: {
+  commits: readonly HistoryCommit[];
+  range: readonly string[];
+  tip: string | null;
+  branch: string | null;
+  busy: boolean;
+  uncommitted?: string;
+}): SquashCheck {
+  if (opts.busy) return { ok: false, reason: t('A Git operation is already in progress') };
+  if (opts.branch == null || opts.tip == null) return { ok: false, reason: t('Check out a branch to squash.') };
+  const wanted = new Set(opts.range.filter((hash) => hash && hash !== (opts.uncommitted ?? '*')));
+  if (wanted.size < 2) return { ok: false, reason: t('Select two or more commits to squash.') };
+  if (!wanted.has(opts.tip)) return { ok: false, reason: t('Select consecutive commits starting at the branch tip.') };
+  const byHash = new Map(opts.commits.map((commit) => [commit.hash, commit]));
+  const chain: string[] = [];
+  let cursor: string | null = opts.tip;
+  while (cursor != null && wanted.has(cursor)) {
+    chain.push(cursor);
+    const commit = byHash.get(cursor);
+    cursor = commit && commit.parents.length === 1 ? commit.parents[0]! : null;
+  }
+  if (chain.length !== wanted.size) return { ok: false, reason: t('Select consecutive commits with no gaps.') };
+  if (chain.some((hash) => (byHash.get(hash)?.parents.length ?? 0) > 1)) {
+    return { ok: false, reason: t('Merge commits cannot be squashed.') };
+  }
+  const oldest = byHash.get(chain[chain.length - 1]!);
+  if (!oldest) return { ok: false, reason: t('Cannot squash past the loaded history.') };
+  if (oldest.parents.length !== 1) return { ok: false, reason: t('The root commit cannot be squashed.') };
+  return { ok: true, hashes: [...chain].reverse(), base: oldest.parents[0]! };
 }
 
 /** `format-patch` mail starts with `From <sha>`. A raw diff does not. */

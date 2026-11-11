@@ -93,6 +93,7 @@ describe('undoPolicy', () => {
     expect(undoPolicy({ kind: 'addTag', hash: A, name: 'v1', annotated: false, pushTo: [] }).warning).toBeNull();
     expect(undoPolicy({ kind: 'checkoutBranch', name: 'main' }).warning).toBeNull();
     expect(undoPolicy({ kind: 'amendHead', hash: A, message: 'x', includeStaged: false })).toEqual({ record: true, warning: null });
+    expect(undoPolicy({ kind: 'squashRange', base: B, hashes: [B, A], message: 'x' })).toEqual({ record: true, warning: null });
   });
 });
 
@@ -123,6 +124,7 @@ describe('undoLabel', () => {
     expect(undoLabel({ kind: 'reset', hash: A, mode: 'mixed' })).toBe('Reset to aaaaaaa');
     expect(undoLabel({ kind: 'stashApply', name: 'stash@{0}', pop: true, reinstateIndex: false })).toBe('Pop stash');
     expect(undoLabel({ kind: 'amendHead', hash: A, message: 'x', includeStaged: true })).toBe('Amend aaaaaaa');
+    expect(undoLabel({ kind: 'squashRange', base: C, hashes: [B, A], message: 'x' })).toBe('Squash 2 commits');
   });
 });
 

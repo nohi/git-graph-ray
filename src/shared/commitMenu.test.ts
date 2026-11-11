@@ -53,6 +53,23 @@ describe('commitMenuEntries', () => {
     expect(entries).toContainEqual({ id: 'c-am', label: 'Amend' });
   });
 
+  it('shows the squash range entry after cherry-pick and hides it with the menu', () => {
+    const squash = { id: 'c-sq', label: 'Squash 2 commits' };
+    const base = { canReword: false, isMerge: false, withHead: false, visible: () => true, squashRange: squash };
+    const ids = commitMenuEntries(base)
+      .filter((entry) => entry !== 'sep')
+      .map((entry) => (entry as { id: string }).id);
+    expect(ids).toContain('c-sq');
+    expect(ids.indexOf('c-sq')).toBe(ids.indexOf('c-cp') + 1);
+    const hidden = commitMenuEntries({ ...base, visible: (id) => id !== 'squash' })
+      .filter((entry) => entry !== 'sep')
+      .map((entry) => (entry as { id: string }).id);
+    expect(hidden).not.toContain('c-sq');
+    const none = commitMenuEntries({ canReword: false, isMerge: false, withHead: false, visible: () => true })
+      .filter((entry) => entry !== 'sep')
+      .map((entry) => (entry as { id: string }).id);
+    expect(none).not.toContain('c-sq');
+  });
 
   it('hides Amend when it is not allowed or the menu hides it', () => {
     const base = { canReword: false, isMerge: false, withHead: false, visible: () => true };

@@ -77,6 +77,8 @@ export function undoPolicy(action: GitAction): { record: boolean; warning: strin
       return { record: true, warning: null };
     case 'amendHead':
       return { record: true, warning: null };
+    case 'squashRange':
+      return { record: true, warning: null };
     case 'checkoutBranch':
       return {
         record: true,
@@ -150,6 +152,8 @@ export function undoLabel(action: GitAction): string {
       return t('Reword {0}', shortHash(action.hash));
     case 'amendHead':
       return t('Amend {0}', shortHash(action.hash));
+    case 'squashRange':
+      return t('Squash {0} commits', action.hashes.length);
     case 'addTag':
       return t('Create tag {0}', action.name);
     case 'deleteTag':

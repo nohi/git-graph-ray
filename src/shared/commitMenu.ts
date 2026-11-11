@@ -43,6 +43,7 @@ export function commitMenuEntries(opts: {
   visible: (id: string) => boolean;
   cherryPick?: MenuItem;
   createPatch?: MenuItem;
+  squashRange?: MenuItem;
   /** Local branches selected to rebase onto this commit. Omit when there are none. */
   selectedRebase?: SelectedRebase;
 }): MenuEntry[] {
@@ -65,6 +66,7 @@ export function commitMenuEntries(opts: {
       v('reword') && opts.canReword && { id: 'c-rw', label: t('History reword') },
       v('amend') && opts.canAmend === true && { id: 'c-am', label: t('Amend') },
       v('cherry') && (opts.cherryPick ?? { id: 'c-cp', label: t('Cherry Pick') }),
+      v('squash') && opts.squashRange ? { ...opts.squashRange } : false,
       v('revert') && { id: 'c-rv', label: t('Revert') },
       v('drop') && !opts.isMerge && { id: 'c-dr', label: t('Drop') },
     ]),
