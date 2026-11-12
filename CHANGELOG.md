@@ -10,6 +10,10 @@
 - Worktree chips show a dot when that worktree has uncommitted changes. The dots update when the graph loads or refreshes.
 - Command names, setting descriptions, and graph view text (toolbar, menus, dialogs, details labels, undo history, error and empty messages) follow the VS Code display language. Japanese is included. Saved setting values do not change with the language. Git command and flag names, and the Contributors page, stay in English.
 
+### Changes
+
+- Group the help dialog's "Also" tips into six labeled sections: fetching and reloading, settings, branches/tags/labels, selecting and comparing, files and folders, and filtering the graph.
+
 ### Fixes
 
 - Open File in a diff tab opens the file in the working tree. Before, the path included the revision shown in the tab, so the file was not found. Paths outside the repository are not opened, and a file missing from the working tree shows a short message.
@@ -20,6 +24,8 @@
 - Settings saved under the keys used before v0.8.0 are copied to the new keys once, for User and Workspace Settings. A new key that already has a value is kept. The old entries stay in settings.json so they can be checked and deleted. `commitDetailsView.autoCenter` and `enhancedAccessibility` have no new key and are not copied.
 - When Git cannot read branches, tags, or commits, the graph shows the reason instead of an empty graph, and the Git Graph Ray output records it. A Refresh that fails keeps the graph that was showing. Automatic reloads that fail only write to the output. A failure to list remotes or worktrees is written to the output and the graph still loads.
 - Bundle `@vscode/l10n` into the host build. The SSR build left it as an external runtime require, but `node_modules` is not shipped in the `.vsix`.
+- Keep the help dialog inside the viewport and make its shortcut pills readable in the light theme.
+- Use light-theme-safe colors for branch and tag chips, ref labels, file and signature colors, buttons, and banners, so text stays readable on a light background.
 
 ## v0.8.0
 

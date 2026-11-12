@@ -3,20 +3,20 @@
   --bg: light-dark(#f4f1ea, #12151c);
   --fg: light-dark(#1b1b1b, #e8e6e1);
   --muted: light-dark(#5c5c5c, #9aa0a6);
-  --line: light-dark(#d4cfc0, #2a3140);
-  --bar: light-dark(#efe8dc, #181c26);
-  --accent: #ff5a1f;
-  --tone-filter: #3b82f6;
+  --line: light-dark(#b8b198, #2a3140);
+  --bar: light-dark(#e8e1cf, #181c26);
+  --accent: light-dark(#9a3412, #ff5a1f);
+  --tone-filter: light-dark(#1d4ed8, #3b82f6);
   --ico-worktree: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='black' d='M2 3.25h4.05l1.15 1.35H14V12.75H2z'/%3E%3C/svg%3E");
   --tone-git: var(--accent);
-  --tone-jump: #a855f7;
+  --tone-jump: light-dark(#7e22ce, #a855f7);
   --ray: #5cff47;
-  --hl: #22d3ee;
-  --hl-bg: color-mix(in srgb, #22d3ee 24%, transparent);
-  --hl2: #e879f9;
-  --hl2-bg: color-mix(in srgb, #e879f9 22%, transparent);
-  --cmp-base: #f5b301;
-  --cmp-base-bg: color-mix(in srgb, #f5b301 30%, transparent);
+  --hl: light-dark(#0b6a87, #22d3ee);
+  --hl-bg: color-mix(in srgb, var(--hl) 24%, transparent);
+  --hl2: light-dark(#a21caf, #e879f9);
+  --hl2-bg: color-mix(in srgb, var(--hl2) 22%, transparent);
+  --cmp-base: light-dark(#92400e, #f5b301);
+  --cmp-base-bg: color-mix(in srgb, var(--cmp-base) 30%, transparent);
   --stream-grad: linear-gradient(90deg,
       color-mix(in srgb, #ff0044 40%, transparent) 0%,
       color-mix(in srgb, #ff8c00 28%, transparent) 8.33%,
@@ -355,7 +355,7 @@ option {
 }
 
 .date-jump-miss {
-  color: #f87171;
+  color: light-dark(#b91c1c, #f87171);
   margin: 0;
 }
 
@@ -437,8 +437,8 @@ option {
   display: flex;
   align-items: flex-start;
   gap: 0.45rem;
-  background: #4b1d1d;
-  color: #ffd0d0;
+  background: light-dark(#fbe3e3, #4b1d1d);
+  color: light-dark(#7f1d1d, #ffd0d0);
   padding: 0.4rem 0.5rem;
 
   &[hidden] {
@@ -457,7 +457,7 @@ option {
   flex: 0 0 auto;
   background: transparent;
   color: inherit;
-  border: 1px solid color-mix(in srgb, #ffd0d0 40%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
   border-radius: 4px;
   padding: 0 0.4rem;
   line-height: 1.3;
@@ -794,7 +794,7 @@ html.refs-pop-resize * {
 }
 
 .find-err {
-  color: #f87171;
+  color: light-dark(#b91c1c, #f87171);
   margin: 0.35rem 0 0;
 }
 
@@ -807,7 +807,7 @@ html.refs-pop-resize * {
 }
 
 mark.find-hit {
-  color: #ef4444;
+  color: light-dark(#b91c1c, #ef4444);
   font-weight: 700;
   background: transparent;
   padding: 0;
@@ -1056,7 +1056,7 @@ mark.find-hit {
   color: var(--muted);
 
   &.is-error {
-    color: #f87171;
+    color: light-dark(#b91c1c, #f87171);
   }
 
   &[hidden] {
@@ -1081,20 +1081,20 @@ mark.find-hit {
 
   &.kind-head {
     .ref-mark {
-      background: #22d3ee;
+      background: light-dark(#0b6a87, #22d3ee);
     }
 
     .ref-name {
-      color: light-dark(#0e7490, #7ee9f5);
+      color: light-dark(#0b6a87, #7ee9f5);
     }
 
     &.detached {
       .ref-mark {
-        background: #ff7a18;
+        background: light-dark(#9a3412, #ff7a18);
       }
 
       .ref-name {
-        color: #ff7a18;
+        color: light-dark(#9a3412, #ff7a18);
       }
     }
   }
@@ -1102,31 +1102,31 @@ mark.find-hit {
   &.kind-remote {
     .ref-mark {
       background: transparent;
-      box-shadow: inset 0 0 0 1.5px #60a5fa;
+      box-shadow: inset 0 0 0 1.5px light-dark(#1d4ed8, #60a5fa);
     }
 
     .ref-name {
-      color: #60a5fa;
+      color: light-dark(#1d4ed8, #60a5fa);
     }
   }
 
   &.kind-tag {
     .ref-mark {
-      background: #f5c542;
+      background: light-dark(#854d0e, #f5c542);
     }
 
     .ref-name {
-      color: light-dark(#a16207, #f5c542);
+      color: light-dark(#854d0e, #f5c542);
     }
   }
 
   &.kind-stash {
     .ref-mark {
-      background: #a78bfa;
+      background: light-dark(#6d28d9, #a78bfa);
     }
 
     .ref-name {
-      color: #a78bfa;
+      color: light-dark(#6d28d9, #a78bfa);
     }
   }
 
@@ -1135,13 +1135,13 @@ mark.find-hit {
       width: 0.9rem;
       height: 0.75rem;
       border-radius: 0;
-      background: #34d399;
+      background: light-dark(#065f46, #34d399);
       -webkit-mask: var(--ico-worktree) center / contain no-repeat;
       mask: var(--ico-worktree) center / contain no-repeat;
     }
 
     .ref-name {
-      color: #34d399;
+      color: light-dark(#065f46, #34d399);
     }
   }
 }
@@ -1193,7 +1193,7 @@ mark.find-hit {
 
 .settings-warn {
   margin: 0.35rem 0 0;
-  color: #f87171;
+  color: light-dark(#b91c1c, #f87171);
 }
 
 .settings-note {
@@ -1593,7 +1593,7 @@ dialog button.lc-help {
 
 .dlg-warn {
   margin: 0;
-  color: light-dark(#9a6700, #fbbf24);
+  color: light-dark(#7c5a00, #fbbf24);
 }
 
 #tag-remote-err {
@@ -1624,14 +1624,14 @@ dialog button.lc-help {
 .dlg-warn-ic {
   width: 14px;
   height: 14px;
-  color: #fbbf24;
+  color: light-dark(#7c5a00, #fbbf24);
   flex: 0 0 auto;
 }
 
 .dlg-ok-ic {
   width: 14px;
   height: 14px;
-  color: light-dark(#1a7f37, #3fb950);
+  color: light-dark(#166534, #3fb950);
   flex: 0 0 auto;
 }
 
@@ -1905,7 +1905,7 @@ dialog button.lc-help {
   padding: 0 0.16rem;
   font: inherit;
   line-height: 1;
-  color: #60a5fa;
+  color: light-dark(#1d4ed8, #60a5fa);
   background: none;
   border: 1px dashed currentColor;
   border-left-width: 1px;
@@ -1937,12 +1937,12 @@ dialog button.lc-help {
   }
 
   &.head {
-    color: light-dark(#0e7490, #7ee9f5);
+    color: light-dark(#0b6a87, #7ee9f5);
     border-style: solid;
     --chip-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='black' d='M5.5 3.25a1.25 1.25 0 1 0-1.15 1.74v3.01A2.5 2.5 0 0 0 6.75 10.5h.6a1.25 1.25 0 1 1 0 1h-.6A3.5 3.5 0 0 1 3.35 9V5A1.25 1.25 0 0 0 5.5 3.25zm6.25 7.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5zM11.5 3.5v5.35a1.25 1.25 0 0 1-1 .04V3.5a.5.5 0 0 1 1 0z'/%3E%3C/svg%3E");
 
     &.current {
-      background: color-mix(in srgb, #22d3ee 38%, transparent);
+      background: color-mix(in srgb, var(--hl) 38%, transparent);
       font-weight: 700;
       box-shadow: inset 0 0 0 1px var(--hl);
     }
@@ -1952,12 +1952,12 @@ dialog button.lc-help {
     }
 
     &.detached {
-      color: #ff7a18;
+      color: light-dark(#9a3412, #ff7a18);
     }
   }
 
   &.remote {
-    color: #60a5fa;
+    color: light-dark(#1d4ed8, #60a5fa);
     border-style: dashed;
     --chip-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='1.4 4.2 13 8.2'%3E%3Cpath fill='black' d='M4.05 12.15h8.15c1.15 0 2.05-.95 1.95-2.1-.05-.7-.5-1.3-1.1-1.6.2-1.45-.7-2.8-2.1-3.05-1.05-.2-2.05.35-2.55 1.2-.55-1.15-1.85-1.85-3.15-1.55-1.35.3-2.2 1.55-2.05 2.9-1.05.25-1.75 1.15-1.7 2.2.05 1.1.95 2 2.05 2z'/%3E%3C/svg%3E");
 
@@ -1977,17 +1977,17 @@ dialog button.lc-help {
   }
 
   &.tag {
-    color: light-dark(#a16207, #f5c542);
+    color: light-dark(#854d0e, #f5c542);
     border-style: solid;
     --chip-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='black' d='M2.5 2.5h5.17L14 8.83 8.83 14 2.5 7.67V2.5zm1.5 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/%3E%3C/svg%3E");
   }
 
   &.stash {
-    color: #a78bfa;
+    color: light-dark(#6d28d9, #a78bfa);
   }
 
   &.worktree {
-    color: #34d399;
+    color: light-dark(#065f46, #34d399);
     --chip-ico: var(--ico-worktree);
   }
 
@@ -2402,11 +2402,11 @@ dialog button:hover:not(:disabled):not(.btn-primary),
 }
 
 .file-add {
-  color: var(--vscode-gitDecoration-addedResourceForeground, #73c991);
+  color: var(--vscode-gitDecoration-addedResourceForeground, light-dark(#166534, #73c991));
 }
 
 .file-del {
-  color: var(--vscode-gitDecoration-deletedResourceForeground, #c74e39);
+  color: var(--vscode-gitDecoration-deletedResourceForeground, light-dark(#b3261e, #c74e39));
 }
 
 .file-dir {
@@ -2425,25 +2425,25 @@ dialog button:hover:not(:disabled):not(.btn-primary),
   font-size: 11px;
 
   &.st-M {
-    color: var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d);
+    color: var(--vscode-gitDecoration-modifiedResourceForeground, light-dark(#7c5a00, #e2c08d));
   }
 
   &.st-A,
   &.st-U,
   &.st-C {
-    color: var(--vscode-gitDecoration-addedResourceForeground, #73c991);
+    color: var(--vscode-gitDecoration-addedResourceForeground, light-dark(#166534, #73c991));
   }
 
   &.st-D {
-    color: var(--vscode-gitDecoration-deletedResourceForeground, #c74e39);
+    color: var(--vscode-gitDecoration-deletedResourceForeground, light-dark(#b3261e, #c74e39));
   }
 
   &.st-R {
-    color: var(--vscode-gitDecoration-renamedResourceForeground, #73c991);
+    color: var(--vscode-gitDecoration-renamedResourceForeground, light-dark(#166534, #73c991));
   }
 
   &.st-T {
-    color: var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d);
+    color: var(--vscode-gitDecoration-modifiedResourceForeground, light-dark(#7c5a00, #e2c08d));
   }
 }
 
@@ -2510,19 +2510,19 @@ dialog button:hover:not(:disabled):not(.btn-primary),
   color: var(--muted);
 
   &.signed {
-    color: var(--vscode-gitDecoration-addedResourceForeground, #73c991);
+    color: var(--vscode-gitDecoration-addedResourceForeground, light-dark(#166534, #73c991));
   }
 
   &.sig-good {
-    color: var(--vscode-gitDecoration-addedResourceForeground, #73c991);
+    color: var(--vscode-gitDecoration-addedResourceForeground, light-dark(#166534, #73c991));
   }
 
   &.sig-bad {
-    color: var(--vscode-gitDecoration-deletedResourceForeground, #c74e39);
+    color: var(--vscode-gitDecoration-deletedResourceForeground, light-dark(#b3261e, #c74e39));
   }
 
   &.sig-warn {
-    color: var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d);
+    color: var(--vscode-gitDecoration-modifiedResourceForeground, light-dark(#7c5a00, #e2c08d));
   }
 }
 
@@ -2534,7 +2534,7 @@ dialog button:hover:not(:disabled):not(.btn-primary),
 
 .cell.signature {
   &.signed {
-    color: var(--vscode-gitDecoration-addedResourceForeground, #73c991);
+    color: var(--vscode-gitDecoration-addedResourceForeground, light-dark(#166534, #73c991));
     font-weight: 600;
   }
 
@@ -2544,15 +2544,15 @@ dialog button:hover:not(:disabled):not(.btn-primary),
 }
 
 .sig-good {
-  color: var(--vscode-gitDecoration-addedResourceForeground, #73c991);
+  color: var(--vscode-gitDecoration-addedResourceForeground, light-dark(#166534, #73c991));
 }
 
 .sig-bad {
-  color: var(--vscode-gitDecoration-deletedResourceForeground, #c74e39);
+  color: var(--vscode-gitDecoration-deletedResourceForeground, light-dark(#b3261e, #c74e39));
 }
 
 .sig-warn {
-  color: var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d);
+  color: var(--vscode-gitDecoration-modifiedResourceForeground, light-dark(#7c5a00, #e2c08d));
 }
 
 .meta-table {
@@ -2658,7 +2658,7 @@ dialog button:hover:not(:disabled):not(.btn-primary),
   position: fixed;
   z-index: 30;
   background: var(--hl);
-  color: #111;
+  color: light-dark(#fff, #111);
   font-size: 11px;
   font-weight: 700;
   padding: 0.15rem 0.45rem;
@@ -3238,9 +3238,19 @@ dialog {
   }
 }
 
+#dlg-help {
+  /* Border-box so padding and border stay inside max-height (content-box
+     overflows the viewport by exactly that much, leaving no margin). */
+  box-sizing: border-box;
+  width: min(42rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+}
+
 .help-keys {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto auto;
+  justify-content: start;
   gap: 0.35rem 1.2rem;
   margin: 0.5rem 0 0.2rem;
 
@@ -3255,6 +3265,10 @@ dialog {
 
   kbd {
     font: inherit;
+    /* The host webview stylesheet paints kbd with its own light text on gray.
+       Declare both explicitly so the pills stay readable in light mode. */
+    color: var(--fg);
+    background: transparent;
     border: 1px solid var(--line);
     padding: 0.08rem 0.4rem;
     border-radius: 3px;
@@ -3264,6 +3278,15 @@ dialog {
 .help-sub {
   font-size: 12px;
   margin: 0.85rem 0 0.3rem;
+}
+
+.help-group {
+  margin: 0;
+}
+
+.help-group-h {
+  font-size: 12px;
+  margin: 0.6rem 0 0.2rem;
 }
 
 .help-list {
@@ -3424,14 +3447,14 @@ dialog {
 }
 
 button.btn-primary {
-  background: #3b82f6;
-  border-color: #60a5fa;
+  background: light-dark(#1d4ed8, #3b82f6);
+  border-color: light-dark(#1e40af, #60a5fa);
   color: #fff;
 }
 
 button.btn-primary:is(:hover, :focus-visible):not(:disabled) {
-  background: #60a5fa;
-  border-color: #93c5fd;
+  background: light-dark(#2563eb, #60a5fa);
+  border-color: light-dark(#1d4ed8, #93c5fd);
   color: #fff;
 }
 

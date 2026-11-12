@@ -182,21 +182,49 @@ const SHELL = `
     <h2 data-i18n>Shortcuts</h2>
     <dl id="help-keys" class="help-keys"></dl>
     <h3 class="help-sub" data-i18n>Also</h3>
-    <ul class="help-list">
-      <li data-i18n>Fetch runs immediately. Prune, prune tags, and auto fetch are in Graph Settings (and VS Code Settings). Auto fetch is off until you enable it.</li>
-      <li data-i18n>A commit or amend in Source Control reloads the graph. Turn that off in Graph Settings, or with git-graph-ray.history.autoRefresh. Refresh still reloads.</li>
-      <li data-i18n>Graph Settings sets the theme, background, and lane priority. A larger priority keeps that branch further left. Repository Settings edits remotes, issue links, and the pull request provider.</li>
-      <li data-i18n>Double-click a branch or tag label to check it out.</li>
-      <li data-i18n>Right-click a branch, remote branch, or tag label and choose Set label colour. The pattern starts as that name, and you can widen it (feature/hoge to feature/*). Pick the colour in the square or type a hex value such as #FF8888. The same globs can be edited in git-graph-ray.labels.colors. The first match wins.</li>
-      <li data-i18n>Ctrl/Cmd+click local branch labels to select them, then right-click a local branch, remote branch, tag, or commit and choose Rebase selected branches. Right-click a local or remote branch and choose Rebase current branch on this branch. Right-click a local branch, remote branch, or tag and choose Rebase interactive to rebase the current branch onto it in the integrated terminal. The terminal closes when the rebase succeeds.</li>
-      <li data-i18n>Shift+click two commits to select the rows between them. Ctrl/Cmd+click adds or removes individual commits, including ones that are not next to each other. Two selected commits show the changes on each side since their common parent. Snapshot in the file list shows the direct diff. Three or more close the details. Right-click a selected commit to cherry-pick them. Merge commits are skipped.</li>
-      <li data-i18n>Right-click a commit or branch and choose Compare with… to pick a branch, tag, or commit, or Compare with HEAD. The diff opens on changes since the common parent. Snapshot switches back to the direct diff.</li>
-      <li data-i18n>In commit details, Ctrl/Cmd+click files to select them. On uncommitted changes, stash or patch just those files. On a commit, create a patch from them.</li>
-      <li data-i18n>In the file tree, Ctrl/Cmd+click a folder to expand or collapse it and every nested folder. Right-click a folder to expand, collapse, or collapse child folders.</li>
-      <li data-i18n>Branches/Tags chooses which branches, tags, and worktree tips to load. The button to the left of a branch, tag, or worktree scrolls the graph to that commit. Show other branches on the same commit keeps branch labels that point at a checked ref's commit even when those branches are not checked. Uncheck it to hide them. Tags and worktrees on that commit stay. Show all loads every ref, so the checkbox waits until a narrower filter is applied.</li>
-      <li data-i18n>Dates filters the graph by author date or committer date. Uncheck a year or month to hide those commits. Show all restores the tab you are on. OK applies the filter.</li>
-      <li data-i18n>Contributor filters the graph by author or committer name. Uncheck a name to hide those commits. Show all restores the tab you are on. OK applies the filter.</li>
-    </ul>
+    <section class="help-group">
+      <h4 class="help-group-h" data-i18n>Fetching and reloading</h4>
+      <ul class="help-list">
+        <li data-i18n>Fetch runs immediately. Prune, prune tags, and auto fetch are in Graph Settings (and VS Code Settings). Auto fetch is off until you enable it.</li>
+        <li data-i18n>A commit or amend in Source Control reloads the graph. Turn that off in Graph Settings, or with git-graph-ray.history.autoRefresh. Refresh still reloads.</li>
+      </ul>
+    </section>
+    <section class="help-group">
+      <h4 class="help-group-h" data-i18n>Settings</h4>
+      <ul class="help-list">
+        <li data-i18n>Graph Settings sets the theme, background, and lane priority. A larger priority keeps that branch further left. Repository Settings edits remotes, issue links, and the pull request provider.</li>
+      </ul>
+    </section>
+    <section class="help-group">
+      <h4 class="help-group-h" data-i18n>Branches, tags, and labels</h4>
+      <ul class="help-list">
+        <li data-i18n>Double-click a branch or tag label to check it out.</li>
+        <li data-i18n>Right-click a branch, remote branch, or tag label and choose Set label colour. The pattern starts as that name, and you can widen it (feature/hoge to feature/*). Pick the colour in the square or type a hex value such as #FF8888. The same globs can be edited in git-graph-ray.labels.colors. The first match wins.</li>
+        <li data-i18n>Ctrl/Cmd+click local branch labels to select them, then right-click a local branch, remote branch, tag, or commit and choose Rebase selected branches. Right-click a local or remote branch and choose Rebase current branch on this branch. Right-click a local branch, remote branch, or tag and choose Rebase interactive to rebase the current branch onto it in the integrated terminal. The terminal closes when the rebase succeeds.</li>
+      </ul>
+    </section>
+    <section class="help-group">
+      <h4 class="help-group-h" data-i18n>Selecting commits and comparing</h4>
+      <ul class="help-list">
+        <li data-i18n>Shift+click two commits to select the rows between them. Ctrl/Cmd+click adds or removes individual commits, including ones that are not next to each other. Two selected commits show the changes on each side since their common parent. Snapshot in the file list shows the direct diff. Three or more close the details. Right-click a selected commit to cherry-pick them. Merge commits are skipped.</li>
+        <li data-i18n>Right-click a commit or branch and choose Compare with… to pick a branch, tag, or commit, or Compare with HEAD. The diff opens on changes since the common parent. Snapshot switches back to the direct diff.</li>
+      </ul>
+    </section>
+    <section class="help-group">
+      <h4 class="help-group-h" data-i18n>Files and folders</h4>
+      <ul class="help-list">
+        <li data-i18n>In commit details, Ctrl/Cmd+click files to select them. On uncommitted changes, stash or patch just those files. On a commit, create a patch from them.</li>
+        <li data-i18n>In the file tree, Ctrl/Cmd+click a folder to expand or collapse it and every nested folder. Right-click a folder to expand, collapse, or collapse child folders.</li>
+      </ul>
+    </section>
+    <section class="help-group">
+      <h4 class="help-group-h" data-i18n>Filtering the graph</h4>
+      <ul class="help-list">
+        <li data-i18n>Branches/Tags chooses which branches, tags, and worktree tips to load. The button to the left of a branch, tag, or worktree scrolls the graph to that commit. Show other branches on the same commit keeps branch labels that point at a checked ref's commit even when those branches are not checked. Uncheck it to hide them. Tags and worktrees on that commit stay. Show all loads every ref, so the checkbox waits until a narrower filter is applied.</li>
+        <li data-i18n>Dates filters the graph by author date or committer date. Uncheck a year or month to hide those commits. Show all restores the tab you are on. OK applies the filter.</li>
+        <li data-i18n>Contributor filters the graph by author or committer name. Uncheck a name to hide those commits. Show all restores the tab you are on. OK applies the filter.</li>
+      </ul>
+    </section>
     <div class="dlg-actions">
       <button type="button" id="help-settings" data-i18n>Open Settings</button>
       <button value="ok" data-i18n>Close</button>
