@@ -2,18 +2,49 @@ import { describe, expect, it } from 'vitest';
 import { escapeRegExp, logRevisionArgs, messageGrepArgs, pickaxeArgs } from './gitLogArgs';
 
 describe('logRevisionArgs', () => {
-  it('uses --all when showing remotes', () => {
+  it('uses --all when showing all refs', () => {
     expect(
       logRevisionArgs({
         branches: 'all',
         showRemote: true,
         showStashes: false,
         showTags: true,
+        showAllRefs: true,
         includeTagOnly: true,
         reflog: false,
         includeHead: true,
       }),
     ).toEqual(['--all']);
+  });
+
+  it('enumerates remotes explicitly when showing remotes', () => {
+    expect(
+      logRevisionArgs({
+        branches: 'all',
+        showRemote: true,
+        showStashes: false,
+        showTags: true,
+        showAllRefs: false,
+        includeTagOnly: true,
+        reflog: false,
+        includeHead: true,
+      }),
+    ).toEqual(['--branches', '--remotes', '--tags', 'HEAD']);
+  });
+
+  it('skips remote and tag refs that are turned off', () => {
+    expect(
+      logRevisionArgs({
+        branches: 'all',
+        showRemote: false,
+        showStashes: false,
+        showTags: false,
+        showAllRefs: false,
+        includeTagOnly: true,
+        reflog: false,
+        includeHead: true,
+      }),
+    ).toEqual(['--branches', 'HEAD']);
   });
 
   it('adds HEAD when detached and listing local branches', () => {
@@ -23,6 +54,7 @@ describe('logRevisionArgs', () => {
         showRemote: false,
         showStashes: false,
         showTags: false,
+        showAllRefs: false,
         includeTagOnly: false,
         reflog: false,
         includeHead: true,
@@ -37,6 +69,7 @@ describe('logRevisionArgs', () => {
         showRemote: true,
         showStashes: false,
         showTags: true,
+        showAllRefs: false,
         includeTagOnly: true,
         reflog: false,
         includeHead: true,
@@ -51,6 +84,7 @@ describe('logRevisionArgs', () => {
         showRemote: false,
         showStashes: false,
         showTags: false,
+        showAllRefs: false,
         includeTagOnly: false,
         reflog: false,
         includeHead: false,
@@ -67,6 +101,7 @@ describe('logRevisionArgs', () => {
         showRemote: false,
         showStashes: false,
         showTags: false,
+        showAllRefs: false,
         includeTagOnly: false,
         reflog: false,
         includeHead: false,

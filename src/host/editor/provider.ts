@@ -904,10 +904,10 @@ class GraphSession {
       return true;
     });
     const visibleRefs = refs.filter((r) => {
-      if (r.kind === 'stash' && !config.showStashes) return false;
-      if (r.kind === 'tag' && !config.showTags) return false;
+      if (r.kind === 'stash' && !config.showStashes && !config.showAllRefs) return false;
+      if (r.kind === 'tag' && !config.showTags && !config.showAllRefs) return false;
       if (r.kind === 'worktree' && !config.showWorktrees) return false;
-      if (r.kind === 'remote' && !this.showRemotes) return false;
+      if (r.kind === 'remote' && !this.showRemotes && !config.showAllRefs) return false;
       if (r.kind === 'remote' && r.remote && settings.hideRemotes.includes(r.remote)) return false;
       return true;
     });
@@ -988,6 +988,7 @@ class GraphSession {
       showRemote: config.showRemoteBranches,
       showStashes: config.showStashes,
       showTags: config.showTags,
+      showAllRefs: config.showAllRefs,
       firstParent: config.onlyFollowFirstParent,
       reflog: config.includeCommitsMentionedByReflogs,
       mailmap: cfg('history.mailmap', false),
@@ -1007,6 +1008,7 @@ class GraphSession {
       showRemote: load.showRemote,
       showStashes: load.showStashes,
       showTags: load.showTags,
+      showAllRefs: load.showAllRefs,
       includeTagOnly: load.includeTagOnly,
       reflog: load.reflog,
       includeHead: load.includeHead,

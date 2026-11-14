@@ -585,6 +585,11 @@
           "default": false,
           "description": "%config.history.dimNotOnHead.description%"
         },
+        "git-graph-ray.history.allRefs": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.history.allRefs.description%"
+        },
         "git-graph-ray.history.remotes": {
           "type": "boolean",
           "default": true,

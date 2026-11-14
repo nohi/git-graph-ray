@@ -56,7 +56,7 @@
 - 手動追加・hidden 除外
 - ドロップダウン順は `startup.repoOrder`（`workspace` / `name` / `path`）
 - `.git` 変更を約 400ms デバウンスで再読込。アクション実行中は静穏。静穏中に HEAD や refs が変わったときも、`history.autoRefresh`（既定オン）ならそのあと再読込する。Source Control の commit と amend の直後も同じ設定で再読込する。オフならその自動再読込はしない
-- per-repo: 非表示 remote、Issue Linking、PR。remote / stash / tag / worktree / reflog / first parent は、そのリポジトリの値が `history.*` と違うときだけ保存する。同じ値なら `history.*` に戻る
+- per-repo: 非表示 remote、Issue Linking、PR。all refs / remote / stash / tag / worktree / reflog / first parent は、そのリポジトリの値が `history.*` と違うときだけ保存する。同じ値なら `history.*` に戻る
 
 ## 5. グラフデータ
 
@@ -129,7 +129,7 @@
 
 ## 11. 設定
 
-`startup.searchDepth`、`startup.repoOrder`、`startup.repoOfActiveFile`、`startup.editorColumn`、`startup.statusBar`、`startup.scmButton`、`startup.keepWebview`、`startup.scrollToHead`、`startup.onlyCheckedOut`、`startup.branches`、`history.pageSize` / `pageMore` / `autoPage` / `autoRefresh` / `order`、`history.mailmap`、`history.remoteHeads` / `uncommitted` / `untracked` / `remotes` / `stashes` / `tags` / `worktrees` / `tagOnlyCommits`、`history.muteMerges` / `dimNotOnHead` / `reflog` / `firstParent` / `avatars` / `openCircle`、`fetch.prune` / `pruneTags` / `auto` / `everySeconds` / `tagCacheSeconds`、`details.maxHeight` / `place` / `files` / `foldSingleFolders` / `markdown`、`graph.palette` / `bend` / `theme` / `background` / `lanePriority` / `lanePriorityCombineRemotes`、`when.format`、`columns`、`keys.find` / `refresh` / `head` / `stash`、`pullRequests`、`actions`、`branches.globs`、`emoji`、`menus`、`labels.layout` / `combine` / `remote` / `colors`（ブランチ・タグ名の glob → ラベル色。`*` は `/` を含む。先勝ち。グラフの右クリックからも編集でき、初期値はその名前）、`sign.commits` / `sign.tags`、`files.encoding`、`terminal.shell`、`refs.branchSort` / `tagSort` / `listLimit`、`rayCat.enabled` / `count`、`undo.preview`
+`startup.searchDepth`、`startup.repoOrder`、`startup.repoOfActiveFile`、`startup.editorColumn`、`startup.statusBar`、`startup.scmButton`、`startup.keepWebview`、`startup.scrollToHead`、`startup.onlyCheckedOut`、`startup.branches`、`history.pageSize` / `pageMore` / `autoPage` / `autoRefresh` / `order`、`history.mailmap`、`history.remoteHeads` / `uncommitted` / `untracked` / `allRefs` / `remotes` / `stashes` / `tags` / `worktrees` / `tagOnlyCommits`、`history.muteMerges` / `dimNotOnHead` / `reflog` / `firstParent` / `avatars` / `openCircle`、`fetch.prune` / `pruneTags` / `auto` / `everySeconds` / `tagCacheSeconds`、`details.maxHeight` / `place` / `files` / `foldSingleFolders` / `markdown`、`graph.palette` / `bend` / `theme` / `background` / `lanePriority` / `lanePriorityCombineRemotes`、`when.format`、`columns`、`keys.find` / `refresh` / `head` / `stash`、`pullRequests`、`actions`、`branches.globs`、`emoji`、`menus`、`labels.layout` / `combine` / `remote` / `colors`（ブランチ・タグ名の glob → ラベル色。`*` は `/` を含む。先勝ち。グラフの右クリックからも編集でき、初期値はその名前）、`sign.commits` / `sign.tags`、`files.encoding`、`terminal.shell`、`refs.branchSort` / `tagSort` / `listLimit`、`rayCat.enabled` / `count`、`undo.preview`
 
 一覧の Signature 列は有無と種類のみ。詳細は Committer Date 直下の折りたたみ行で、検証結果（status / signer / key / fingerprint / primary / trust）に加え、SSH は鍵の種類・ハッシュ・名前空間、GPG は署名時刻・公開鍵アルゴリズム・ハッシュ・鍵と署名の有効期限を表示する。
 

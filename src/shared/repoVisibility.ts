@@ -2,6 +2,7 @@ import type { RepoSettings } from './dialogs';
 import type { ViewConfig } from './types';
 
 const FIELDS = [
+  ['showAllRefs', 'showAllRefs'],
   ['showRemotes', 'showRemoteBranches'],
   ['showStashes', 'showStashes'],
   ['showTags', 'showTags'],

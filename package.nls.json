@@ -69,6 +69,7 @@
   "config.history.order.enumDescriptions.topo": "Parents before children, then date.",
   "config.history.muteMerges.description": "Draw merge commits in a quieter colour.",
   "config.history.dimNotOnHead.description": "Dim commits that are not ancestors of HEAD.",
+  "config.history.allRefs.description": "Include every ref (git log --all), including refs outside branches, remote-tracking branches, and tags. The graph stores a different choice for one repository when you change it there.",
   "config.history.remotes.description": "Show remote-tracking branches. The graph stores a different choice for one repository when you change it there.",
   "config.history.remoteHeads.description": "Show the remote default branch (such as origin/HEAD).",
   "config.history.tags.description": "Show tags. The graph stores a different choice for one repository when you change it there.",

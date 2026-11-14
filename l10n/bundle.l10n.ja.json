@@ -437,6 +437,7 @@
   "Show unrelated branches": "無関係なブランチを表示",
   "Show HEAD": "HEAD を表示",
   "Show Ray Cat": "Ray Cat を表示",
+  "Show All Refs": "すべての ref を表示",
   "Show remotes": "リモートを表示",
   "Show stashes": "stashを表示",
   "Show tags": "タグを表示",

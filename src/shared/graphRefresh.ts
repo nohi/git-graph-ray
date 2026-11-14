@@ -4,6 +4,7 @@ export const GRAPH_RELOAD_KEYS = [
   'history.pageMore',
   'history.order',
   'history.mailmap',
+  'history.allRefs',
   'history.remotes',
   'history.stashes',
   'history.tags',

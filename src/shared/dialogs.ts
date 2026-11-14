@@ -17,6 +17,7 @@ export type RepoSettings = {
   showRemotes?: boolean;
   showStashes?: boolean;
   showTags?: boolean;
+  showAllRefs?: boolean;
   showWorktrees?: boolean;
   showReflogs?: boolean;
   firstParent?: boolean;

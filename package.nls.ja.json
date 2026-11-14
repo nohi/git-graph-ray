@@ -69,6 +69,7 @@
   "config.history.order.enumDescriptions.topo": "親を子より先に、そのあと日付順。",
   "config.history.muteMerges.description": "マージコミットを控えめな色で描きます。",
   "config.history.dimNotOnHead.description": "HEAD の祖先でないコミットを薄く表示します。",
+  "config.history.allRefs.description": "すべての ref を含めます（git log --all）。ブランチ、リモート追跡ブランチ、タグ以外の ref も含みます。グラフ上で変えると、そのリポジトリだけ別の値を保存します。",
   "config.history.remotes.description": "リモート追跡ブランチを表示します。グラフ上で変えると、そのリポジトリだけ別の値を保存します。",
   "config.history.remoteHeads.description": "リモートの既定ブランチ（origin/HEAD など）を表示します。",
   "config.history.tags.description": "タグを表示します。グラフ上で変えると、そのリポジトリだけ別の値を保存します。",

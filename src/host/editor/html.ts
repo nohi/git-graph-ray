@@ -301,6 +301,7 @@ const SHELL = `
   <section class="settings-block">
     <h3 class="settings-h" data-i18n>General</h3>
     <div class="settings-stack">
+      <label data-i18n><input type="checkbox" id="s-all-refs" /> Show All Refs</label>
       <label data-i18n><input type="checkbox" id="s-remotes" /> Show remotes</label>
       <label data-i18n><input type="checkbox" id="s-stashes" /> Show stashes</label>
       <label data-i18n><input type="checkbox" id="s-tags" /> Show tags</label>

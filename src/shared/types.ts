@@ -177,6 +177,7 @@ export type ViewConfig = {
   showRemoteBranches: boolean;
   showStashes: boolean;
   showTags: boolean;
+  showAllRefs: boolean;
   showWorktrees: boolean;
   includeCommitsMentionedByReflogs: boolean;
   onlyFollowFirstParent: boolean;

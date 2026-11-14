@@ -44,6 +44,7 @@ export function defaultViewConfig(): ViewConfig {
     showRemoteBranches: true,
     showStashes: true,
     showTags: true,
+    showAllRefs: false,
     showWorktrees: true,
     includeCommitsMentionedByReflogs: false,
     onlyFollowFirstParent: false,

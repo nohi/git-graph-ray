@@ -201,6 +201,7 @@ export function getViewConfig(gitVersion = '', storedLabelColours?: unknown): Vi
     muteMergeCommits: c.get('history.muteMerges') ?? true,
     muteNonAncestorsOfHead: c.get('history.dimNotOnHead') ?? false,
     showRemoteBranches: c.get('history.remotes') ?? true,
+    showAllRefs: c.get('history.allRefs') ?? false,
     showStashes: c.get('history.stashes') ?? true,
     showTags: c.get('history.tags') ?? true,
     showWorktrees: c.get('history.worktrees') ?? true,

@@ -36,6 +36,7 @@ export async function loadCommits(options: {
   showRemote: boolean;
   showStashes: boolean;
   showTags: boolean;
+  showAllRefs: boolean;
   firstParent: boolean;
   reflog: boolean;
   mailmap: boolean;
@@ -61,6 +62,7 @@ export async function loadCommits(options: {
       showRemote: options.showRemote,
       showStashes: options.showStashes,
       showTags: options.showTags,
+      showAllRefs: options.showAllRefs,
       includeTagOnly: options.includeTagOnly,
       reflog: options.reflog,
       includeHead: Boolean(options.includeHead),

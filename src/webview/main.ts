@@ -241,9 +241,14 @@ function applySnap(): void {
   fillDates();
   fillPeople();
   $('btn-fetch').hidden = state.snap.remotes.length === 0;
+  const showAllRefs = state.snap.repoSettings.showAllRefs ?? state.snap.config.showAllRefs;
+  $('s-all-refs').checked = showAllRefs;
   $('s-remotes').checked = state.snap.repoSettings.showRemotes ?? state.snap.config.showRemoteBranches;
   $('s-stashes').checked = state.snap.repoSettings.showStashes ?? state.snap.config.showStashes;
   $('s-tags').checked = state.snap.repoSettings.showTags ?? state.snap.config.showTags;
+  $('s-remotes').disabled = showAllRefs;
+  $('s-stashes').disabled = showAllRefs;
+  $('s-tags').disabled = showAllRefs;
   $('s-worktrees').checked = state.snap.repoSettings.showWorktrees ?? state.snap.config.showWorktrees;
   $('s-reflogs').checked = state.snap.repoSettings.showReflogs ?? state.snap.config.includeCommitsMentionedByReflogs;
   $('s-first').checked = state.snap.repoSettings.firstParent ?? state.snap.config.onlyFollowFirstParent;
@@ -820,9 +825,15 @@ function bind(): void {
     ($('dlg-help') as unknown as HTMLDialogElement).close();
     post({ type: 'openSettings' });
   });
-  for (const id of ['s-remotes', 's-stashes', 's-tags', 's-worktrees', 's-reflogs', 's-first'] as const) {
+  for (const id of ['s-all-refs', 's-remotes', 's-stashes', 's-tags', 's-worktrees', 's-reflogs', 's-first'] as const) {
     $(id).addEventListener('change', saveSettings);
   }
+  $('s-all-refs').addEventListener('change', () => {
+    const showAll = $('s-all-refs').checked;
+    $('s-remotes').disabled = showAll;
+    $('s-stashes').disabled = showAll;
+    $('s-tags').disabled = showAll;
+  });
   $('issue-save').addEventListener('click', saveSettings);
   $('pr-save').addEventListener('click', saveSettings);
   const postFetchPrune = () =>
@@ -1049,6 +1060,7 @@ function saveSettings(): void {
   const settings: RepoSettings = {
     ...defaultRepoSettings(),
     ...state.snap.repoSettings,
+    showAllRefs: $('s-all-refs').checked,
     showRemotes: $('s-remotes').checked,
     showStashes: $('s-stashes').checked,
     showTags: $('s-tags').checked,

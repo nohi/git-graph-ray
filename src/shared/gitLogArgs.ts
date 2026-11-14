@@ -3,6 +3,7 @@ export type LogRevisionOptions = {
   showRemote: boolean;
   showStashes: boolean;
   showTags: boolean;
+  showAllRefs: boolean;
   includeTagOnly: boolean;
   reflog: boolean;
   includeHead: boolean;
@@ -18,9 +19,10 @@ export function logRevisionArgs(options: LogRevisionOptions): string[] {
   else if (options.order === 'topo') args.push('--topo-order');
   else if (options.order === 'date') args.push('--date-order');
   if (options.branches === 'all') {
-    if (options.showRemote) args.push('--all');
+    if (options.showAllRefs) args.push('--all');
     else {
       args.push('--branches');
+      if (options.showRemote) args.push('--remotes');
       if (options.showTags && options.includeTagOnly) args.push('--tags');
       if (options.includeHead) args.push('HEAD');
     }

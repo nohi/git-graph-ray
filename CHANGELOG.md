@@ -19,6 +19,8 @@
 - Worktree chips with duplicate folder names show parent segments until each name is unique.
 - Show a local branch and its remote-tracking branch in the same graph lane when both match lane priority rules (`git-graph-ray.graph.lanePriorityCombineRemotes`, default on).
   - Turn it off in Graph Settings to show them on separate lanes.
+- Include every ref with `history.allRefs` (`git log --all`), including refs outside branches, remote-tracking branches, and tags.
+  - Turn it on in Graph Settings to show all refs; remote, stash, and tag toggles are disabled while it is on. The graph stores a different choice for one repository when you change it there.
 
 ### Changes
 
