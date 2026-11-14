@@ -1,35 +1,52 @@
 # Changelog
 
-## v0.8.1
+## v0.9.0
 
 ### Features
 
-- Move between commits with the Up and Down arrow keys, and open or close the details with Enter. The arrows skip commits hidden by the date or person filter and scroll to keep the selected row in view. When the details are closed, the arrows move only the selection. Dialogs, menus, and text fields keep their own arrow keys.
-- Amend the checked-out branch tip from its context menu. Edit the subject and body, and optionally include staged changes (off by default). Amend refuses to run when staged changes are left unchecked, and it can be undone.
-- Squash consecutive commits at the branch tip into one commit from their context menu. The range must start at the tip with no gaps, merges, or the root commit. A dialog edits the combined message, and the result can be undone.
-- Worktree chips show a dot when that worktree has uncommitted changes. The dots update when the graph loads or refreshes.
+- Move between commits with the Up and Down arrow keys, and open or close the details with Enter.
+  - The arrows skip commits hidden by the date or person filter and scroll to keep the selected row in view.
+  - When the details are closed, the arrows move only the selection. Dialogs, menus, and text fields keep their own arrow keys.
+- Amend the checked-out branch tip from its context menu.
+  - Edit the subject and body, and optionally include staged changes (off by default).
+  - Amend refuses to run when staged changes are left unchecked, and it can be undone.
+- Squash consecutive commits at the branch tip into one commit from their context menu.
+  - The range must start at the tip with no gaps, merges, or the root commit. A dialog edits the combined message, and the result can be undone.
+- Worktree chips show a dot when that worktree has uncommitted changes.
+  - The dots update when the graph loads or refreshes.
 - Open a terminal in a worktree folder from its context menu (`Open terminal here`).
 - Copy a worktree display name or its full path from its context menu.
 - Worktree chips with duplicate folder names show parent segments until each name is unique.
-- Command names and setting descriptions follow the VS Code display language. Graph view text (toolbar, menus, dialogs, details labels, undo history, error and empty messages) follows the `git-graph-ray.language` setting instead. English is the default because the Japanese translation is incomplete. Changing it reloads the graph. Saved setting values do not change with the language. Git command and flag names, and the Contributors page, stay in English.
-- Show a local branch and its remote-tracking branch in the same graph lane when both match lane priority rules (`git-graph-ray.graph.lanePriorityCombineRemotes`, default on). Turn it off in Graph Settings to show them on separate lanes.
+- Show a local branch and its remote-tracking branch in the same graph lane when both match lane priority rules (`git-graph-ray.graph.lanePriorityCombineRemotes`, default on).
+  - Turn it off in Graph Settings to show them on separate lanes.
 
 ### Changes
 
-- Group the help dialog's "Also" tips into six labeled sections: fetching and reloading, settings, branches/tags/labels, selecting and comparing, files and folders, and filtering the graph.
-- Replace the repository dropdown with a picker button that shows the current folder name and a list with disambiguated names and full paths. The button hides when only one repository is open.
+- Group the help dialog's "Also" tips into six labeled sections.
+  - Fetching and reloading, settings, branches/tags/labels, selecting and comparing, files and folders, and filtering the graph.
+- Replace the repository dropdown with a picker button and a radio-button list.
+  - The button shows the current folder name; each row shows a disambiguated name and its full path. The button hides when only one repository is open.
 
 ### Fixes
 
-- Open File in a diff tab opens the file in the working tree. Before, the path included the revision shown in the tab, so the file was not found. Paths outside the repository are not opened, and a file missing from the working tree shows a short message.
-- The bold label follows the branch that is checked out when several local branches point at the same commit. Checking out another of those branches updates that label.
-- The repository menu opens on the worktree or main folder that VS Code has open. A worktree chosen in that menu stays selected. Sibling folders such as `repo` and `repo-feature` are not treated as the same folder.
-- A graph opened on a linked worktree reloads after a checkout, commit, or branch move in that worktree. The graph now watches the Git folders that Git reports for the worktree instead of its `.git` file.
-- Escape closes one layer at a time. Closing Find, Graph Settings, a filter, the undo or redo history, or the column menu keeps the details pane open, and those menus now close on Escape.
-- Settings saved under the keys used before v0.8.0 are copied to the new keys once, for User and Workspace Settings. A new key that already has a value is kept. The old entries stay in settings.json so they can be checked and deleted. `commitDetailsView.autoCenter` and `enhancedAccessibility` have no new key and are not copied.
-- When Git cannot read branches, tags, or commits, the graph shows the reason instead of an empty graph, and the Git Graph Ray output records it. A Refresh that fails keeps the graph that was showing. Automatic reloads that fail only write to the output. A failure to list remotes or worktrees is written to the output and the graph still loads.
-- Bundle `@vscode/l10n` into the host build. The SSR build left it as an external runtime require, but `node_modules` is not shipped in the `.vsix`.
-- Keep the help dialog inside the viewport and make its shortcut pills readable in the light theme.
+- Open File in a diff tab opens the file in the working tree.
+  - Before, the path included the revision shown in the tab, so the file was not found. Paths outside the repository are not opened, and a file missing from the working tree shows a short message.
+- Keep the bold label on the branch that is checked out when several local branches point at the same commit.
+  - Checking out another of those branches updates that label.
+- Open the repository menu on the worktree or main folder that VS Code has open.
+  - A worktree chosen in that menu stays selected. Sibling folders such as `repo` and `repo-feature` are not treated as the same folder.
+- Reload a graph opened on a linked worktree after a checkout, commit, or branch move in that worktree.
+  - The graph now watches the Git folders that Git reports for the worktree instead of its `.git` file.
+- Close one UI layer at a time with Escape.
+  - Closing Find, Graph Settings, a filter, the undo or redo history, or the column menu keeps the details pane open, and those menus now close on Escape.
+- Copy settings saved under pre-v0.8.0 keys to the new keys once, for User and Workspace Settings.
+  - A new key that already has a value is kept. The old entries stay in settings.json so they can be checked and deleted. `commitDetailsView.autoCenter` and `enhancedAccessibility` have no new key and are not copied.
+- Show the reason instead of an empty graph when Git cannot read branches, tags, or commits.
+  - The Git Graph Ray output records it. A Refresh that fails keeps the graph that was showing; automatic reloads that fail only write to the output. A failure to list remotes or worktrees is written to the output and the graph still loads.
+- Bundle `@vscode/l10n` into the host build.
+  - The SSR build left it as an external runtime require, but `node_modules` is not shipped in the `.vsix`.
+- Keep the help dialog inside the viewport.
+  - Shortcut pills stay readable in the light theme.
 - Use light-theme-safe colors for branch and tag chips, ref labels, file and signature colors, buttons, and banners, so text stays readable on a light background.
 - Worktree chip tooltips show the full worktree path, with the uncommitted-changes note appended when dirty.
 - Give the conflict Continue and Abort buttons light-theme-safe colors.
@@ -50,7 +67,7 @@
 
 ### Changes
 
-- [BREAKING] Settings use a new set of keys. Values saved under the previous keys are ignored, because those keys are no longer registered. Since v0.8.1 the old values are copied to the new keys automatically, once for User and Workspace Settings; old entries can be checked and deleted. See [docs/upgrade.md](docs/upgrade.md) for the old-to-new key table.
+- [BREAKING] Settings use a new set of keys. Values saved under the previous keys are ignored, because those keys are no longer registered. Since v0.9.0 the old values are copied to the new keys automatically, once for User and Workspace Settings; old entries can be checked and deleted. See [docs/upgrade.md](docs/upgrade.md) for the old-to-new key table.
 
 ### Fixes
 

@@ -4,7 +4,7 @@ v0.8.0 replaced every `git-graph-ray.*` setting key with a shorter scheme
 (`history`, `startup`, `fetch`, `labels`, `details`, `keys`, `actions`, …).
 The old keys are no longer registered, so values saved under them are ignored.
 
-Since v0.8.1 the extension copies old values to the new keys automatically,
+Since v0.9.0 the extension copies old values to the new keys automatically,
 once for User Settings and once for each Workspace Settings file:
 
 - A new key that already has a value keeps it. Old values never overwrite.

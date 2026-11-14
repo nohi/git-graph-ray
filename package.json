@@ -1,7 +1,7 @@
 {
   "name": "git-graph-ray",
   "displayName": "Git Graph Ray",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "publisher": "nohi",
   "description": "%description%",
   "license": "MIT",
