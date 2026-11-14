@@ -225,6 +225,7 @@ export const ANCHOR_POPS: Array<[string, string, AnchoredPopoverOpts?]> = [
   ['btn-settings', 'pop-settings'],
   ['btn-find', 'pop-find'],
   ['btn-date', 'pop-date'],
+  ['btn-repo', 'pop-repo', { align: 'left' }],
   ['btn-repo-help', 'pop-repo-help', { align: 'left', maxWidth: 400 }],
   ['btn-undo-menu', 'pop-undo', { align: 'left' }],
   ['btn-redo-menu', 'pop-redo', { align: 'left' }],

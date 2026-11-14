@@ -39,7 +39,7 @@
 - Reload a graph opened on a linked worktree after a checkout, commit, or branch move in that worktree.
   - The graph now watches the Git folders that Git reports for the worktree instead of its `.git` file.
 - Close one UI layer at a time with Escape.
-  - Closing Find, Graph Settings, a filter, the undo or redo history, or the column menu keeps the details pane open, and those menus now close on Escape.
+  - Closing Find, Graph Settings, a filter, the repository picker, the undo or redo history, or the column menu keeps the details pane open, and those menus now close on Escape.
 - Copy settings saved under pre-v0.8.0 keys to the new keys once, for User and Workspace Settings.
   - A new key that already has a value is kept. The old entries stay in settings.json so they can be checked and deleted. `commitDetailsView.autoCenter` and `enhancedAccessibility` have no new key and are not copied.
 - Show the reason instead of an empty graph when Git cannot read branches, tags, or commits.

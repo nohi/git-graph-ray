@@ -28,4 +28,8 @@ describe('ESCAPE_POPOVER_IDS', () => {
     expect(ESCAPE_POPOVER_IDS).toEqual(expect.arrayContaining(['pop-undo', 'pop-redo', 'pop-cols', 'pop-find', 'pop-settings']));
     expect(ESCAPE_POPOVER_IDS).not.toContain('pop-confirm');
   });
+
+  it('includes the repository picker so Escape closes it before the selection', () => {
+    expect(ESCAPE_POPOVER_IDS).toEqual(expect.arrayContaining(['pop-repo', 'pop-repo-help']));
+  });
 });

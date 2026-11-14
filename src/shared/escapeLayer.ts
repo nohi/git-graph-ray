@@ -8,6 +8,7 @@ export const ESCAPE_POPOVER_IDS = [
   'pop-refs',
   'pop-dates',
   'pop-contributor',
+  'pop-repo',
   'pop-repo-help',
   'pop-undo',
   'pop-redo',
