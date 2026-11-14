@@ -20,6 +20,16 @@
       "label": "compile",
       "type": "npm",
       "script": "compile"
+    },
+    {
+      "label": "debug",
+      "type": "shell",
+      "command": "code --wait --new-window --extensionDevelopmentPath=${workspaceFolder} --disable-extensions --disable-workspace-trust --user-data-dir=${workspaceFolder}/debug/user-data ${workspaceFolder}",
+      "dependsOn": ["compile"],
+      "presentation": {
+        "reveal": "silent"
+      },
+      "problemMatcher": []
     }
   ]
 }
