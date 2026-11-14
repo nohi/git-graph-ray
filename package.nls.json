@@ -50,6 +50,7 @@
   "config.files.encoding.description": "Encoding used when this view reads file contents.",
   "config.graph.bend.description": "curve bends lane changes. corner draws them as steps.",
   "config.graph.lanePriority.markdownDescription": "Keep graph lanes that contain matching branches further left. Each key is a glob and each value is a priority. A larger number is further left. `*` matches any text, including `/`, and `?` matches one character. Remote-tracking branches also match `origin/name` and `remotes/origin/name`, so `release*` matches `release/1.0` and `origin/release/1.0`. The highest matching number wins. A priority of 0 or below is ignored.\n\nThe lane includes commits above the label while they stay on one first-parent line, and it stays empty until that line starts. Equal priorities use the line that appears higher in the graph, then the branch name.\n\nExample: `{ \"main\": 99, \"master\": 99, \"release*\": 50 }`.",
+  "config.graph.lanePriorityCombineRemotes.description": "Show a local branch and its remote-tracking branch in the same graph lane when both match lane priority rules.",
   "config.graph.palette.description": "Lane colours for the classic theme. Other themes use their own colours.",
   "config.graph.theme.enumDescriptions.classic": "Lane colours from git-graph-ray.graph.palette.",
   "config.graph.theme.enumDescriptions.Ray": "Neon lane colours with a glow.",

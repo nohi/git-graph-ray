@@ -192,6 +192,8 @@ export type ViewConfig = {
   referenceLabelColours: RefColourRule[];
   /** `graph.lanePriority`. Glob to priority. A larger number is further left. The highest match wins. */
   lanePriority: LanePriorityRule[];
+  /** `graph.lanePriorityCombineRemotes`. Share one lane for a local branch and its remote-tracking branch. */
+  lanePriorityCombineRemotes: boolean;
   markdown: boolean;
   detailsMaxHeight: number;
   detailsLocation: 'inline' | 'bottom';

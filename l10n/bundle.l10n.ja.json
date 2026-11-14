@@ -401,6 +401,7 @@
   "Auto fetch interval (seconds)": "自動fetch間隔（秒）",
   "Graph lane priority": "グラフレーンの優先度",
   "Larger numbers stay further left. * matches any text, including /.": "数値が大きいほど左に表示されます。* は / を含む任意の文字列に一致します。",
+  "Combine matching local and remote branches in one lane": "一致するローカルブランチとリモートブランチを同じレーンに表示",
   "Add pattern": "パターンを追加",
   "Remotes": "リモート",
   "Issue linking": "Issue リンク",

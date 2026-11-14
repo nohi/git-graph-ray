@@ -1,4 +1,5 @@
 import { refColourGlob, refColourTargets } from './refColours';
+import { remoteBranchName } from './refsList';
 import { UNCOMMITTED, type GraphCommit, type GraphRef, type LanePriorityRule } from './types';
 
 export type Vertex = { hash: string; lane: number; row: number };
@@ -84,11 +85,25 @@ type LaneHold = {
   heldRows: number[];
 };
 
+/** Branch identity shared by a local branch and its remote-tracking branch (`main` for `main` and `origin/main`). */
+function laneIdentity(ref: GraphRef): string | null {
+  if (ref.kind === 'head') return ref.name;
+  if (ref.kind !== 'remote') return null;
+  const stored = ref.name.startsWith('remotes/') ? ref.name.slice('remotes/'.length) : ref.name;
+  return remoteBranchName({ kind: 'remote', name: stored, hash: '', remote: ref.remote }) ?? stored;
+}
+
 /**
  * One lane per priority line. The line head is the newest commit reached by walking
  * upward while a commit has exactly one child that lists it as the first parent.
+ * When `combineRemotes` is on, lines whose best branch is a local branch and lines
+ * whose best branch is the matching remote-tracking branch share one lane.
  */
-function reservePriorityLanes(commits: readonly GraphCommit[], rules: readonly LanePriorityRule[]): LaneHold {
+function reservePriorityLanes(
+  commits: readonly GraphCommit[],
+  rules: readonly LanePriorityRule[],
+  combineRemotes = true,
+): LaneHold {
   const rowOf = new Map<string, number>();
   commits.forEach((commit, row) => rowOf.set(commit.hash, row));
 
@@ -120,7 +135,7 @@ function reservePriorityLanes(commits: readonly GraphCommit[], rules: readonly L
     return head;
   };
 
-  const lines = new Map<string, { hash: string; row: number; priority: number; name: string }>();
+  const lines = new Map<string, { hash: string; row: number; priority: number; name: string; identity: string | null }>();
   for (const commit of commits) {
     for (const ref of commit.refs) {
       const priority = branchLanePriority(ref, rules);
@@ -130,33 +145,71 @@ function reservePriorityLanes(commits: readonly GraphCommit[], rules: readonly L
       if (row === undefined) continue;
       const existing = lines.get(hash);
       if (!existing) {
-        lines.set(hash, { hash, row, priority, name: ref.name });
+        lines.set(hash, { hash, row, priority, name: ref.name, identity: laneIdentity(ref) });
         continue;
       }
       if (priority > existing.priority) {
         existing.priority = priority;
         existing.name = ref.name;
+        existing.identity = laneIdentity(ref);
       } else if (priority === existing.priority && ref.name < existing.name) {
         existing.name = ref.name;
+        existing.identity = laneIdentity(ref);
       }
     }
   }
 
-  const ordered = [...lines.values()].sort(compareLanePriority);
+  const entries = combineRemotes
+    ? mergeRemoteLines([...lines.values()])
+    : [...lines.values()].map((line) => ({ hashes: [line.hash], row: line.row, priority: line.priority, name: line.name }));
+  const ordered = entries.sort(compareLanePriority);
   const byHash = new Map<string, number>();
   const heldRows: number[] = [];
   ordered.forEach((line, lane) => {
-    byHash.set(line.hash, lane);
+    for (const hash of line.hashes) byHash.set(hash, lane);
     heldRows[lane] = line.row;
   });
   return { byHash, heldRows };
 }
 
-export function layoutCommits(commits: GraphCommit[], rules?: readonly LanePriorityRule[]): Layout {
+/** Merge lines of a local branch and its remote-tracking branch into one lane entry. */
+function mergeRemoteLines(
+  lines: { hash: string; row: number; priority: number; name: string; identity: string | null }[],
+): { hashes: string[]; row: number; priority: number; name: string }[] {
+  const groups = new Map<string, { hashes: string[]; row: number; priority: number; name: string }>();
+  const single: { hashes: string[]; row: number; priority: number; name: string }[] = [];
+  for (const line of lines) {
+    if (!line.identity) {
+      single.push({ hashes: [line.hash], row: line.row, priority: line.priority, name: line.name });
+      continue;
+    }
+    const key = `id\0${line.identity}`;
+    const existing = groups.get(key);
+    if (!existing) {
+      groups.set(key, { hashes: [line.hash], row: line.row, priority: line.priority, name: line.name });
+      continue;
+    }
+    existing.hashes.push(line.hash);
+    if (line.row < existing.row) existing.row = line.row;
+    if (line.priority > existing.priority) {
+      existing.priority = line.priority;
+      existing.name = line.name;
+    } else if (line.priority === existing.priority && line.name < existing.name) {
+      existing.name = line.name;
+    }
+  }
+  return [...groups.values(), ...single];
+}
+
+export function layoutCommits(
+  commits: GraphCommit[],
+  rules?: readonly LanePriorityRule[],
+  combineRemotes = true,
+): Layout {
   const vertices: Vertex[] = [];
   const edges: Edge[] = [];
   const occupants: Array<string | undefined> = [];
-  const hold = rules?.length ? reservePriorityLanes(commits, rules) : undefined;
+  const hold = rules?.length ? reservePriorityLanes(commits, rules, combineRemotes) : undefined;
 
   const laneHeld = (lane: number, row: number): boolean => {
     const start = hold?.heldRows[lane];

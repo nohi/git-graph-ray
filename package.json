@@ -485,6 +485,11 @@
           },
           "markdownDescription": "%config.graph.lanePriority.markdownDescription%"
         },
+        "git-graph-ray.graph.lanePriorityCombineRemotes": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.graph.lanePriorityCombineRemotes.description%"
+        },
         "git-graph-ray.graph.palette": {
           "type": "array",
           "items": {

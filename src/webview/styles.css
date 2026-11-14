@@ -424,6 +424,30 @@ option {
     padding: 0.2rem 0.45rem;
     cursor: pointer;
   }
+
+  #conflict-continue {
+    background: light-dark(#1d4ed8, #3b82f6);
+    border-color: light-dark(#1e40af, #60a5fa);
+    color: #fff;
+  }
+
+  #conflict-continue:is(:hover, :focus-visible):not(:disabled) {
+    background: light-dark(#2563eb, #60a5fa);
+    border-color: light-dark(#1d4ed8, #93c5fd);
+    color: #fff;
+  }
+
+  #conflict-abort {
+    background: light-dark(#b91c1c, #dc2626);
+    border-color: light-dark(#7f1d1d, #f87171);
+    color: #fff;
+  }
+
+  #conflict-abort:is(:hover, :focus-visible):not(:disabled) {
+    background: light-dark(#dc2626, #ef4444);
+    border-color: light-dark(#b91c1c, #fca5a5);
+    color: #fff;
+  }
 }
 
 .divergence {
@@ -749,6 +773,62 @@ html.refs-pop-resize * {
     line-height: 1.45;
     color: var(--fg);
   }
+}
+
+#btn-repo {
+  max-width: 16rem;
+
+  #repo-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.repo-pop {
+  min-width: 16rem;
+  max-width: min(30rem, calc(100vw - 2rem));
+}
+
+.repo-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: 4px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--hl-bg);
+  }
+
+  &:has(input:checked) {
+    background: var(--hl-bg);
+    box-shadow: inset 3px 0 0 var(--hl);
+  }
+
+  input[type='radio'] {
+    margin-top: 0.15rem;
+    accent-color: var(--hl);
+    flex: 0 0 auto;
+  }
+}
+
+.repo-names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.repo-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.repo-path {
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 .find {

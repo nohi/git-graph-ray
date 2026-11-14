@@ -22,8 +22,8 @@ function c(hash: string, parents: string[], refs: GraphRef[] = []): GraphCommit 
   };
 }
 
-const lanesOf = (commits: GraphCommit[], rules?: LanePriorityRule[]) =>
-  layoutCommits(commits, rules).vertices.map((vertex) => vertex.lane);
+const lanesOf = (commits: GraphCommit[], rules?: LanePriorityRule[], combineRemotes = true) =>
+  layoutCommits(commits, rules, combineRemotes).vertices.map((vertex) => vertex.lane);
 
 describe('layoutCommits', () => {
   it('places a linear history on one lane', () => {
@@ -214,5 +214,38 @@ describe('lane priority', () => {
   it('reuses a priority lane after that line ends', () => {
     const commits = [c('feature', ['fork'], [ref('head', 'feature')]), c('main', [], [ref('head', 'main')]), c('fork', []), c('orphan', [])];
     expect(lanesOf(commits, rules)).toEqual([1, 0, 1, 0]);
+  });
+
+  it('shares one lane for a local branch and its remote-tracking branch', () => {
+    const commits = [
+      c('local', ['base'], [ref('head', 'main', 'local')]),
+      c('remote', ['base'], [ref('remote', 'origin/main', 'remote')]),
+      c('base', []),
+    ];
+    expect(lanesOf(commits, rules)).toEqual([0, 0, 0]);
+    expect(lanesOf(commits, rules, false)).toEqual([0, 1, 0]);
+  });
+
+  it('shares one lane for two remotes of the same branch', () => {
+    const commits = [
+      c('a', ['base'], [ref('remote', 'origin/main', 'a')]),
+      c('b', ['base'], [ref('remote', 'upstream/main', 'b')]),
+      c('base', []),
+    ];
+    expect(lanesOf(commits, rules)).toEqual([0, 0, 0]);
+    expect(lanesOf(commits, rules, false)).toEqual([0, 1, 0]);
+  });
+
+  it('keeps different branches on separate lanes when combining', () => {
+    const commits = [
+      c('local', ['base'], [ref('head', 'main', 'local')]),
+      c('remote', ['base'], [ref('remote', 'origin/develop', 'remote')]),
+      c('base', []),
+    ];
+    const both = [
+      { pattern: 'main', priority: 99 },
+      { pattern: 'develop', priority: 99 },
+    ];
+    expect(lanesOf(commits, both)).toEqual([0, 1, 0]);
   });
 });

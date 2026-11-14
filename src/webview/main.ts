@@ -255,6 +255,7 @@ function applySnap(): void {
   $('s-auto-refresh').checked = state.snap.config.autoRefresh;
   $('s-undo-preview').checked = state.snap.config.undoPreview;
   fillRemotes();
+  $('s-lane-combine').checked = state.snap.config.lanePriorityCombineRemotes;
   fillLanePriority();
   fillPr();
   if (state.snap.repoSettings.issueLinking) {
@@ -433,11 +434,11 @@ function bind(): void {
   };
   document.addEventListener('pointermove', trackPointer, { passive: true });
   document.addEventListener('pointerdown', trackPointer, { passive: true });
-  $('repo').addEventListener('change', (e) => {
-    if (state.repoSync > 0) return;
-    const path = (e.target as HTMLSelectElement).value;
-    if (!state.snap || path === state.snap.repoPath) return;
-    post({ type: 'pickRepo', path });
+  $('repo-list').addEventListener('change', (e) => {
+    const input = (e.target as HTMLElement).closest?.('input[name="repo-pick"]') as HTMLInputElement | null;
+    if (!input || !state.snap || input.value === state.snap.repoPath) return;
+    $('pop-repo').hidePopover?.();
+    post({ type: 'pickRepo', path: input.value });
   });
   $('s-theme').addEventListener('change', (e) => post({ type: 'setTheme', value: (e.target as HTMLSelectElement).value as GraphSnapshot['config']['theme'] }));
   $('s-bg').addEventListener('change', (e) => post({ type: 'setBackground', value: (e.target as HTMLSelectElement).value as GraphSnapshot['config']['background'] }));
@@ -840,6 +841,9 @@ function bind(): void {
   $('s-undo-preview').addEventListener('change', () => {
     post({ type: 'setUndoPreview', value: $('s-undo-preview').checked });
   });
+  $('s-lane-combine').addEventListener('change', () => {
+    post({ type: 'setLanePriorityCombine', value: $('s-lane-combine').checked });
+  });
   $('add-lane').addEventListener('click', () => lanePriorityDialog(t('Add lane priority'), '', ''));
   $('lane-list').addEventListener('click', (ev) => {
     const target = (ev.target as HTMLElement).closest<HTMLElement>('[data-lane-ed], [data-lane-del]');
@@ -968,6 +972,7 @@ function bind(): void {
   bindPopoverAnchor('btn-find', 'pop-find');
   bindPopoverAnchor('btn-date', 'pop-date');
   bindPopoverAnchor('btn-repo-help', 'pop-repo-help', { align: 'left', maxWidth: 400 });
+  bindPopoverAnchor('btn-repo', 'pop-repo', { align: 'left' });
   document.addEventListener('pointerdown', (ev) => {
     const tip = document.getElementById('lc-tip');
     if (tip?.matches(':popover-open')) {

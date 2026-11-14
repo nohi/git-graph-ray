@@ -8,6 +8,7 @@ import {
   groupChipRefs,
   refDisplayName,
   refLogArg,
+  repoChoices,
   remoteChipText,
   remoteBranchName,
   remoteLabelsUseIcons,
@@ -32,6 +33,38 @@ describe('uniqueRefs', () => {
     expect(uniqueRefs([r('head', 'main'), r('head', 'main'), r('tag', 'v1')]).map((x) => x.name)).toEqual([
       'main',
       'v1',
+    ]);
+  });
+});
+
+describe('repoChoices', () => {
+  it('marks the current repository and keeps unique names', () => {
+    expect(
+      repoChoices(
+        [
+          { path: '/repo/main', name: 'main' },
+          { path: '/repo/foo', name: 'foo' },
+        ],
+        '/repo/foo',
+      ),
+    ).toEqual([
+      { path: '/repo/main', name: 'main', current: false },
+      { path: '/repo/foo', name: 'foo', current: true },
+    ]);
+  });
+
+  it('disambiguates same-named folders', () => {
+    expect(
+      repoChoices(
+        [
+          { path: '/hoge/foo', name: 'foo' },
+          { path: '/buz/foo', name: 'foo' },
+        ],
+        '/buz/foo',
+      ),
+    ).toEqual([
+      { path: '/hoge/foo', name: 'hoge/foo', current: false },
+      { path: '/buz/foo', name: 'buz/foo', current: true },
     ]);
   });
 });

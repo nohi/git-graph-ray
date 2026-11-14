@@ -139,14 +139,15 @@ export function fullLayout(): Layout {
 }
 
 export function lanePriorityMark(): string {
-  return state.snap?.config.lanePriority.map((rule) => `${rule.pattern}\0${rule.priority}`).join('\n') ?? '';
+  const combine = state.snap?.config.lanePriorityCombineRemotes ?? true;
+  return `${combine ? '1' : '0'}\n${state.snap?.config.lanePriority.map((rule) => `${rule.pattern}\0${rule.priority}`).join('\n') ?? ''}`;
 }
 
 export function layoutState(): { layout: Layout; byFrom: Edge[][] } {
   if (!state.snap) return { layout: { vertices: [], edges: [], maxLanes: 1 }, byFrom: [] };
   const priority = lanePriorityMark();
   if (state.layoutCache?.commits === state.snap.commits && state.layoutCache.priority === priority) return state.layoutCache;
-  const layout = layoutCommits(state.snap.commits, state.snap.config.lanePriority);
+  const layout = layoutCommits(state.snap.commits, state.snap.config.lanePriority, state.snap.config.lanePriorityCombineRemotes);
   const byFrom: Edge[][] = [];
   for (const edge of layout.edges) (byFrom[edge.fromRow] ??= []).push(edge);
   state.layoutCache = { commits: state.snap.commits, priority, layout, byFrom };

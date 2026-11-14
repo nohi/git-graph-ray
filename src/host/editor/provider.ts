@@ -690,6 +690,10 @@ class GraphSession {
           await updateSetting('graph.lanePriority', msg.priorities);
           this.postConfig();
           return;
+        case 'setLanePriorityCombine':
+          await updateSetting('graph.lanePriorityCombineRemotes', msg.value);
+          this.postConfig();
+          return;
         case 'setColumns':
           await updateSetting('columns', msg.value);
           this.postConfig();

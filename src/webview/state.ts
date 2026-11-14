@@ -125,7 +125,6 @@ export const state = {
   personTab: ('author') as PersonField,
   lastPointer: { x: 24, y: 24 },
   pendingPatch: (null) as Partial<GraphSnapshot> | null,
-  repoSync: 0,
   layoutCache: (null) as { commits: GraphCommit[]; priority: string; layout: Layout; byFrom: Edge[][] } | null,
   gitDialogAt: (null) as { x: number; y: number } | null,
 };

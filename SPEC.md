@@ -78,6 +78,7 @@
 - テーマ `graph.theme`: `classic` / `Ray` / `Ray Wave` / `Ray Cycle` / `Ray Stream`
 - 背景 `graph.background`: `auto` / `dark` / `light`、既定 `dark`。`dark` と `light` は VS Code のテーマと OS の外観に関係なく固定。`auto` は VS Code がページに付けるテーマのクラスに従う
 - `graph.lanePriority`: ブランチ glob → 数値。大きいほどその線を左に固定する。第一親で一本のときラベルより上も含む。先端まで左列は空く。同点は上にある線、次に名前。`*` は `/` を含む。リモートは `origin/name` と `remotes/origin/name` も比較し、最大値が勝つ。0 以下は予約しない。未設定は従来の列。Graph Settings で追加・編集・削除する
+- `graph.lanePriorityCombineRemotes`: 既定 `true`。`true` はルールに一致するローカルブランチとリモート追跡ブランチ（例: `main` と `origin/main`）を同じレーンに表示する。`false` は別レーンに表示する。Graph Settings で切り替える
 - 矢印上下で表示中（日付・人のフィルタ後）の隣のコミットへ選択を移し、見えなければスクロールする。詳細が開いていれば詳細も追従、閉じていれば選択だけ移る。Enter で選択中のコミットの詳細を開閉する（閉じても選択は残る）。ダイアログ・ポップオーバー表示中と入力欄では奪わない
 - ショートカット: Find `mod+f`、Refresh `mod+r`、HEAD `mod+h`、stash `mod+s`。空文字ならその操作は無効。Refresh と stash が既定値のときは VS Code のキー割り当てにも登録し、グラフにフォーカスがある間は Open Recent / Reload Window / Save より優先する。stash の既定値では Ctrl/Cmd+Shift+S で前の stash へ移る
 - 開いているグラフは設定変更を受ける。見た目は描き直し、コミットやリポジトリ一覧の条件が変わったときは再読込する。グラフ上の編集は、いま表示に使われているユーザ設定またはワークスペース設定へ書く
@@ -120,7 +121,7 @@
 - Remotes CRUD
 - Issue Linking（regex + URL、グローバル）
 - PR: GitHub / GitLab / Bitbucket + custom providers
-- Graph Settings: Appearance（theme、background、Ray Cat）、General（表示、fetch prune、auto fetch、Source Control コミット後の再読込、Undo プレビュー）、Graph lane priority
+- Graph Settings: Appearance（theme、background、Ray Cat）、General（表示、fetch prune、auto fetch、Source Control コミット後の再読込、Undo プレビュー）、Graph lane priority（パターン、同レーン表示）
 
 ## 10. Code Review
 
@@ -128,7 +129,7 @@
 
 ## 11. 設定
 
-`startup.searchDepth`、`startup.repoOrder`、`startup.repoOfActiveFile`、`startup.editorColumn`、`startup.statusBar`、`startup.scmButton`、`startup.keepWebview`、`startup.scrollToHead`、`startup.onlyCheckedOut`、`startup.branches`、`history.pageSize` / `pageMore` / `autoPage` / `autoRefresh` / `order`、`history.mailmap`、`history.remoteHeads` / `uncommitted` / `untracked` / `remotes` / `stashes` / `tags` / `worktrees` / `tagOnlyCommits`、`history.muteMerges` / `dimNotOnHead` / `reflog` / `firstParent` / `avatars` / `openCircle`、`fetch.prune` / `pruneTags` / `auto` / `everySeconds` / `tagCacheSeconds`、`details.maxHeight` / `place` / `files` / `foldSingleFolders` / `markdown`、`graph.palette` / `bend` / `theme` / `background` / `lanePriority`、`when.format`、`columns`、`keys.find` / `refresh` / `head` / `stash`、`pullRequests`、`actions`、`branches.globs`、`emoji`、`menus`、`labels.layout` / `combine` / `remote` / `colors`（ブランチ・タグ名の glob → ラベル色。`*` は `/` を含む。先勝ち。グラフの右クリックからも編集でき、初期値はその名前）、`sign.commits` / `sign.tags`、`files.encoding`、`terminal.shell`、`refs.branchSort` / `tagSort` / `listLimit`、`rayCat.enabled` / `count`、`undo.preview`
+`startup.searchDepth`、`startup.repoOrder`、`startup.repoOfActiveFile`、`startup.editorColumn`、`startup.statusBar`、`startup.scmButton`、`startup.keepWebview`、`startup.scrollToHead`、`startup.onlyCheckedOut`、`startup.branches`、`history.pageSize` / `pageMore` / `autoPage` / `autoRefresh` / `order`、`history.mailmap`、`history.remoteHeads` / `uncommitted` / `untracked` / `remotes` / `stashes` / `tags` / `worktrees` / `tagOnlyCommits`、`history.muteMerges` / `dimNotOnHead` / `reflog` / `firstParent` / `avatars` / `openCircle`、`fetch.prune` / `pruneTags` / `auto` / `everySeconds` / `tagCacheSeconds`、`details.maxHeight` / `place` / `files` / `foldSingleFolders` / `markdown`、`graph.palette` / `bend` / `theme` / `background` / `lanePriority` / `lanePriorityCombineRemotes`、`when.format`、`columns`、`keys.find` / `refresh` / `head` / `stash`、`pullRequests`、`actions`、`branches.globs`、`emoji`、`menus`、`labels.layout` / `combine` / `remote` / `colors`（ブランチ・タグ名の glob → ラベル色。`*` は `/` を含む。先勝ち。グラフの右クリックからも編集でき、初期値はその名前）、`sign.commits` / `sign.tags`、`files.encoding`、`terminal.shell`、`refs.branchSort` / `tagSort` / `listLimit`、`rayCat.enabled` / `count`、`undo.preview`
 
 一覧の Signature 列は有無と種類のみ。詳細は Committer Date 直下の折りたたみ行で、検証結果（status / signer / key / fingerprint / primary / trust）に加え、SSH は鍵の種類・ハッシュ・名前空間、GPG は署名時刻・公開鍵アルゴリズム・ハッシュ・鍵と署名の有効期限を表示する。
 

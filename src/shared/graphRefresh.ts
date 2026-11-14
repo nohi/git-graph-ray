@@ -25,6 +25,7 @@ export const GRAPH_REPAINT_KEYS = [
   'graph.theme',
   'graph.background',
   'graph.lanePriority',
+  'graph.lanePriorityCombineRemotes',
   'when.format',
   'columns',
   'labels.layout',

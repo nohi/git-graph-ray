@@ -188,7 +188,7 @@ export function undoChips(refs: GraphRef[]): string {
 }
 
 export function undoGraph(commits: GraphCommit[], head: string | null): { svg: string; width: number; height: number } {
-  const layout = layoutCommits(commits, state.snap!.config.lanePriority);
+  const layout = layoutCommits(commits, state.snap!.config.lanePriority, state.snap!.config.lanePriorityCombineRemotes);
   const height = Math.max(commits.length, 1) * ROW;
   const theme = state.snap!.config.theme === 'Ray Stream' ? 'classic' : state.snap!.config.theme;
   const nodeAt = new Set(layout.vertices.map((vertex) => `${vertex.row}:${vertex.lane}`));

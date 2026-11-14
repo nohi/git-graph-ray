@@ -50,6 +50,7 @@
   "config.files.encoding.description": "このビューがファイルの内容を読むときの文字コードです。",
   "config.graph.bend.description": "curve はレーンの移り変わりを曲線で、corner は段差で描きます。",
   "config.graph.lanePriority.markdownDescription": "一致するブランチを含むレーンを左寄りに固定します。キーは glob、値は優先度です。数が大きいほど左に置きます。`*` は `/` を含む任意の文字列、`?` は1文字に一致します。リモート追跡ブランチは `origin/name` と `remotes/origin/name` にも一致するので、`release*` は `release/1.0` と `origin/release/1.0` の両方に一致します。一致した中で最大の数が使われます。0 以下の優先度は無視します。\n\nレーンには、第一親で一本につながっている間はラベルより上のコミットも含みます。その線が始まるまでレーンは空けておきます。優先度が同じときは、グラフで上に出てくる線、次にブランチ名の順です。\n\n例: `{ \"main\": 99, \"master\": 99, \"release*\": 50 }`",
+  "config.graph.lanePriorityCombineRemotes.description": "レーン優先度のルールに一致するローカルブランチとリモート追跡ブランチを同じグラフレーンに表示します。",
   "config.graph.palette.description": "classic テーマのレーンの色です。ほかのテーマは独自の色を使います。",
   "config.graph.theme.enumDescriptions.classic": "git-graph-ray.graph.palette のレーン色。",
   "config.graph.theme.enumDescriptions.Ray": "光るネオンのレーン色。",

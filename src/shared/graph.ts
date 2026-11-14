@@ -26,6 +26,7 @@ export function defaultViewConfig(): ViewConfig {
     ],
     graphStyle: 'rounded',
     lanePriority: [],
+    lanePriorityCombineRemotes: true,
     uncommittedChanges: 'changes',
     theme: 'classic',
     background: 'dark',

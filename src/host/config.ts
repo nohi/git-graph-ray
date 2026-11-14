@@ -185,6 +185,7 @@ export function getViewConfig(gitVersion = '', storedLabelColours?: unknown): Vi
     graphColours: colours.length ? colours : defaults.graphColours,
     graphStyle: graphBend(c.get('graph.bend')),
     lanePriority: parseLanePriority(c.get('graph.lanePriority')),
+    lanePriorityCombineRemotes: c.get('graph.lanePriorityCombineRemotes') ?? true,
     uncommittedChanges: pick(c.get('history.openCircle'), ['changes', 'head'], defaults.uncommittedChanges),
     theme: c.get('graph.theme') ?? 'classic',
     background: pick(c.get('graph.background'), ['auto', 'dark', 'light'], 'dark'),

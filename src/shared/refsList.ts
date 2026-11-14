@@ -27,6 +27,17 @@ export function refDisplayName(r: GraphRef): string {
   return r.name;
 }
 
+export type RepoChoice = { path: string; name: string; current: boolean };
+
+/**
+ * One choice per repository for the repository picker. Names are disambiguated
+ * like worktree labels so same-named folders stay distinguishable.
+ */
+export function repoChoices(repos: Array<{ path: string; name: string }>, currentPath: string): RepoChoice[] {
+  const names = worktreeDisplayNames(repos.map((r) => r.path));
+  return repos.map((r, i) => ({ path: r.path, name: names[i] ?? r.name, current: r.path === currentPath }));
+}
+
 /**
  * Display names for worktree paths. A folder name shared by several worktrees
  * grows parent segments until every name is unique (`foo` → `buz/foo`).

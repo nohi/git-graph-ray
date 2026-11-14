@@ -12,10 +12,12 @@
 - Copy a worktree display name or its full path from its context menu.
 - Worktree chips with duplicate folder names show parent segments until each name is unique.
 - Command names and setting descriptions follow the VS Code display language. Graph view text (toolbar, menus, dialogs, details labels, undo history, error and empty messages) follows the `git-graph-ray.language` setting instead. English is the default because the Japanese translation is incomplete. Changing it reloads the graph. Saved setting values do not change with the language. Git command and flag names, and the Contributors page, stay in English.
+- Show a local branch and its remote-tracking branch in the same graph lane when both match lane priority rules (`git-graph-ray.graph.lanePriorityCombineRemotes`, default on). Turn it off in Graph Settings to show them on separate lanes.
 
 ### Changes
 
 - Group the help dialog's "Also" tips into six labeled sections: fetching and reloading, settings, branches/tags/labels, selecting and comparing, files and folders, and filtering the graph.
+- Replace the repository dropdown with a picker button that shows the current folder name and a list with disambiguated names and full paths. The button hides when only one repository is open.
 
 ### Fixes
 
@@ -30,6 +32,7 @@
 - Keep the help dialog inside the viewport and make its shortcut pills readable in the light theme.
 - Use light-theme-safe colors for branch and tag chips, ref labels, file and signature colors, buttons, and banners, so text stays readable on a light background.
 - Worktree chip tooltips show the full worktree path, with the uncommitted-changes note appended when dirty.
+- Give the conflict Continue and Abort buttons light-theme-safe colors.
 
 ## v0.8.0
 

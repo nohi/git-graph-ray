@@ -105,6 +105,7 @@ export type ViewToHost =
   | { type: 'openSettings' }
   | { type: 'setLabelColours'; colours: Record<string, string> }
   | { type: 'setLanePriority'; priorities: Record<string, number> }
+  | { type: 'setLanePriorityCombine'; value: boolean }
   | { type: 'setColumns'; value: ColumnVisibility }
   | { type: 'openRow'; hash: string | null }
   | { type: 'compare'; a: string; b: string }

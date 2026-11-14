@@ -3,7 +3,7 @@ import { firstCommitIndexForDate, localDayBounds } from '../shared/date';
 import { commitHidden, copyDateFilter, dateBuckets, filterBuckets, revealCommitMonths, yearCheck } from '../shared/dateFilter';
 import { ROW, shortcutLabel } from '../shared/graph';
 import { copyPersonFilter, filterPeople, personBuckets, personHidden, personLabel, revealCommitPeople } from '../shared/personFilter';
-import { filterRefsForTab, refDisplayName, refJumpHash, refLogArg, sortFilterRefs, windowRefs } from '../shared/refsList';
+import { filterRefsForTab, refDisplayName, refJumpHash, refLogArg, repoChoices, sortFilterRefs, windowRefs } from '../shared/refsList';
 import { UNCOMMITTED } from '../shared/types';
 import type { FilterTab } from '../shared/refsList';
 import type { GraphRef } from '../shared/types';
@@ -14,17 +14,24 @@ import { displayIndexForCommit, expandedRemoteLabels, paint, refRowColourAttrs, 
 
 export function fillRepos(): void {
   if (!state.snap) return;
-  const sel = $('repo');
-  const repoPath = state.snap.repoPath;
-  state.repoSync += 1;
-  sel.innerHTML = state.snap.repos.map((r) => `<option value="${esc(r.path)}" ${r.path === repoPath ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
-  if ([...sel.options].some((option) => option.value === repoPath)) sel.value = repoPath;
-  queueMicrotask(() => {
-    state.repoSync -= 1;
-  });
-  sel.hidden = state.snap.repos.length < 2;
-  $('btn-repo-help').hidden = sel.hidden;
-  if (sel.hidden) $('pop-repo-help').hidePopover?.();
+  const choices = repoChoices(state.snap.repos, state.snap.repoPath);
+  const current = choices.find((c) => c.current) ?? choices[0];
+  $('repo-name').textContent = current?.name ?? '';
+  $('btn-repo').setAttribute('title', current?.path ?? '');
+  $('repo-list').innerHTML = choices
+    .map(
+      (c) =>
+        `<label class="repo-row"><input type="radio" name="repo-pick" value="${esc(c.path)}"${c.current ? ' checked' : ''} />` +
+        `<span class="repo-names"><span class="repo-name">${esc(c.name)}</span><span class="repo-path">${esc(c.path)}</span></span></label>`,
+    )
+    .join('');
+  const show = state.snap.repos.length > 1;
+  $('btn-repo').hidden = !show;
+  $('btn-repo-help').hidden = !show;
+  if (!show) {
+    $('pop-repo').hidePopover?.();
+    $('pop-repo-help').hidePopover?.();
+  }
 }
 
 export function filterCatalog(): GraphRef[] {
