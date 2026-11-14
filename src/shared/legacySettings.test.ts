@@ -77,11 +77,45 @@ describe('planLegacyMigration', () => {
     expect(planLegacyMigration(read, 'workspace')).toEqual([{ key: 'history.tags', value: false, layer: 'workspace' }]);
   });
 
+  it('falls back to the dialog fetch defaults when the repository keys are unset', () => {
+    const read = reader({
+      'dialog.fetchRemote.prune': { global: true },
+      'dialog.fetchRemote.pruneTags': { global: true },
+    });
+    expect(planLegacyMigration(read, 'global')).toEqual([
+      { key: 'fetch.prune', value: true, layer: 'global' },
+      { key: 'fetch.pruneTags', value: true, layer: 'global' },
+    ]);
+  });
+
+  it('prefers the repository fetch keys over the dialog fetch defaults', () => {
+    const read = reader({
+      'repository.fetchAndPrune': { global: false },
+      'dialog.fetchRemote.prune': { global: true },
+      'repository.fetchAndPruneTags': { workspace: true },
+      'dialog.fetchRemote.pruneTags': { workspace: false },
+    });
+    expect(planLegacyMigration(read, 'global')).toEqual([{ key: 'fetch.prune', value: false, layer: 'global' }]);
+    expect(planLegacyMigration(read, 'workspace')).toEqual([{ key: 'fetch.pruneTags', value: true, layer: 'workspace' }]);
+  });
+
+  it('fills missing actions fields without touching fields that already have a value', () => {
+    const read = reader({
+      actions: { global: { rebaseIgnoreDate: true } },
+      'dialog.rebase.ignoreDate': { global: false },
+      'dialog.merge.noFastForward': { global: false },
+    });
+    expect(planLegacyMigration(read, 'global')).toEqual([
+      { key: 'actions', value: { rebaseIgnoreDate: true, mergeNoFastForward: false }, layer: 'global' },
+    ]);
+  });
+
   it('skips values that do not fit the new setting', () => {
     const read = reader({
       'graph.style': { global: 'wavy' },
       'repository.commits.initialLoad': { global: '300' },
       'keyboardShortcut.find': { global: 'ALT + F' },
+      'repository.onLoad.showSpecificBranches': { global: ['main', 42] },
     });
     expect(planLegacyMigration(read, 'global')).toEqual([]);
   });

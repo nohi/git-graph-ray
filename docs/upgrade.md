@@ -55,6 +55,8 @@ new key. Values transfer as-is except where the Notes column says otherwise.
 | `git-graph-ray.repository.commits.order` | `git-graph-ray.history.order` | `date` → `date`, `author-date` → `author`, `topo` → `topo` |
 | `git-graph-ray.repository.fetchAndPrune` | `git-graph-ray.fetch.prune` |  |
 | `git-graph-ray.repository.fetchAndPruneTags` | `git-graph-ray.fetch.pruneTags` |  |
+| `git-graph-ray.dialog.fetchRemote.prune` | `git-graph-ray.fetch.prune` | Only when `repository.fetchAndPrune` is unset |
+| `git-graph-ray.dialog.fetchRemote.pruneTags` | `git-graph-ray.fetch.pruneTags` | Only when `repository.fetchAndPruneTags` is unset |
 | `git-graph-ray.repository.autoFetch` | `git-graph-ray.fetch.auto` |  |
 | `git-graph-ray.repository.autoFetchInterval` | `git-graph-ray.fetch.everySeconds` |  |
 | `git-graph-ray.repository.includeCommitsMentionedByReflogs` | `git-graph-ray.history.reflog` |  |

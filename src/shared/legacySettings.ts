@@ -121,12 +121,16 @@ export const LEGACY_SETTING_RULES: ReadonlyArray<readonly [string, string, Conve
   ['repository.commits.order', 'history.order', oneOf({ date: 'date', 'author-date': 'author', topo: 'topo' })],
   ['repository.fetchAndPrune', 'fetch.prune', bool],
   ['repository.fetchAndPruneTags', 'fetch.pruneTags', bool],
+  // Dialog defaults for the same behaviour. They only apply when the
+  // repository-level key above is unset in the layer (first rule wins).
+  ['dialog.fetchRemote.prune', 'fetch.prune', bool],
+  ['dialog.fetchRemote.pruneTags', 'fetch.pruneTags', bool],
   ['repository.autoFetch', 'fetch.auto', bool],
   ['repository.autoFetchInterval', 'fetch.everySeconds', num],
   ['repository.includeCommitsMentionedByReflogs', 'history.reflog', bool],
   ['repository.onLoad.scrollToHead', 'startup.scrollToHead', bool],
   ['repository.onLoad.showCheckedOutBranch', 'startup.onlyCheckedOut', bool],
-  ['repository.onLoad.showSpecificBranches', 'startup.branches', (v) => (Array.isArray(v) ? v : undefined)],
+  ['repository.onLoad.showSpecificBranches', 'startup.branches', (v) => (Array.isArray(v) && v.every((s) => typeof s === 'string') ? v : undefined)],
   ['repository.onlyFollowFirstParent', 'history.firstParent', bool],
   ['repository.remoteTags.cacheSeconds', 'fetch.tagCacheSeconds', num],
   ['repository.showCommitsOnlyReferencedByTags', 'history.tagOnlyCommits', bool],
@@ -183,21 +187,28 @@ export const LEGACY_ACTION_RULES: ReadonlyArray<readonly [string, string, Conver
  */
 export function planLegacyMigration(read: (key: string) => LayerValues, layer: SettingLayer): SettingWrite[] {
   const writes: SettingWrite[] = [];
+  const planned = new Set<string>();
   for (const [from, to, convert] of LEGACY_SETTING_RULES) {
+    if (planned.has(to)) continue;
     const old = read(from)[layer];
     if (old === undefined || read(to)[layer] !== undefined) continue;
     const value = convert(old);
-    if (value !== undefined) writes.push({ key: to, value, layer });
-  }
-  if (read('actions')[layer] === undefined) {
-    const actions: Record<string, unknown> = {};
-    for (const [from, field, convert] of LEGACY_ACTION_RULES) {
-      const old = read(from)[layer];
-      const value = old === undefined ? undefined : convert(old);
-      if (value !== undefined) actions[field] = value;
+    if (value !== undefined) {
+      writes.push({ key: to, value, layer });
+      planned.add(to);
     }
-    if (Object.keys(actions).length) writes.push({ key: 'actions', value: actions, layer });
   }
+  const existing = read('actions')[layer];
+  const base: Record<string, unknown> =
+    existing && typeof existing === 'object' && !Array.isArray(existing) ? { ...(existing as Record<string, unknown>) } : {};
+  for (const [from, field, convert] of LEGACY_ACTION_RULES) {
+    if (base[field] !== undefined) continue;
+    const old = read(from)[layer];
+    const value = old === undefined ? undefined : convert(old);
+    if (value !== undefined) base[field] = value;
+  }
+  if (Object.keys(base).length > 0 && (existing === undefined || JSON.stringify(base) !== JSON.stringify(existing)))
+    writes.push({ key: 'actions', value: base, layer });
   return writes;
 }
 
