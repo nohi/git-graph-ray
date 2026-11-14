@@ -6,6 +6,7 @@ import { parseLanePriority } from '../shared/layout';
 import { isUnregisteredConfigurationMessage, labelColourSettingValue, parseRefColours, refColoursToSetting } from '../shared/refColours';
 import { settingWriteScope } from '../shared/settingScope';
 import { runLegacyMigration, type SettingLayer } from '../shared/legacySettings';
+import { normalizeLanguage, type ExtensionLanguage } from '../shared/language';
 import type { ColumnVisibility, RefSort, ViewConfig } from '../shared/types';
 
 const SECTION = 'git-graph-ray';
@@ -82,6 +83,29 @@ export async function migrateLabelColours(context: vscode.ExtensionContext): Pro
     }
   }
   await context.globalState.update(LABEL_COLOUR_STATE_KEY, undefined);
+}
+
+/** Interface language from the extension settings. Never follows the VS Code locale. */
+export function extensionLanguage(): ExtensionLanguage {
+  return normalizeLanguage(vscode.workspace.getConfiguration(SECTION).get<string>('language'));
+}
+
+/**
+ * Parsed contents of the bundled translations for the configured language,
+ * or undefined for English (the source strings are used as-is).
+ * A missing or broken bundle also falls back to English.
+ */
+export async function readLanguageBundle(extensionUri: vscode.Uri): Promise<Record<string, string> | undefined> {
+  if (extensionLanguage() !== 'ja') return undefined;
+  try {
+    const uri = vscode.Uri.joinPath(extensionUri, 'l10n', 'bundle.l10n.ja.json');
+    const bytes = await vscode.workspace.fs.readFile(uri);
+    const parsed: unknown = JSON.parse(Buffer.from(bytes).toString('utf8'));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+    return parsed as Record<string, string>;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Set once the settings saved under the keys used before v0.8.0 are copied for a layer. */

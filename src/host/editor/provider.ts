@@ -1,3 +1,4 @@
+import { t } from '@vscode/l10n';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
@@ -23,7 +24,7 @@ import {
 } from '../../shared/undo';
 import type { RepoSettings } from '../../shared/dialogs';
 import { fillPrUrl } from '../../shared/issueLinks';
-import { cfg, autoFetchIntervalSeconds, getCustomPrProviders, getEmojiMaps, getGlobPatterns, getMenuVisibility, getViewConfig, historyPage, LABEL_COLOUR_STATE_KEY, saveLabelColours, updateSetting, viewColumn } from '../config';
+import { cfg, autoFetchIntervalSeconds, extensionLanguage, getCustomPrProviders, getEmojiMaps, getGlobPatterns, getMenuVisibility, getViewConfig, historyPage, LABEL_COLOUR_STATE_KEY, readLanguageBundle, saveLabelColours, updateSetting, viewColumn } from '../config';
 import { parseRefColours, refColoursToSetting } from '../../shared/refColours';
 import { AvatarStore } from '../avatars';
 import { runGitAction } from '../git/actions';
@@ -226,18 +227,7 @@ export class GraphEditorProvider implements vscode.WebviewPanelSerializer {
     });
     this.persistPins();
     session.start();
-    const htmlN = nonce();
-    const script = panel.webview.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, 'dist/webview/webview.js'));
-    const css = panel.webview.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, 'dist/webview/style.css'));
-    const l10nBundle = vscode.l10n.bundle;
-    panel.webview.html = graphHtml(
-      panel.webview.cspSource,
-      String(script),
-      String(css),
-      htmlN,
-      l10nBundle ? JSON.stringify(l10nBundle) : undefined,
-    );
-    this.notifyHolder();
+    void session.renderHtml().then(() => this.notifyHolder());
   }
 
   private persistPins(): void {
@@ -463,6 +453,22 @@ class GraphSession {
     this.openContributorsPage = open;
   }
 
+  /** (Re)builds the webview page with the bundle for the configured language, then reboots the page. */
+  async renderHtml(): Promise<void> {
+    const htmlN = nonce();
+    const script = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, 'dist/webview/webview.js'));
+    const css = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, 'dist/webview/style.css'));
+    const bundle = await readLanguageBundle(this.ctx.extensionUri);
+    this.panel.webview.html = graphHtml(
+      this.panel.webview.cspSource,
+      String(script),
+      String(css),
+      htmlN,
+      bundle ? JSON.stringify(bundle) : undefined,
+      extensionLanguage(),
+    );
+  }
+
   start(): void {
     this.panel.webview.onDidReceiveMessage((m: ViewToHost) => void this.onMessage(m));
     this.panel.onDidDispose(() => this.dispose());
@@ -472,6 +478,10 @@ class GraphSession {
       const affects = (key: string) => event.affectsConfiguration(key);
       const autoFetch = affects('git-graph-ray.fetch.auto') || affects('git-graph-ray.fetch.everySeconds');
       if (autoFetch) this.armAutoFetch();
+      if (affects('git-graph-ray.language')) {
+        void this.renderHtml();
+        return;
+      }
       if (graphSettingReloads(affects)) {
         void this.reload();
         return;
@@ -1060,7 +1070,7 @@ class GraphSession {
     }
     if (plan.showFail) {
       this.loadFailShown = true;
-      this.post({ type: 'fail', message: vscode.l10n.t('{0} (see the Git Graph Ray output for details)', message) });
+      this.post({ type: 'fail', message: t('{0} (see the Git Graph Ray output for details)', message) });
     }
   }
 

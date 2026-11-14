@@ -343,13 +343,13 @@ const SHELL = `
 <div id="ray-cats" class="ray-cats" hidden></div>
 `;
 
-export function graphHtml(webviewCsp: string, script: string, css: string, n: string, l10nJson?: string): string {
+export function graphHtml(webviewCsp: string, script: string, css: string, n: string, l10nJson?: string, lang = 'en'): string {
   const bundle =
     l10nJson == null || l10nJson === ''
       ? ''
       : `<script type="application/json" id="gg-l10n">${l10nJson.replace(/</g, '\\u003c')}</script>\n`;
   return `<!doctype html>
-<html lang="en">
+<html lang="${lang === 'ja' ? 'ja' : 'en'}">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webviewCsp} https: data:; style-src ${webviewCsp} 'unsafe-inline'; script-src ${webviewCsp} 'nonce-${n}';" />

@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { startAskpassServer } from './askpass/server';
 import { AvatarStore } from './avatars';
 import { registerCommands } from './commands';
-import { getGitPathSetting, migrateLabelColours, migrateLegacySettings } from './config';
+import { getGitPathSetting, migrateLabelColours, migrateLegacySettings, readLanguageBundle } from './config';
 import { DiffFiles } from './diff/provider';
 import { ContributorsPanel } from './editor/contributorsPanel';
 import { GraphEditorProvider } from './editor/provider';
@@ -14,7 +14,16 @@ import { createStatusBar } from './statusBar';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   // Shared undo labels are rendered in the webview but generated on the host.
-  l10nConfig({ contents: vscode.l10n.bundle ?? {} });
+  // The bundle follows the extension language setting, never the VS Code locale.
+  const applyHostLanguage = async (): Promise<void> => {
+    l10nConfig({ contents: (await readLanguageBundle(context.extensionUri)) ?? {} });
+  };
+  await applyHostLanguage();
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration('git-graph-ray.language')) void applyHostLanguage();
+    }),
+  );
   const output = logChannel();
   setGitCommandLogger((line) => output.appendLine(line));
   context.subscriptions.push(output, { dispose: () => setGitCommandLogger(() => {}) });

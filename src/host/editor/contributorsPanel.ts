@@ -1,3 +1,4 @@
+import { t } from '@vscode/l10n';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { activityRange, normalizeActivityPeriod, type ActivityPeriod, type ContributorsToHost, type HostToContributors } from '../../shared/contributors';
@@ -8,7 +9,7 @@ import { norm } from '../repos/discover';
 import { contributorsHtml } from './contributorsHtml';
 import { nonce } from './html';
 
-const noRepoMessage = () => vscode.l10n.t('Open a folder with a Git repository to view contributors.');
+const noRepoMessage = () => t('Open a folder with a Git repository to view contributors.');
 
 export class ContributorsPanel implements vscode.WebviewPanelSerializer {
   static readonly viewType = 'git-graph-ray.contributors';

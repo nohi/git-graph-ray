@@ -124,5 +124,8 @@
   "config.when.format.enumDescriptions.date": "Locale date.",
   "config.when.format.enumDescriptions.iso": "ISO date and time.",
   "config.when.format.enumDescriptions.isoDate": "ISO date.",
-  "config.when.format.enumDescriptions.relative": "Relative to now."
+  "config.when.format.enumDescriptions.relative": "Relative to now.",
+  "config.language.description": "Language of the graph view. English is the default because the translations are incomplete. Changing it reloads the graph.",
+  "config.language.enumDescriptions.en": "English.",
+  "config.language.enumDescriptions.ja": "Japanese (partial translation)."
 }

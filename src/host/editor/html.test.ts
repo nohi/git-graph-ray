@@ -67,4 +67,10 @@ describe('graphHtml', () => {
     const html = graphHtml('https://csp.example', 'webview.js', 'style.css', 'n0nce');
     expect(html).not.toContain('id="gg-l10n"');
   });
+
+  it('marks the document language from the language setting', () => {
+    expect(graphHtml('https://csp.example', 'webview.js', 'style.css', 'n0nce')).toContain('<html lang="en">');
+    expect(graphHtml('https://csp.example', 'webview.js', 'style.css', 'n0nce', undefined, 'ja')).toContain('<html lang="ja">');
+    expect(graphHtml('https://csp.example', 'webview.js', 'style.css', 'n0nce', undefined, 'de')).toContain('<html lang="en">');
+  });
 });

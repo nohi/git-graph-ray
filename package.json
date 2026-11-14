@@ -681,6 +681,19 @@
           "pattern": "^$|^mod\\+[a-z]$",
           "description": "%config.keys.stash.description%"
         },
+        "git-graph-ray.language": {
+          "type": "string",
+          "enum": [
+            "en",
+            "ja"
+          ],
+          "enumDescriptions": [
+            "%config.language.enumDescriptions.en%",
+            "%config.language.enumDescriptions.ja%"
+          ],
+          "default": "en",
+          "description": "%config.language.description%"
+        },
         "git-graph-ray.labels.layout": {
           "type": "string",
           "enum": [
