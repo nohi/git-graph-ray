@@ -54,6 +54,19 @@ describe('graphHtml', () => {
     expect(html).not.toContain('id="app"');
   });
 
+  it('heads the worktree picker with Worktrees and keeps its help button inside', () => {
+    const html = graphHtml('https://csp.example', 'webview.js', 'style.css', 'n0nce');
+    expect(html).toContain('<h2 data-i18n>Worktrees</h2>');
+    const repoPop = html.indexOf('id="pop-repo"');
+    const repoHelp = html.indexOf('id="btn-repo-help"');
+    const repoHelpPop = html.indexOf('id="pop-repo-help"');
+    const repoList = html.indexOf('id="repo-list"');
+    expect(repoPop).toBeGreaterThanOrEqual(0);
+    expect(repoHelp).toBeGreaterThan(repoPop);
+    expect(repoHelpPop).toBeGreaterThan(repoHelp);
+    expect(repoList).toBeGreaterThan(repoHelp);
+  });
+
   it('embeds the l10n bundle for the webview when provided', () => {
     const html = graphHtml('https://csp.example', 'webview.js', 'style.css', 'n0nce', '{"Fetch":"取得</script><x"}');
     expect(html).toContain('<script type="application/json" id="gg-l10n">');

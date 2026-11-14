@@ -790,6 +790,38 @@ html.refs-pop-resize * {
   max-width: min(30rem, calc(100vw - 2rem));
 }
 
+.repo-pop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+
+  h2 {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  #btn-repo-help {
+    flex: 0 0 auto;
+    width: 1.4rem;
+    height: 1.4rem;
+    line-height: 1;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--hl-bg);
+      border-color: var(--hl);
+      color: inherit;
+    }
+  }
+}
+
 .repo-row {
   display: flex;
   align-items: flex-start;

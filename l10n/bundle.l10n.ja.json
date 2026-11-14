@@ -324,6 +324,7 @@
   "Collapse remotes": "リモートを折りたたむ",
   "Tag": "タグ",
   "Worktree": "worktree",
+  "Worktrees": "worktree",
   "A pattern does not point at one commit": "パターンは単一のコミットを指していません",
   "Cannot jump to a pattern": "パターンにはジャンプできません",
   "Jump to HEAD": "HEAD に移動",

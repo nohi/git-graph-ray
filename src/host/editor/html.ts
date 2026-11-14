@@ -6,9 +6,12 @@ const SHELL = `
 <header class="bar">
   <button type="button" id="btn-repo" class="with-icon" commandfor="pop-repo" command="toggle-popover" aria-pressed="false" aria-label="Repository" data-i18n-aria-label="Repository"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 6.5 8 10.5 12 6.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="repo-name"></span></button>
   <div id="pop-repo" popover class="pop repo-pop">
+    <div class="repo-pop-head">
+      <h2 data-i18n>Worktrees</h2>
+      <button type="button" id="btn-repo-help" aria-label="About repository picker" data-i18n-aria-label>?</button>
+    </div>
     <div id="repo-list" role="radiogroup" aria-label="Repository" data-i18n-aria-label="Repository"></div>
   </div>
-  <button type="button" id="btn-repo-help" aria-label="About repository picker" data-i18n-aria-label>?</button>
   <div id="pop-repo-help" popover="manual" class="pop repo-help">
     <p data-i18n>Selects the working copy used for HEAD, uncommitted changes, and Git actions. Other worktrees still appear as chips when Show worktrees is on. Use Branches/Tags to choose which branches, tags, and worktree tips to load.</p>
   </div>

@@ -26,6 +26,7 @@
   - Fetching and reloading, settings, branches/tags/labels, selecting and comparing, files and folders, and filtering the graph.
 - Replace the repository dropdown with a picker button and a radio-button list.
   - The button shows the current folder name; each row shows a disambiguated name and its full path. The button hides when only one repository is open.
+  - The picker is headed with `Worktrees` and keeps its help button inside; closing the picker also closes the help.
 
 ### Fixes
 

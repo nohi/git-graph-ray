@@ -812,6 +812,9 @@ function bind(): void {
     if (pop.matches(':popover-open')) pop.hidePopover?.();
     else pop.showPopover?.();
   });
+  $('pop-repo').addEventListener('toggle', (ev) => {
+    if ((ev as ToggleEvent).newState === 'closed') $('pop-repo-help').hidePopover?.();
+  });
   $('btn-help').addEventListener('click', fillHelp);
   $('help-settings').addEventListener('click', () => {
     ($('dlg-help') as unknown as HTMLDialogElement).close();
