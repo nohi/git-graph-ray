@@ -56,6 +56,8 @@
   "Fetch into local": "ローカルにfetch",
   "Pull": "Pull",
   "Copy name": "名前をコピー",
+  "Copy Name": "名前をコピー",
+  "Open terminal here": "ここでターミナルを開く",
   "Push": "Push",
   "Commits": "コミット",
   "Local branches": "ローカルブランチ",

@@ -542,11 +542,17 @@ export function chips(c: GraphCommit): string {
         ? `<span class="divergence">${esc(t('{0} ahead · {1} behind', state.snap!.divergence.ahead, state.snap!.divergence.behind))}</span>`
         : '';
     const dirty = r.kind === 'worktree' && r.worktreePath != null && dirtyTrees.has(r.worktreePath);
-    const dirtyTitle = dirty ? ` title="${esc(t('Has uncommitted changes'))}"` : '';
+    const tip =
+      r.kind === 'worktree' && r.worktreePath != null
+        ? `${r.worktreePath}${dirty ? ` — ${t('Has uncommitted changes')}` : ''}`
+        : dirty
+          ? t('Has uncommitted changes')
+          : '';
+    const tipAttr = tip ? ` title="${esc(tip)}"` : '';
     const tag = iconOnly ? 'button' : 'span';
     const type = iconOnly ? ' type="button"' : '';
     const cls = `chip ${r.kind}${face.extra}${detached ? ' detached' : ''}${current ? ' current' : ''}${picked ? ' picked' : ''}${dirty ? ' dirty' : ''}${colour.cls}`;
-    return `<${tag}${type} class="${cls}"${colour.style}${face.title}${dirtyTitle} data-kind="${r.kind}" data-name="${esc(r.name)}" data-hash="${esc(r.hash)}" data-remote="${esc(r.remote ?? '')}" data-wt="${esc(r.worktreePath ?? '')}">${face.icon}${iconOnly ? '' : findMark(face.label)}${divergence}</${tag}>`;
+    return `<${tag}${type} class="${cls}"${colour.style}${face.title || tipAttr} data-kind="${r.kind}" data-name="${esc(r.name)}" data-hash="${esc(r.hash)}" data-remote="${esc(r.remote ?? '')}" data-wt="${esc(r.worktreePath ?? '')}">${face.icon}${iconOnly ? '' : findMark(face.label)}${divergence}</${tag}>`;
   };
   const html = (g: ReturnType<typeof groupChipRefs>[number]) => {
     if (g.kind !== 'bundle') return mk(g.ref);

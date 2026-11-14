@@ -48,7 +48,7 @@ import { applyRestorePlan, captureCheckpoint, captureRemoteTips, loadCheckpointC
 import { diffUri } from '../diff/provider';
 import { diffEditorSides } from '../../shared/diffSides';
 import { detectPatchKind } from '../../shared/historyActions';
-import { branchLabelsForFilter } from '../../shared/refsList';
+import { branchLabelsForFilter, worktreeDisplayNames } from '../../shared/refsList';
 import { primaryWorktreePath } from '../../shared/worktreeDialog';
 import { graphHtml, nonce } from './html';
 import { externalReloadAction, isHistoryWatchPath, isNoisyGitWatchPath, snapshotFingerprint } from './gitWatch';
@@ -716,6 +716,16 @@ class GraphSession {
           await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(full));
           return;
         }
+        case 'openTerminal': {
+          if (!fs.existsSync(msg.path)) throw new Error(`Folder not found: ${msg.path}`);
+          const term = vscode.window.createTerminal({
+            name: 'Git Graph Ray',
+            cwd: msg.path,
+            shellPath: cfg('terminal.shell', '') || undefined,
+          });
+          term.show();
+          return;
+        }
         case 'showBlob':
           await this.openBlob(msg.hash, msg.path);
           return;
@@ -877,9 +887,10 @@ class GraphSession {
     const { refs, branches, head, currentBranch } = refsLoad.value;
     const trees = hasRepo ? await optionalLoad(this.loadWarnLog, 'worktrees', vscode.l10n.t('Could not list worktrees'), listWorktrees(this.git(), this.repoPath), []) : [];
     const mainWorktreePath = primaryWorktreePath(trees, this.repoPath);
-    for (const t of trees) {
-      refs.push({ kind: 'worktree', name: path.basename(t.path), hash: t.head, worktreePath: t.path });
-    }
+    const worktreeNames = worktreeDisplayNames(trees.map((t) => t.path));
+    trees.forEach((t, i) => {
+      refs.push({ kind: 'worktree', name: worktreeNames[i] ?? path.basename(t.path), hash: t.head, worktreePath: t.path });
+    });
     const remoteRows = hasRepo ? await optionalLoad(this.loadWarnLog, 'remotes', vscode.l10n.t('Could not list remotes'), listRemotes(this.git(), this.repoPath), []) : [];
     const remotes = remoteRows.filter((r) => !settings.hideRemotes.includes(r.name));
     this.includeHead = !currentBranch;

@@ -42,7 +42,15 @@ export function menuRef(chip: HTMLElement, x: number, y: number): void {
   if (kind === 'worktree') {
     if (vis('worktree', 'open')) items.push(btn('wt-open', t('Open here')));
     if (vis('worktree', 'openNew')) items.push(btn('wt-new', t('Open new window')));
+    if (vis('worktree', 'terminal')) items.push(btn('wt-terminal', t('Open terminal here')));
     if (vis('worktree', 'remove')) items.push(btn('wt-del', t('Remove')));
+    const copies: string[] = [];
+    if (vis('worktree', 'copyName')) copies.push(btn('wt-copy-name', t('Copy Name')));
+    if (vis('worktree', 'copyPath')) copies.push(btn('wt-copy-path', t('Copy Full Path')));
+    if (copies.length) {
+      if (items.length) items.push('<hr class="menu-sep" />');
+      items.push(...copies);
+    }
   } else if (kind === 'stash') {
     if (vis('stash', 'apply')) items.push(btn('st-apply', t('Apply')));
     if (vis('stash', 'pop')) items.push(btn('st-pop', t('Pop')));
@@ -258,6 +266,15 @@ export function onMenu(ev: Event): void {
     if (id === 'ref-colour') openLabelColourDialog(r, clickPoint(ev));
     if (id === 'wt-open' && r.worktreePath) act({ kind: 'worktreeOpen', path: r.worktreePath, newWindow: false });
     if (id === 'wt-new' && r.worktreePath) act({ kind: 'worktreeOpen', path: r.worktreePath, newWindow: true });
+    if (id === 'wt-copy-name' && r.worktreePath) {
+      post({ type: 'copy', text: r.name });
+      showCopiedToast((ev as MouseEvent).clientX, (ev as MouseEvent).clientY);
+    }
+    if (id === 'wt-copy-path' && r.worktreePath) {
+      post({ type: 'copy', text: r.worktreePath });
+      showCopiedToast((ev as MouseEvent).clientX, (ev as MouseEvent).clientY);
+    }
+    if (id === 'wt-terminal' && r.worktreePath) post({ type: 'openTerminal', path: r.worktreePath });
     if (id === 'wt-del' && r.worktreePath) {
       const p = clickPoint(ev);
       showConfirmTip(t('Remove worktree {0}?', r.worktreePath), () => act({ kind: 'worktreeRemove', path: r.worktreePath!, force: false }), p.x, p.y, t('Remove'));

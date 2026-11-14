@@ -111,6 +111,7 @@ export type ViewToHost =
   | { type: 'diff'; hash: string; path: string; oldPath?: string; parent?: string; compare?: string }
   | { type: 'openWorkFile'; path: string }
   | { type: 'openFolder'; path: string }
+  | { type: 'openTerminal'; path: string }
   | { type: 'showBlob'; hash: string; path: string }
   | { type: 'setFileView'; value: 'tree' | 'list' }
   | { type: 'copy'; text: string }

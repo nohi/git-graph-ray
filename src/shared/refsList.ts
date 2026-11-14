@@ -27,6 +27,36 @@ export function refDisplayName(r: GraphRef): string {
   return r.name;
 }
 
+/**
+ * Display names for worktree paths. A folder name shared by several worktrees
+ * grows parent segments until every name is unique (`foo` → `buz/foo`).
+ * Comparison is case-insensitive; the returned names keep their original case.
+ */
+export function worktreeDisplayNames(paths: string[]): string[] {
+  const split = paths.map((p) =>
+    p
+      .replace(/\\/g, '/')
+      .replace(/\/+$/, '')
+      .split('/')
+      .filter((s) => s.length > 0),
+  );
+  const depth = split.map(() => 1);
+  const current = () => split.map((parts, i) => parts.slice(-depth[i]).join('/') || paths[i]!);
+  for (;;) {
+    const names = current();
+    const counts = new Map<string, number>();
+    for (const n of names) counts.set(n.toLowerCase(), (counts.get(n.toLowerCase()) ?? 0) + 1);
+    let grown = false;
+    for (let i = 0; i < names.length; i++) {
+      if ((counts.get(names[i]!.toLowerCase()) ?? 0) > 1 && depth[i]! < split[i]!.length) {
+        depth[i]! += 1;
+        grown = true;
+      }
+    }
+    if (!grown) return names;
+  }
+}
+
 export type RemoteBranchPrefix = 'icon' | 'text';
 
 /** Graph text for a remote-tracking branch. Icon mode drops the `remotes/` prefix; the cloud is drawn before this text. */

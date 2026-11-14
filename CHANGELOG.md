@@ -8,6 +8,9 @@
 - Amend the checked-out branch tip from its context menu. Edit the subject and body, and optionally include staged changes (off by default). Amend refuses to run when staged changes are left unchecked, and it can be undone.
 - Squash consecutive commits at the branch tip into one commit from their context menu. The range must start at the tip with no gaps, merges, or the root commit. A dialog edits the combined message, and the result can be undone.
 - Worktree chips show a dot when that worktree has uncommitted changes. The dots update when the graph loads or refreshes.
+- Open a terminal in a worktree folder from its context menu (`Open terminal here`).
+- Copy a worktree display name or its full path from its context menu.
+- Worktree chips with duplicate folder names show parent segments until each name is unique.
 - Command names and setting descriptions follow the VS Code display language. Graph view text (toolbar, menus, dialogs, details labels, undo history, error and empty messages) follows the `git-graph-ray.language` setting instead. English is the default because the Japanese translation is incomplete. Changing it reloads the graph. Saved setting values do not change with the language. Git command and flag names, and the Contributors page, stay in English.
 
 ### Changes
@@ -26,6 +29,7 @@
 - Bundle `@vscode/l10n` into the host build. The SSR build left it as an external runtime require, but `node_modules` is not shipped in the `.vsix`.
 - Keep the help dialog inside the viewport and make its shortcut pills readable in the light theme.
 - Use light-theme-safe colors for branch and tag chips, ref labels, file and signature colors, buttons, and banners, so text stays readable on a light background.
+- Worktree chip tooltips show the full worktree path, with the uncommitted-changes note appended when dirty.
 
 ## v0.8.0
 

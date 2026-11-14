@@ -16,6 +16,7 @@ import {
   sortFilterRefs,
   uniqueRefs,
   windowRefs,
+  worktreeDisplayNames,
 } from './refsList';
 import type { GraphRef } from './types';
 
@@ -32,6 +33,28 @@ describe('uniqueRefs', () => {
       'main',
       'v1',
     ]);
+  });
+});
+
+describe('worktreeDisplayNames', () => {
+  it('keeps unique folder names as they are', () => {
+    expect(worktreeDisplayNames(['/repo/main', '/wt/foo', '/wt/bar'])).toEqual(['main', 'foo', 'bar']);
+  });
+
+  it('prefixes a shared folder name with its parent', () => {
+    expect(worktreeDisplayNames(['/hoge/foo', '/buz/foo'])).toEqual(['hoge/foo', 'buz/foo']);
+  });
+
+  it('grows more segments while names still collide', () => {
+    expect(worktreeDisplayNames(['/a/x/foo', '/b/x/foo', '/c/other'])).toEqual(['a/x/foo', 'b/x/foo', 'other']);
+  });
+
+  it('compares case-insensitively but keeps the original case', () => {
+    expect(worktreeDisplayNames(['/hoge/Foo', '/buz/foo'])).toEqual(['hoge/Foo', 'buz/foo']);
+  });
+
+  it('handles Windows separators', () => {
+    expect(worktreeDisplayNames(['C:\\hoge\\foo', 'C:\\buz\\foo'])).toEqual(['hoge/foo', 'buz/foo']);
   });
 });
 
